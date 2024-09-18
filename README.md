@@ -1,25 +1,6 @@
 # Mina zkApp: Mina Attestations
 
-This template uses TypeScript.
-
-## How to build
-
-```sh
-npm run build
-```
-
-## How to run tests
-
-```sh
-npm run test
-npm run testw # watch mode
-```
-
-## How to run coverage
-
-```sh
-npm run coverage
-```
+This is where we implement Private Credentials: https://github.com/MinaFoundation/Core-Grants/issues/35#issuecomment-2318685738
 
 ## License
 
