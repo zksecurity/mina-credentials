@@ -1,11 +1,17 @@
-import { ZkProgram, PublicKey, Signature } from 'o1js';
-import { AttestationType } from './types.js';
+import { ZkProgram, PublicKey, Signature, Proof, Field } from 'o1js';
+import type { AttestationType } from './program-config.ts';
 
 export { createProgram };
 
+type Program<PublicInput, PublicOutput> = {
+  compile(): Promise<{ verificationKey: { data: string; hash: Field } }>;
+  // TODO
+  run(input: PublicInput, ...args: any): Promise<Proof<any, PublicOutput>>;
+};
+
 function createProgram<PublicOutput extends Record<string, any>>(
   attestation: AttestationType<PublicOutput>
-) {
+): Program<PublicKey, PublicOutput> {
   switch (attestation.type) {
     case 'proof':
       throw new Error('Proof attestation not supported');
@@ -15,7 +21,7 @@ function createProgram<PublicOutput extends Record<string, any>>(
         publicInput: PublicKey,
         publicOutput: attestation.provableType,
         methods: {
-          verify: {
+          run: {
             privateInputs: [attestation.provableType, Signature],
             async method(
               issuerPublicKey: PublicKey,
@@ -37,7 +43,7 @@ function createProgram<PublicOutput extends Record<string, any>>(
         publicInput: PublicKey,
         publicOutput: attestation.provableType,
         methods: {
-          verify: {
+          run: {
             privateInputs: [attestation.provableType],
             async method(
               publicKey: PublicKey,
