@@ -1,24 +1,19 @@
 {
+  "include": ["./src"],
   "compilerOptions": {
-    "target": "es2020",
-    "module": "es2022",
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "lib": ["dom", "esnext"],
     "outDir": "./build",
     "rootDir": ".",
     "strict": true,
-    "strictPropertyInitialization": false, // to enable generic constructors, e.g. on CircuitValue
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "allowJs": true,
     "declaration": true,
     "sourceMap": true,
-    "noFallthroughCasesInSwitch": true,
-    "allowSyntheticDefaultImports": true,
-    "useDefineForClassFields": false,
-  },
-  "include": ["./src"],
+    "noEmit": true, // TODO, remove when TS update lands
+    "allowImportingTsExtensions": true
+  }
 }
