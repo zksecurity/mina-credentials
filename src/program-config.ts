@@ -20,7 +20,7 @@ import type { Tuple } from './types.ts';
  */
 
 export type { Node };
-export { Attestation };
+export { Spec, Attestation, Operation, Input };
 
 type Spec<Data, Inputs extends Tuple<Input>> = {
   inputs: Inputs;
