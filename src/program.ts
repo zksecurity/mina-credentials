@@ -1,52 +1,74 @@
-import { ZkProgram, PublicKey, Signature } from 'o1js';
-import { AttestationType } from './types.js';
+import { Proof, Field } from 'o1js';
+import {
+  type GetData,
+  Attestation,
+  Input,
+  Operation,
+  Spec,
+} from './program-config.ts';
+import { Tuple } from './types.ts';
 
 export { createProgram };
 
-function createProgram<PublicOutput extends Record<string, any>>(
-  attestation: AttestationType<PublicOutput>
-) {
-  switch (attestation.type) {
-    case 'proof':
-      throw new Error('Proof attestation not supported');
-    case 'signature':
-      return ZkProgram({
-        name: 'signature-program',
-        publicInput: PublicKey,
-        publicOutput: attestation.provableType,
-        methods: {
-          verify: {
-            privateInputs: [attestation.provableType, Signature],
-            async method(
-              issuerPublicKey: PublicKey,
-              input: PublicOutput,
-              signature: Signature
-            ): Promise<PublicOutput> {
-              signature.verify(
-                issuerPublicKey,
-                attestation.provableType.toFields(input)
-              );
-              return input;
-            },
-          },
-        },
-      });
-    case 'none':
-      return ZkProgram({
-        name: 'none-program',
-        publicInput: PublicKey,
-        publicOutput: attestation.provableType,
-        methods: {
-          verify: {
-            privateInputs: [attestation.provableType],
-            async method(
-              publicKey: PublicKey,
-              input: PublicOutput
-            ): Promise<PublicOutput> {
-              return input;
-            },
-          },
-        },
-      });
+type TODO = any;
+
+type Program<Data, Inputs extends Tuple<Input>> = {
+  compile(): Promise<{ verificationKey: { data: string; hash: Field } }>;
+
+  run(input: { [K in keyof Inputs]: GetData<Inputs[K]> }): Promise<
+    Proof<TODO, Data>
+  >;
+};
+
+function createProgram<S extends Spec>(
+  spec: S
+): Program<GetSpecData<S>, S['inputs']> {
+  throw Error('Not implemented');
+}
+
+// inline test
+
+const isMain = import.meta.filename === process.argv[1];
+if (isMain) {
+  let { Bytes, Struct } = await import('o1js');
+
+  const Bytes32 = Bytes(32);
+  const InputData = Struct({ age: Field, name: Bytes32 });
+
+  const spec = Spec(
+    [
+      Attestation.signature(InputData),
+      Input.public(Field),
+      Input.constant(Bytes32, Bytes32.fromString('Alice')),
+    ],
+    (data, targetAge, targetName) => ({
+      assert: Operation.and(
+        Operation.equals(Operation.property(data, 'age'), targetAge),
+        Operation.equals(Operation.property(data, 'name'), targetName)
+      ),
+      data: Operation.property(data, 'age'),
+    })
+  );
+
+  let program = createProgram(spec);
+
+  async function notExecuted() {
+    // input types are inferred from spec
+    // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
+    let result = await program.run([
+      { age: Field(42), name: Bytes32.fromString('Alice') },
+      Field(18),
+      Bytes32.fromString('Alice'),
+    ]);
+
+    // output types are inferred from spec
+    // TODO infer result.publicInput
+    result.publicOutput satisfies Field;
   }
 }
+
+// helper
+
+type GetSpecData<S extends Spec> = S extends Spec<infer Data, any>
+  ? Data
+  : never;

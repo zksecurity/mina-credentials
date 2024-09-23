@@ -1,14 +1,6 @@
-import {
-  Proof,
-  PublicKey,
-  Signature,
-  VerificationKey,
-  ProvablePure,
-} from 'o1js';
+export type { Credential, Tuple };
 
-export { AttestationType };
-
-// TODO: change from interface to type
+type Tuple<T = any> = [T, ...T[]] | [];
 
 // ****** EXAMPLE WALLET PROVIDER ATTESTATION API ******
 
@@ -34,28 +26,6 @@ type CredentialAttestationAPI = {
 type LocalCredentialParams = {
   claims: { [key: string]: any }; // Claims about the subject
 };
-
-type AttestationCommon<PublicInput extends Record<string, any>> = {
-  provableType: ProvablePure<PublicInput>;
-};
-
-type AttestationType<
-  PublicInput extends Record<string, any> = Record<string, any>
-> = AttestationCommon<PublicInput> &
-  (
-    | {
-        type: 'proof';
-        vk: VerificationKey;
-      }
-    | {
-        type: 'signature';
-        issuerPubKey: PublicKey;
-        signatureScheme: string; // TODO: later can be an enum
-      }
-    | {
-        type: 'none';
-      }
-  );
 
 type CredentialResponse = {
   credentialId: string;
