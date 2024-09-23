@@ -22,6 +22,11 @@ import type { Tuple } from './types.ts';
 export type { Node };
 export { Attestation };
 
+type Spec<Data, Inputs extends Tuple<Input>> = {
+  inputs: Inputs;
+  logic: OutputNode<Data>;
+};
+
 /**
  * Specify a ZkProgram that verifies and selectively discloses data
  */
@@ -32,7 +37,7 @@ function Spec<Data, Inputs extends Tuple<Input>>(
       [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
     } & any[]
   ) => OutputNode<Data>
-) {
+): Spec<Data, Inputs> {
   return { inputs, logic: spec(...(inputs as any)) };
 }
 
