@@ -55,22 +55,13 @@ const ProvableType = {
  * - a type for data (which is left generic when defining attestation types)
  * - a function `verify(publicInput: Public, privateInput: Private, data: Data)` that asserts the attestation is valid
  */
-type Attestation<
-  Id extends string,
-  PublicType extends ProvablePureType,
-  PrivateType extends ProvableType,
-  DataType extends ProvablePureType
-> = {
+type Attestation<Id extends string, Public, Private, Data> = {
   type: Id;
-  public: PublicType;
-  private: PrivateType;
-  data: DataType;
+  public: ProvablePureType<Public>;
+  private: ProvableType<Private>;
+  data: ProvablePureType<Data>;
 
-  verify(
-    publicInput: InferProvableType<PublicType>,
-    privateInput: InferProvableType<PrivateType>,
-    data: InferProvableType<DataType>
-  ): void;
+  verify(publicInput: Public, privateInput: Private, data: Data): void;
 };
 
 function defineAttestation<
@@ -90,7 +81,12 @@ function defineAttestation<
   ): void;
 }): <DataType extends ProvablePureType>(
   data: DataType
-) => Attestation<Id, PublicType, PrivateType, DataType> {
+) => Attestation<
+  Id,
+  InferProvableType<PublicType>,
+  InferProvableType<PrivateType>,
+  InferProvableType<DataType>
+> {
   return function attestation(dataType) {
     return {
       type: config.type,
@@ -164,7 +160,7 @@ const Operation = {
 };
 
 type Input<Data = any> =
-  | Attestation<string, ProvablePureType, ProvableType, ProvablePureType<Data>>
+  | Attestation<string, any, any, Data>
   | { type: 'constant'; data: ProvableType<Data>; value: Data }
   | { type: 'public'; data: ProvablePureType<Data> }
   | { type: 'private'; data: ProvableType<Data> };
@@ -179,6 +175,8 @@ type OutputNode<Data = any> = {
   assert?: Node<Bool>;
   data?: Node<Data>;
 };
+
+type GetData<T extends Input> = T extends Node<infer Data> ? Data : never;
 
 function constant<DataType extends ProvableType>(
   data: DataType,
