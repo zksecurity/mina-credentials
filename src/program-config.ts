@@ -20,9 +20,9 @@ import type { Tuple } from './types.ts';
  */
 
 export type { Node };
-export { Spec, Attestation, Operation, Input };
+export { Spec, Attestation, Operation, Input, GetData };
 
-type Spec<Data, Inputs extends Tuple<Input>> = {
+type Spec<Data = any, Inputs extends Tuple<Input> = Tuple<Input>> = {
   inputs: Inputs;
   logic: OutputNode<Data>;
 };
@@ -146,7 +146,7 @@ const AProof = defineAttestation({
     // proof.verify(vk);
     // TODO we also need to somehow ensure that the proof's output type matches the data type
     // proof.publicOutput.assertEquals(data);
-    throw new Error('Proof attestation not implemented');
+    throw Error('Proof attestation not implemented');
   },
 });
 
@@ -185,7 +185,7 @@ type OutputNode<Data = any> = {
   data?: Node<Data>;
 };
 
-type GetData<T extends Input> = T extends Node<infer Data> ? Data : never;
+type GetData<T extends Node> = T extends Node<infer Data> ? Data : never;
 
 function constant<DataType extends ProvableType>(
   data: DataType,
