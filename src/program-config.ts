@@ -12,6 +12,7 @@ import {
   type InferProvable,
   type ProvablePure,
 } from 'o1js';
+import type { Tuple } from './types.ts';
 
 /**
  * TODO: program spec must be serializable
@@ -20,6 +21,16 @@ import {
 
 export type { Node };
 export { Attestation };
+
+/**
+ * Specify a ZkProgram that verifies and selectively discloses data
+ */
+function Spec<Data, Inputs extends Tuple<Input>>(
+  inputs: Inputs,
+  spec: (...inputs: Inputs) => OutputNode<Data>
+) {
+  return { inputs, logic: spec(...inputs) };
+}
 
 const Undefined_: ProvablePure<undefined> = Undefined;
 
@@ -172,19 +183,19 @@ type OutputNode<Data = any> = {
 function constant<DataType extends ProvableType>(
   data: DataType,
   value: InferProvableType<DataType>
-): Node<InferProvableType<DataType>> {
+): Input<InferProvableType<DataType>> {
   return { type: 'constant', data, value };
 }
 
 function publicParameter<DataType extends ProvablePureType>(
   data: DataType
-): Node<InferProvable<DataType>> {
+): Input<InferProvableType<DataType>> {
   return { type: 'public', data };
 }
 
 function privateParameter<DataType extends ProvableType>(
   data: DataType
-): Node<InferProvableType<DataType>> {
+): Input<InferProvableType<DataType>> {
   return { type: 'private', data };
 }
 
@@ -209,24 +220,24 @@ function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
 const isMain = import.meta.filename === process.argv[1];
 if (isMain) {
   const Bytes32 = Bytes(32);
+  const InputData = Struct({ age: Field, name: Bytes32 });
 
-  function example(): OutputNode<Field> {
-    // inputs
-    let data = Attestation.signature(Struct({ age: Field, name: Bytes32 }));
-    let targetAge = Input.public(Field);
-    let targetName = Input.constant(Bytes32, Bytes32.fromString('Alice'));
-
-    // operations
-    return {
+  const spec = Spec(
+    [
+      Attestation.signature(InputData),
+      Input.public(Field),
+      Input.constant(Bytes32, Bytes32.fromString('Alice')),
+    ],
+    (data, targetAge, targetName) => ({
       assert: Operation.and(
         Operation.equals(Operation.property(data, 'age'), targetAge),
         Operation.equals(Operation.property(data, 'name'), targetName)
       ),
       data: Operation.property(data, 'age'),
-    };
-  }
+    })
+  );
 
-  console.log(example());
+  console.log(spec);
 }
 
 // TODO these types should be in o1js

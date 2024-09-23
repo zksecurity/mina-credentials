@@ -1,4 +1,6 @@
-export type { Credential };
+export type { Credential, Tuple };
+
+type Tuple<T = any> = [T, ...T[]] | [];
 
 // ****** EXAMPLE WALLET PROVIDER ATTESTATION API ******
 
