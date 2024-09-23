@@ -1,19 +1,25 @@
 {
   "include": ["./src"],
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["dom", "esnext"],
     "outDir": "./build",
     "rootDir": ".",
+
+    // compile to modern JS
+    "target": "ESNext",
+
+    // TODO: make this NodeNext when we get past the "inferred type cannot be named" errors
+    "module": "ES2022",
+    "moduleResolution": "Node10",
+
+    "lib": ["dom", "esnext"],
+
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "sourceMap": true,
-    "noEmit": true, // TODO, remove when TS update lands
+    "emitDeclarationOnly": true, // TODO, remove when TS update lands
     "allowImportingTsExtensions": true
   }
 }
