@@ -1,132 +1,147 @@
-import { Proof, PublicKey, Signature, VerificationKey } from 'o1js';
+import {
+  Proof,
+  PublicKey,
+  Signature,
+  VerificationKey,
+  ProvablePure,
+} from 'o1js';
+
+export { AttestationType };
 
 // TODO: change from interface to type
 
 // ****** EXAMPLE WALLET PROVIDER ATTESTATION API ******
 
-interface MinaWallet {
+type MinaWallet = {
   attestation: AttestationAPI;
-}
+};
 
-interface AttestationAPI {
+type AttestationAPI = {
   initialize(config: AttestationConfig): Promise<void>;
-}
+};
 
-interface AttestationConfig {
+type AttestationConfig = {
   apiKey: string;
   endpoint: string;
-}
+};
 
 // ****** CREDENTIAL CREATION API ******
 
-interface AttestationAPI {
+type CredentialAttestationAPI = {
   create(params: LocalCredentialParams): Promise<CredentialResponse>;
-}
+};
 
-interface LocalCredentialParams {
+type LocalCredentialParams = {
   claims: { [key: string]: any }; // Claims about the subject
-}
+};
 
-type Attestation<PublicInput extends Record<string, any>> =
-  | {
-      publicInput: { data: PublicInput; publicKey: PublicKey; };
-      type: 'proof';
-      proof: string;
-      vk: VerificationKey;
-    }
-  | {
-      publicInput: { data: PublicInput; publicKey: PublicKey; };
-      type: 'signature';
-      signature: string;
-      issuerPubKey: string;
-      signatureScheme: string; // TODO: later can be an enum
-    };
+type AttestationCommon<PublicInput extends Record<string, any>> = {
+  provableType: ProvablePure<PublicInput>;
+};
 
-interface CredentialResponse {
+type AttestationType<
+  PublicInput extends Record<string, any> = Record<string, any>
+> = AttestationCommon<PublicInput> &
+  (
+    | {
+        type: 'proof';
+        vk: VerificationKey;
+      }
+    | {
+        type: 'signature';
+        issuerPubKey: PublicKey;
+        signatureScheme: string; // TODO: later can be an enum
+      }
+    | {
+        type: 'none';
+      }
+  );
+
+type CredentialResponse = {
   credentialId: string;
   credential: string; // Encoded credential
   nullifier?: string; // Unique identifier for the credential
   nullifierKey?: string; // Key associated with the nullifier
   nullifierProof?: string; // Proof that the nullifierKey was derived as expected
   expiration?: number; // Expiration time if set
-}
+};
 
 // ****** CREDENTIALPROGRAM.CREATE API ******
 
-interface CredentialProgramInput {
+type CredentialProgramInput = {
   [key: string]: 'number' | 'string' | 'boolean';
-}
+};
 
-interface CredentialProgramOutput {
+type CredentialProgramOutput = {
   [key: string]: 'boolean';
-}
+};
 
-interface CredentialProgramConfig {
+type CredentialProgramConfig = {
   name: string;
   input: CredentialProgramInput;
   output: CredentialProgramOutput;
   logic: OperationNode;
-}
+};
 
-interface OperationNode {
+type OperationNode = {
   operation: string;
   inputs?: (OperationNode | any)[]; // The inputs can be either another operation node or a static value
   [key: string]: any; // Allow for additional properties specific to the operation
-}
+};
 
-interface CredentialProgram {
+type CredentialProgram = {
   create(config: CredentialProgramConfig): CredentialVerificationInstance;
-}
+};
 
-interface CredentialVerificationInstance {
+type CredentialVerificationInstance = {
   name: string;
   input: CredentialProgramInput;
   output: CredentialProgramOutput;
   logic: OperationNode;
-}
+};
 
 // TODO: decide credentialProgram.Operations API
 
 // ****** CREDENTIAL.CREATE API ******
 
-interface CredentialAPI {
+type CredentialAPI = {
   create(claims: string): Credential;
-}
+};
 
-interface Credential {
+type Credential = {
   claims: { [key: string]: any };
   issuerPublicKey: string;
   signature: string;
-}
+};
 
 // ****** CREDENTIAL.PROVE API ******
 
-interface ProofAPI {
+type ProofAPI = {
   prove(
     claimKey: string,
     publicParams: object,
     credentialVerificationInstance: CredentialVerificationInstance
   ): Promise<ProofResponse>;
-}
+};
 
-interface ProofResponse {
+type ProofResponse = {
   proof: object;
   proofId: string;
   valid: boolean;
   publicParams: object;
-}
+};
 
 // ****** PROOF COMPOSITION API ******
 
-interface AttestationAPI {
+type ProofAttestationAPI = {
   composeAttestation(params: ComposeParams): Promise<ComposeResponse>;
-}
+};
 
-interface ComposeParams {
+type ComposeParams = {
   attestationIds: string[]; // List of attestation IDs to be composed
-}
+};
 
-interface ComposeResponse {
+type ComposeResponse = {
   compositeAttestationId: string;
   compositeProof: string; // Composite cryptographic proof
-}
+};
