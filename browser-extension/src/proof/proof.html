@@ -7,9 +7,13 @@
   </head>
   <body>
     <h1>Generate Proof</h1>
-    <p>
-      This page will be used to generate zero-knowledge proofs in the future.
-    </p>
+    <div>
+      <label for="minAge">Minimum Age:</label>
+      <input type="number" id="minAge" name="minAge" required />
+    </div>
+    <br />
+    <button id="generateProofBtn">Generate Proof</button>
+    <div id="proofResult"></div>
     <script type="module" src="proof.js"></script>
   </body>
 </html>
