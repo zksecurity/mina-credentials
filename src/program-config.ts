@@ -27,9 +27,13 @@ export { Attestation };
  */
 function Spec<Data, Inputs extends Tuple<Input>>(
   inputs: Inputs,
-  spec: (...inputs: Inputs) => OutputNode<Data>
+  spec: (
+    ...inputs: {
+      [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+    } & any[]
+  ) => OutputNode<Data>
 ) {
-  return { inputs, logic: spec(...inputs) };
+  return { inputs, logic: spec(...(inputs as any)) };
 }
 
 const Undefined_: ProvablePure<undefined> = Undefined;
