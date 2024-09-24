@@ -13,6 +13,7 @@ export default defineConfig({
         popup: resolve(root, 'popup', 'popup.html'),
         background: resolve(root, 'background.js'),
         proof: resolve(root, 'proof', 'proof.html'),
+        sandbox: resolve(root, 'proof', 'sandbox.html'),
       },
       output: {
         entryFileNames: '[name].js',

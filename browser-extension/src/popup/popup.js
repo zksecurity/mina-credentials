@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('attestationForm');
   const generateProofButton = document.getElementById('generateProof');
 
-  // Load saved values
   chrome.storage.sync.get(['age', 'signature', 'issuerPublicKey'], (result) => {
     document.getElementById('age').value = result.age || '';
     document.getElementById('signature').value = result.signature || '';
@@ -10,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
       result.issuerPublicKey || '';
   });
 
-  // Save form data
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const age = document.getElementById('age').value;
@@ -22,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Open proof generation page
   generateProofButton.addEventListener('click', () => {
     chrome.tabs.create({ url: 'proof/proof.html' });
   });

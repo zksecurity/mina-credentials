@@ -1,34 +1,38 @@
-import { Field, PublicKey, Signature, ZkProgram } from 'o1js';
-import { zkProgram } from '../../src/program.js';
-
-let compiledZkProgram;
-
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('DOMContentLoaded event fired');
+
   const minAgeInput = document.getElementById('minAge');
   const generateProofBtn = document.getElementById('generateProofBtn');
   const proofResultDiv = document.getElementById('proofResult');
+  const sandboxFrame = document.getElementById('sandboxFrame');
 
-  proofResultDiv.textContent = 'Compiling ZK program...';
-  try {
-    compiledZkProgram = await zkProgram.compile();
-    proofResultDiv.textContent =
-      'ZK program compiled successfully. Ready to generate proofs.';
-  } catch (error) {
-    console.error('Error compiling ZK program:', error);
-    proofResultDiv.textContent =
-      'Error compiling ZK program. Please check the console for details.';
-    return;
-  }
+  console.log('DOM elements retrieved:', {
+    minAgeInput,
+    generateProofBtn,
+    proofResultDiv,
+    sandboxFrame,
+  });
+
+  proofResultDiv.textContent = 'Waiting for sandbox to load...';
+
+  sandboxFrame.addEventListener('load', () => {
+    console.log('Sandbox iframe loaded, sending compile message');
+    proofResultDiv.textContent = 'Compiling ZK program...';
+
+    sandboxFrame.contentWindow.postMessage({ type: 'compile' }, '*');
+  });
 
   generateProofBtn.addEventListener('click', async () => {
+    console.log('Generate Proof button clicked');
     const minAge = parseInt(minAgeInput.value, 10);
+
     if (isNaN(minAge) || minAge < 0) {
       proofResultDiv.textContent = 'Please enter a valid minimum age.';
       return;
     }
 
     try {
-      // Retrieve stored data
+      console.log('Retrieving stored data from chrome.storage.sync');
       const storedData = await new Promise((resolve) => {
         chrome.storage.sync.get(
           ['age', 'signature', 'issuerPublicKey'],
@@ -46,30 +50,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // Convert stored data to appropriate types
-      const age = Field(storedData.age);
-      const minAgeField = Field(minAge);
-      const signature = Signature.fromJSON(storedData.signature);
-      const issuerPublicKey = PublicKey.fromJSON(storedData.issuerPublicKey);
+      const data = {
+        age: Field(storedData.age),
+        minAgeField: Field(minAge),
+        signature: Signature.fromBase58(storedData.signature),
+        issuerPublicKey: PublicKey.fromJSON(storedData.issuerPublicKey),
+      };
 
-      proofResultDiv.textContent = 'Generating proof...';
-
-      // Generate the proof
-      const proof = await zkProgram.verifyAge(
-        minAgeField,
-        age,
-        issuerPublicKey,
-        signature
+      console.log('Sending generateProof message to sandbox');
+      sandboxFrame.contentWindow.postMessage(
+        {
+          type: 'generateProof',
+          data: data,
+        },
+        '*'
       );
-
-      proofResultDiv.textContent = `Proof generated successfully. The stored age (${storedData.age}) is at least ${minAge}.`;
-
-      // You can do something with the proof here, like sending it to a server or displaying it
-      console.log('Generated proof:', proof.toJSON());
     } catch (error) {
-      console.error('Error generating proof:', error);
+      console.error('Error retrieving or processing data:', error);
       proofResultDiv.textContent =
-        'An error occurred while generating the proof. Please check the console for details.';
+        'An error occurred while retrieving the data. Please check the console for details.';
+    }
+  });
+
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'compilationResult') {
+      if (event.data.success) {
+        proofResultDiv.textContent =
+          'ZK program compiled successfully. Ready to generate proofs.';
+      } else {
+        proofResultDiv.textContent =
+          'Error compiling ZK program. Please check the console for details.';
+      }
+    } else if (event.data.type === 'proofResult') {
+      proofResultDiv.textContent = event.data.result;
     }
   });
 });
