@@ -20,4 +20,9 @@ export default defineConfig({
     },
   },
   publicDir: resolve(__dirname, 'public'),
+  resolve: {
+    alias: {
+      o1js: resolve(__dirname, '../node_modules/o1js'),
+    },
+  },
 });

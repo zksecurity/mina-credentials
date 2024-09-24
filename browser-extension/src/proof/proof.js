@@ -1,7 +1,24 @@
-document.addEventListener('DOMContentLoaded', () => {
+import { Field, PublicKey, Signature, ZkProgram } from 'o1js';
+import { zkProgram } from '../../src/program.js';
+
+let compiledZkProgram;
+
+document.addEventListener('DOMContentLoaded', async () => {
   const minAgeInput = document.getElementById('minAge');
   const generateProofBtn = document.getElementById('generateProofBtn');
   const proofResultDiv = document.getElementById('proofResult');
+
+  proofResultDiv.textContent = 'Compiling ZK program...';
+  try {
+    compiledZkProgram = await zkProgram.compile();
+    proofResultDiv.textContent =
+      'ZK program compiled successfully. Ready to generate proofs.';
+  } catch (error) {
+    console.error('Error compiling ZK program:', error);
+    proofResultDiv.textContent =
+      'Error compiling ZK program. Please check the console for details.';
+    return;
+  }
 
   generateProofBtn.addEventListener('click', async () => {
     const minAge = parseInt(minAgeInput.value, 10);
@@ -29,29 +46,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Prepare data for ZK proof generation
-      const inputData = {
-        storedAge: parseInt(storedData.age, 10),
-        minAge: minAge,
-        signature: storedData.signature,
-        issuerPublicKey: storedData.issuerPublicKey,
-      };
+      // Convert stored data to appropriate types
+      const age = Field(storedData.age);
+      const minAgeField = Field(minAge);
+      const signature = Signature.fromJSON(storedData.signature);
+      const issuerPublicKey = PublicKey.fromJSON(storedData.issuerPublicKey);
 
-      // TODO: Implement actual ZK proof generation here
-      // For now, we'll just log the input data and display a placeholder message
-      console.log('Input data for ZK proof:', inputData);
+      proofResultDiv.textContent = 'Generating proof...';
 
-      // Placeholder for ZK proof generation
-      const isAgeValid = inputData.storedAge >= inputData.minAge;
-      const proofMessage = isAgeValid
-        ? `Proof generated successfully. The stored age is at least ${minAge}.`
-        : `Proof generation failed. The stored age is less than ${minAge}.`;
+      // Generate the proof
+      const proof = await zkProgram.verifyAge(
+        minAgeField,
+        age,
+        issuerPublicKey,
+        signature
+      );
 
-      proofResultDiv.textContent = proofMessage;
+      proofResultDiv.textContent = `Proof generated successfully. The stored age (${storedData.age}) is at least ${minAge}.`;
+
+      // You can do something with the proof here, like sending it to a server or displaying it
+      console.log('Generated proof:', proof.toJSON());
     } catch (error) {
       console.error('Error generating proof:', error);
       proofResultDiv.textContent =
-        'An error occurred while generating the proof.';
+        'An error occurred while generating the proof. Please check the console for details.';
     }
   });
 });
