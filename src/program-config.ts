@@ -3,16 +3,19 @@ import {
   Bool,
   Bytes,
   Field,
-  Provable,
   PublicKey,
   Signature,
   Struct,
   Undefined,
   VerificationKey,
-  type InferProvable,
   type ProvablePure,
 } from 'o1js';
 import type { Tuple } from './types.ts';
+import {
+  InferProvableType,
+  ProvablePureType,
+  ProvableType,
+} from './o1js-missing.ts';
 
 /**
  * TODO: program spec must be serializable
@@ -42,19 +45,6 @@ function Spec<Data, Inputs extends Tuple<Input>>(
 }
 
 const Undefined_: ProvablePure<undefined> = Undefined;
-
-// TODO export from o1js
-const ProvableType = {
-  get<A extends WithProvable<any>>(type: A): ToProvable<A> {
-    return (
-      (typeof type === 'object' || typeof type === 'function') &&
-      type !== null &&
-      'provable' in type
-        ? type.provable
-        : type
-    ) as ToProvable<A>;
-  },
-};
 
 /**
  * An attestation is:
@@ -246,15 +236,3 @@ if (isMain) {
 
   console.log(spec);
 }
-
-// TODO these types should be in o1js
-
-type WithProvable<A> = { provable: A } | A;
-type ProvableType<T = any, V = any> = WithProvable<Provable<T, V>>;
-type ProvablePureType<T = any, V = any> = WithProvable<ProvablePure<T, V>>;
-type ToProvable<A extends WithProvable<any>> = A extends {
-  provable: infer P;
-}
-  ? P
-  : A;
-type InferProvableType<T extends ProvableType> = InferProvable<ToProvable<T>>;
