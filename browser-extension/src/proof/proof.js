@@ -1,3 +1,5 @@
+import { Field, Signature, PublicKey } from 'o1js';
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('DOMContentLoaded event fired');
 
