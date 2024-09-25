@@ -1,3 +1,5 @@
+/* global chrome */
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('attestationForm');
   const generateProofButton = document.getElementById('generateProof');
