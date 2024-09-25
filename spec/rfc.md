@@ -6,6 +6,63 @@ This proposal introduces an extension to the wallet provider API for Mina wallet
 
 Additionally, this proposal should enable users to collaborate with a 3rd party such as a KYC provider to generate a proof that includes data not available locally.
 
+## Assumptions
+
+We assume that the Kimchi (the underlying proof) is a Zero-Knowledge Argument of Knowledge:
+
+- **Zero-Knowledge:** Kimchi is (perfect) Zero-Knowledge.
+- **Proof-of-Knowledge:** Kimchi is extractable (in the random oracle model).
+
+We do not assume simulation extractability ("non-malleability") of Kimchi,
+although Kimchi is likely to satisfy this stronger property. \
+Our construction does not assume non-malleability of the zkSNARK and
+hence security is retained even if the zkSNARK was replaced with a malleable proof system (such as Groth16).
+
+## Formal Security Goals
+
+We prove that the construction detailed in this RFC satisfy the following security properties:
+
+> **Privacy: Simulation.**
+>
+> **Informally:** The adversary should not be able to
+>
+> Formally, we define this as the ability to simulate a presentation
+> A
+
+> **Unforgeability: Simulation Extractability.**
+>
+> **Informally:** The adversary should not be able to present a credential to the verifier without having a valid credential.
+>
+> Formally, we define this as the ability to extract a witness (e.g. a valid signature by the issuer) from a presentation:
+>
+> Adv()
+
+This condition holds even when *the adversary has access to an oracle* that can generate valid presentation proofs for arbitrary statements.
+
+This serves to formalize that the adversary is unable to create valid presentations even if it has access to other valid presentations,
+or is able to execute a "man-in-the-middle" attack on the credential presentation:
+forwarding a clients proof as if it was its own.
+
+## Further Security Considerations
+
+The following consideration is formally covered by unforgeability, but should be considered by applications interacting with this RFC:
+
+**Context Binding:** It is rarely intresting to present a credential without binding the presentation to some additional data.\
+For instance, the presentation of a credential may allow spending from an account,
+in such a scenario the presentation should be bound to the transaction: the recipient, the amount, etc. to prevent the transaction from being mauled.
+This specification details how to bind *arbitrary data* to the presentation,
+it is beyond the scope of this specification to detail how such data should be derived:
+applications are expected to ensure that context bound to the presentation is sufficient to meet application-specific security requirements.
+
+**Hardware Wallets:** Every credential has an `owner` field, a Mina public key, and the credential can only be used by signing with the corresponding private key. \
+This enables hardware-wallet support for credentials:
+the hardware wallet the context in which the credential is used, but does not need to compute the costly proof.
+In the case of a compromised prover (browser), the attacker learns the attributes of the credential,
+but is unable to use the credential to sign transactions or otherwise impersonate the credential owner.
+
+**Compromised Credentials:** We use the flexibility afforded by the Kimchi proof
+system to reduce the practical impact of a compromised credential.
+
 ## Motivation
 
 The motivation behind extending the Mina wallet provider API stems from the evolving needs of the Mina ecosystem's zkApp landscape. Currently, there exists no standard for Mina wallets to interact with zkApps and attest to known private data. This limitation hinders the full potential of Mina's composable privacy feature, which is vital for user autonomy and data security.
@@ -221,7 +278,7 @@ Every credential program receives an `OperationNode`, an operation node is an ob
 ```json
 {
     "operation": "and",
-    "inputs": [ 
+    "inputs": [
                 {
                     "operation": "greaterThan",
                     "firstInput": 18,
@@ -229,7 +286,7 @@ Every credential program receives an `OperationNode`, an operation node is an ob
                 },
                 {
                     "operation": "lessThan",
-                    "firstInput": 51, 
+                    "firstInput": 51,
                     "secondInput": "credential.maxAge",
                 },
                 ...
