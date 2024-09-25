@@ -24,6 +24,7 @@
     "extension:build": "vite build --config browser-extension/vite.config.js"
   },
   "devDependencies": {
+    "@types/chrome": "^0.0.272",
     "@types/node": "^22.5.5",
     "prettier": "^2.3.2",
     "typescript": "^5.6.2",
