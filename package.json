@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "format": "prettier --write --ignore-unknown **/*"
+    "format": "prettier --write --ignore-unknown **/*",
     "extension:dev": "vite build --config browser-extension/vite.config.js --watch",
     "extension:build": "vite build --config browser-extension/vite.config.js"
   },
