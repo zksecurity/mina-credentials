@@ -1,4 +1,10 @@
-export type { Tuple, Flatten, FilterTuple, ExcludeFromTuple };
+export type {
+  Tuple,
+  Flatten,
+  FilterTuple,
+  ExcludeFromTuple,
+  ExcludeFromRecord,
+};
 
 type Tuple<T = any> = [T, ...T[]] | [];
 
@@ -24,3 +30,7 @@ type FilterTuple<T extends readonly any[], E> = T extends [infer F, ...infer R]
     ? [F, ...FilterTuple<R, E>]
     : FilterTuple<R, E>
   : [];
+
+type ExcludeFromRecord<T, E> = {
+  [P in keyof T as T[P] extends E ? never : P]: T[P];
+};

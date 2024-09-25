@@ -10,7 +10,7 @@ import {
   VerificationKey,
   type ProvablePure,
 } from 'o1js';
-import type { ExcludeFromTuple, Tuple } from './types.ts';
+import type { ExcludeFromRecord } from './types.ts';
 import {
   type InferProvableType,
   type ProvablePureType,
@@ -25,7 +25,10 @@ import {
 export type { Node, PublicInputs, UserInputs };
 export { Spec, Attestation, Operation, Input };
 
-type Spec<Data = any, Inputs extends Tuple<Input> = Tuple<Input>> = {
+type Spec<
+  Data = any,
+  Inputs extends Record<string, Input> = Record<string, Input>
+> = {
   inputs: Inputs;
   logic: OutputNode<Data>;
 };
@@ -33,15 +36,13 @@ type Spec<Data = any, Inputs extends Tuple<Input> = Tuple<Input>> = {
 /**
  * Specify a ZkProgram that verifies and selectively discloses data
  */
-function Spec<Data, Inputs extends Tuple<Input>>(
+function Spec<Data, Inputs extends Record<string, Input>>(
   inputs: Inputs,
-  spec: (
-    ...inputs: {
-      [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
-    } & any[]
-  ) => OutputNode<Data>
+  spec: (inputs: {
+    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+  }) => OutputNode<Data>
 ): Spec<Data, Inputs> {
-  return { inputs, logic: spec(...(inputs as any)) };
+  return { inputs, logic: spec(inputs) };
 }
 
 const Undefined_: ProvablePure<undefined> = Undefined;
@@ -228,17 +229,17 @@ if (isMain) {
   const InputData = Struct({ age: Field, name: Bytes32 });
 
   const spec = Spec(
-    [
-      Attestation.signature(InputData),
-      Input.public(Field),
-      Input.constant(Bytes32, Bytes32.fromString('Alice')),
-    ],
-    (data, targetAge, targetName) => ({
+    {
+      signedData: Attestation.signature(InputData),
+      targetAge: Input.public(Field),
+      targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
       assert: Operation.and(
-        Operation.equals(Operation.property(data, 'age'), targetAge),
-        Operation.equals(Operation.property(data, 'name'), targetName)
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      data: Operation.property(data, 'age'),
+      data: Operation.property(signedData, 'age'),
     })
   );
   console.log(spec);
@@ -250,21 +251,21 @@ if (isMain) {
   type specUserInputs = UserInputs<typeof spec.inputs>;
 }
 
-type PublicInputs<InputTuple extends Tuple<Input>> = ExcludeFromTuple<
+type PublicInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
   MapToPublic<InputTuple>,
   never
 >;
 
-type UserInputs<InputTuple extends Tuple<Input>> = ExcludeFromTuple<
+type UserInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
   MapToUserInput<InputTuple>,
   never
 >;
 
-type MapToPublic<T extends Tuple<Input>> = {
+type MapToPublic<T extends Record<string, Input>> = {
   [K in keyof T]: ToPublic<T[K]>;
 };
 
-type MapToUserInput<T extends Tuple<Input>> = {
+type MapToUserInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToUserInput<T[K]>;
 };
 

@@ -19,10 +19,10 @@ import type { Tuple } from './types.ts';
 
 export { createProgram };
 
-type Program<Data, Inputs extends Tuple<Input>> = {
+type Program<Data, Inputs extends Record<string, Input>> = {
   compile(): Promise<VerificationKey>;
 
-  run(...input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Data>>;
+  run(input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Data>>;
 };
 
 function createProgram<S extends Spec>(
@@ -41,17 +41,17 @@ if (isMain) {
   class InputData extends Struct({ age: Field, name: Bytes32 }) {}
 
   const spec = Spec(
-    [
-      Attestation.signature(InputData),
-      Input.public(Field),
-      Input.constant(Bytes32, Bytes32.fromString('Alice')),
-    ],
-    (data, targetAge, targetName) => ({
+    {
+      signedData: Attestation.signature(InputData),
+      targetAge: Input.public(Field),
+      targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
       assert: Operation.and(
-        Operation.equals(Operation.property(data, 'age'), targetAge),
-        Operation.equals(Operation.property(data, 'name'), targetName)
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      data: Operation.property(data, 'age'),
+      data: Operation.property(signedData, 'age'),
     })
   );
 
@@ -69,10 +69,10 @@ if (isMain) {
 
     // input types are inferred from spec
     // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
-    let proof = await program.run(signedData, Field(18));
+    let proof = await program.run({ signedData, targetAge: Field(18) });
 
     // proof types are inferred from spec
-    proof.publicInput satisfies [issuerPubKey: PublicKey, targetAge: Field];
+    proof.publicInput satisfies { signedData: PublicKey; targetAge: Field };
     proof.publicOutput satisfies Field;
   }
 }
