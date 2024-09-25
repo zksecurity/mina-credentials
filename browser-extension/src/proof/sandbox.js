@@ -33,7 +33,8 @@ const zkProgram = ZkProgram({
 async function compileProgram() {
   console.log('Compiling ZkProgram');
   try {
-    compiledZkProgram = await zkProgram.compile();
+    await zkProgram.compile();
+    compiledZkProgram = true;
     console.log('ZkProgram compiled successfully');
     window.parent.postMessage(
       {
