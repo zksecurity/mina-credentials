@@ -5,6 +5,7 @@ import {
   PrivateKey,
   Signature,
   VerificationKey,
+  Provable,
 } from 'o1js';
 import {
   Attestation,
@@ -54,17 +55,14 @@ if (isMain) {
     })
   );
 
-  function createAttestation(data: InputData) {
+  function createAttestation<Data>(type: Provable<Data>, data: Data) {
     let issuer = PrivateKey.randomKeypair();
-    let signature = Signature.create(
-      issuer.privateKey,
-      InputData.toFields(data)
-    );
+    let signature = Signature.create(issuer.privateKey, type.toFields(data));
     return { public: issuer.publicKey, private: signature, data };
   }
 
   let data = { age: Field(42), name: Bytes32.fromString('Alice') };
-  let signedData = createAttestation(data);
+  let signedData = createAttestation(InputData, data);
 
   async function notExecuted() {
     let program = createProgram(spec);
