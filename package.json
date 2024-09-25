@@ -15,11 +15,8 @@
   "types": "build/src/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "buildw": "tsc --watch",
-    "coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "format": "prettier --write --ignore-unknown **/*",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+    "watch": "tsc --watch",
+    "format": "prettier --write --ignore-unknown **/*"
   },
   "devDependencies": {
     "@types/node": "^22.5.5",
