@@ -158,11 +158,19 @@ const Operation = {
   and,
 };
 
+type Constant<Data> = {
+  type: 'constant';
+  data: ProvableType<Data>;
+  value: Data;
+};
+type Public<Data> = { type: 'public'; data: ProvablePureType<Data> };
+type Private<Data> = { type: 'private'; data: ProvableType<Data> };
+
 type Input<Data = any> =
   | Attestation<string, any, any, Data>
-  | { type: 'constant'; data: ProvableType<Data>; value: Data }
-  | { type: 'public'; data: ProvablePureType<Data> }
-  | { type: 'private'; data: ProvableType<Data> };
+  | Constant<Data>
+  | Public<Data>
+  | Private<Data>;
 
 type Node<Data = any> =
   | Input<Data>
@@ -180,19 +188,19 @@ type GetData<T extends Node> = T extends Node<infer Data> ? Data : never;
 function constant<DataType extends ProvableType>(
   data: DataType,
   value: InferProvableType<DataType>
-): Input<InferProvableType<DataType>> {
+): Constant<InferProvableType<DataType>> {
   return { type: 'constant', data, value };
 }
 
 function publicParameter<DataType extends ProvablePureType>(
   data: DataType
-): Input<InferProvableType<DataType>> {
+): Public<InferProvableType<DataType>> {
   return { type: 'public', data };
 }
 
 function privateParameter<DataType extends ProvableType>(
   data: DataType
-): Input<InferProvableType<DataType>> {
+): Private<InferProvableType<DataType>> {
   return { type: 'private', data };
 }
 
