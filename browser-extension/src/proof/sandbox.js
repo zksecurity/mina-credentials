@@ -13,16 +13,8 @@ const zkProgram = ZkProgram({
     verifyAge: {
       privateInputs: [Field, PublicKey, Signature],
       async method(minAge, age, issuerPubKey, signature) {
-        console.log('verifyAge method called with:', {
-          minAge,
-          age,
-          issuerPubKey,
-          signature,
-        });
         const validSignature = signature.verify(issuerPubKey, [age]);
-        console.log('Signature verification result:', validSignature);
         validSignature.assertTrue();
-        console.log('Asserting age >= minAge');
         age.assertGreaterThanOrEqual(minAge);
         return issuerPubKey;
       },
