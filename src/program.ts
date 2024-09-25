@@ -5,7 +5,6 @@ import {
   PrivateKey,
   Signature,
   VerificationKey,
-  Provable,
 } from 'o1js';
 import {
   Attestation,
@@ -15,7 +14,7 @@ import {
   type PublicInputs,
   type UserInputs,
 } from './program-config.ts';
-import type { Tuple } from './types.ts';
+import { ProvableType } from './o1js-missing.ts';
 
 export { createProgram };
 
@@ -55,9 +54,12 @@ if (isMain) {
     })
   );
 
-  function createAttestation<Data>(type: Provable<Data>, data: Data) {
+  function createAttestation<Data>(type: ProvableType<Data>, data: Data) {
     let issuer = PrivateKey.randomKeypair();
-    let signature = Signature.create(issuer.privateKey, type.toFields(data));
+    let signature = Signature.create(
+      issuer.privateKey,
+      ProvableType.get(type).toFields(data)
+    );
     return { public: issuer.publicKey, private: signature, data };
   }
 
@@ -66,6 +68,8 @@ if (isMain) {
 
   async function notExecuted() {
     let program = createProgram(spec);
+
+    await program.compile();
 
     // input types are inferred from spec
     // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
