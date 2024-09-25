@@ -61,7 +61,7 @@ if (isMain) {
     ]);
 
     // proof types are inferred from spec
-    proof.publicInput satisfies [PublicKey, { age: Field; name: Bytes }, Field];
+    proof.publicInput satisfies [issuerPubKey: PublicKey, targetAge: Field];
     proof.publicOutput satisfies Field;
   }
 }

@@ -1,4 +1,4 @@
-export type { Tuple, Flatten, FilterTuple, FilterTupleExclude };
+export type { Tuple, Flatten, FilterTuple, ExcludeFromTuple };
 
 type Tuple<T = any> = [T, ...T[]] | [];
 
@@ -10,13 +10,13 @@ type Flatten<T> = T extends []
   ? [...Flatten<T0>, ...Flatten<Ts>]
   : [T];
 
-type FilterTupleExclude<T extends readonly any[], E> = T extends [
+type ExcludeFromTuple<T extends readonly any[], E> = T extends [
   infer F,
   ...infer R
 ]
   ? [F] extends [E]
-    ? FilterTupleExclude<R, E>
-    : [F, ...FilterTupleExclude<R, E>]
+    ? ExcludeFromTuple<R, E>
+    : [F, ...ExcludeFromTuple<R, E>]
   : [];
 
 type FilterTuple<T extends readonly any[], E> = T extends [infer F, ...infer R]

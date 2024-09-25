@@ -10,7 +10,7 @@ import {
   VerificationKey,
   type ProvablePure,
 } from 'o1js';
-import type { FilterTupleExclude, Flatten, Tuple } from './types.ts';
+import type { ExcludeFromTuple, Tuple } from './types.ts';
 import {
   InferProvableType,
   ProvablePureType,
@@ -125,7 +125,7 @@ const ASignature = defineAttestation({
 // TODO recursive proof
 const AProof = defineAttestation({
   type: 'attestation-proof',
-  public: Field as ProvablePure<Field>, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
+  public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
   private: Struct({
     vk: VerificationKey, // the verification key
     proof: Undefined_, // the proof, TODO: make this a `DynamicProof` when o1js supports it, or by refactoring our provable type representation
@@ -247,8 +247,9 @@ if (isMain) {
   type specPublicInputs = PublicInputs<typeof spec.inputs>;
 }
 
-type PublicInputs<InputTuple extends Tuple<Input>> = Flatten<
-  FilterTupleExclude<MapToPublic<InputTuple>, undefined>
+type PublicInputs<InputTuple extends Tuple<Input>> = ExcludeFromTuple<
+  MapToPublic<InputTuple>,
+  never
 >;
 
 type MapToPublic<T extends Tuple<Input>> = {
@@ -259,9 +260,9 @@ type ToPublic<T extends Input> = T extends Attestation<
   string,
   infer Public,
   any,
-  infer Data
+  any
 >
-  ? [Public, Data]
+  ? Public
   : T extends Public<infer Data>
-  ? [Data]
-  : undefined;
+  ? Data
+  : never;
