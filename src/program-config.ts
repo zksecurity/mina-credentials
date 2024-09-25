@@ -12,8 +12,8 @@ import {
 } from 'o1js';
 import type { ExcludeFromTuple, Tuple } from './types.ts';
 import {
-  InferProvableType,
-  ProvablePureType,
+  type InferProvableType,
+  type ProvablePureType,
   ProvableType,
 } from './o1js-missing.ts';
 
@@ -22,8 +22,8 @@ import {
  * - can be done by defining an enum of supported base types
  */
 
-export type { Node, PublicInputs };
-export { Spec, Attestation, Operation, Input, GetData };
+export type { Node, PublicInputs, UserInputs };
+export { Spec, Attestation, Operation, Input };
 
 type Spec<Data = any, Inputs extends Tuple<Input> = Tuple<Input>> = {
   inputs: Inputs;
@@ -245,6 +245,9 @@ if (isMain) {
 
   // public inputs, extracted at the type level
   type specPublicInputs = PublicInputs<typeof spec.inputs>;
+
+  // user inputs to the program
+  type specUserInputs = UserInputs<typeof spec.inputs>;
 }
 
 type PublicInputs<InputTuple extends Tuple<Input>> = ExcludeFromTuple<
@@ -252,8 +255,17 @@ type PublicInputs<InputTuple extends Tuple<Input>> = ExcludeFromTuple<
   never
 >;
 
+type UserInputs<InputTuple extends Tuple<Input>> = ExcludeFromTuple<
+  MapToUserInput<InputTuple>,
+  never
+>;
+
 type MapToPublic<T extends Tuple<Input>> = {
   [K in keyof T]: ToPublic<T[K]>;
+};
+
+type MapToUserInput<T extends Tuple<Input>> = {
+  [K in keyof T]: ToUserInput<T[K]>;
 };
 
 type ToPublic<T extends Input> = T extends Attestation<
@@ -264,5 +276,18 @@ type ToPublic<T extends Input> = T extends Attestation<
 >
   ? Public
   : T extends Public<infer Data>
+  ? Data
+  : never;
+
+type ToUserInput<T extends Input> = T extends Attestation<
+  string,
+  infer Public,
+  infer Private,
+  infer Data
+>
+  ? { public: Public; private: Private; data: Data }
+  : T extends Public<infer Data>
+  ? Data
+  : T extends Private<infer Data>
   ? Data
   : never;

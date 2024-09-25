@@ -1,22 +1,27 @@
-import { Proof, Field, PublicKey, Bytes } from 'o1js';
 import {
-  type GetData,
+  Proof,
+  Field,
+  PublicKey,
+  PrivateKey,
+  Signature,
+  VerificationKey,
+} from 'o1js';
+import {
   Attestation,
   Input,
   Operation,
-  PublicInputs,
   Spec,
+  type PublicInputs,
+  type UserInputs,
 } from './program-config.ts';
-import { Tuple } from './types.ts';
+import type { Tuple } from './types.ts';
 
 export { createProgram };
 
 type Program<Data, Inputs extends Tuple<Input>> = {
-  compile(): Promise<{ verificationKey: { data: string; hash: Field } }>;
+  compile(): Promise<VerificationKey>;
 
-  run(input: { [K in keyof Inputs]: GetData<Inputs[K]> }): Promise<
-    Proof<PublicInputs<Inputs>, Data>
-  >;
+  run(...input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Data>>;
 };
 
 function createProgram<S extends Spec>(
@@ -32,7 +37,7 @@ if (isMain) {
   let { Bytes, Struct } = await import('o1js');
 
   const Bytes32 = Bytes(32);
-  const InputData = Struct({ age: Field, name: Bytes32 });
+  class InputData extends Struct({ age: Field, name: Bytes32 }) {}
 
   const spec = Spec(
     [
@@ -49,16 +54,24 @@ if (isMain) {
     })
   );
 
-  let program = createProgram(spec);
+  function createAttestation(data: InputData) {
+    let issuer = PrivateKey.randomKeypair();
+    let signature = Signature.create(
+      issuer.privateKey,
+      InputData.toFields(data)
+    );
+    return { public: issuer.publicKey, private: signature, data };
+  }
+
+  let data = { age: Field(42), name: Bytes32.fromString('Alice') };
+  let signedData = createAttestation(data);
 
   async function notExecuted() {
+    let program = createProgram(spec);
+
     // input types are inferred from spec
     // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
-    let proof = await program.run([
-      { age: Field(42), name: Bytes32.fromString('Alice') },
-      Field(18),
-      Bytes32.fromString('Alice'),
-    ]);
+    let proof = await program.run(signedData, Field(18));
 
     // proof types are inferred from spec
     proof.publicInput satisfies [issuerPubKey: PublicKey, targetAge: Field];

@@ -1,9 +1,9 @@
 /**
  * This file exports types and functions that actually should be exported from o1js
  */
-import { InferProvable, Provable, ProvablePure } from 'o1js';
+import { type InferProvable, Provable, type ProvablePure } from 'o1js';
 
-export { ProvableType, ProvablePureType, InferProvableType };
+export { ProvableType, type ProvablePureType, type InferProvableType };
 
 const ProvableType = {
   get<A extends WithProvable<any>>(type: A): ToProvable<A> {
