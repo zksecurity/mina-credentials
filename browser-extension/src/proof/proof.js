@@ -1,5 +1,3 @@
-import { Field, Signature, PublicKey } from 'o1js';
-
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('DOMContentLoaded event fired');
 
@@ -14,6 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     proofResultDiv,
     sandboxFrame,
   });
+
+  console.log('coop:', self.crossOriginIsolated);
 
   proofResultDiv.textContent = 'Waiting for sandbox to load...';
 
@@ -52,11 +52,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      console.log('Retrieved age:', storedData.age);
+      console.log('Retrieved signature:', storedData.signature);
+      console.log('Retrieved issuerPublicKey:', storedData.issuerPublicKey);
+
       const data = {
-        age: Field(storedData.age),
-        minAgeField: Field(minAge),
-        signature: Signature.fromBase58(storedData.signature),
-        issuerPublicKey: PublicKey.fromJSON(storedData.issuerPublicKey),
+        age: storedData.age,
+        minAge: minAge,
+        signature: storedData.signature,
+        issuerPublicKey: storedData.issuerPublicKey,
       };
 
       console.log('Sending generateProof message to sandbox');

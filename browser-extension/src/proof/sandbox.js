@@ -2,6 +2,8 @@ import { Field, PublicKey, Signature, ZkProgram } from 'o1js';
 
 console.log('sandbox.js loaded');
 
+console.log('sandbox coop: ', self.crossOriginIsolated);
+
 let compiledZkProgram;
 
 console.log('Defining ZkProgram');
@@ -25,7 +27,8 @@ const zkProgram = ZkProgram({
 async function compileProgram() {
   console.log('Compiling ZkProgram');
   try {
-    await zkProgram.compile();
+    let { verificationKey } = await zkProgram.compile();
+    console.log('Verification Key:', verificationKey);
     compiledZkProgram = true;
     console.log('ZkProgram compiled successfully');
     window.parent.postMessage(
@@ -55,10 +58,10 @@ window.addEventListener('message', async (event) => {
     await compileProgram();
   } else if (event.data.type === 'generateProof') {
     console.log('Generate proof message received');
-    const { age, minAgeField, signature, issuerPublicKey } = event.data.data;
+    const { age, minAge, signature, issuerPublicKey } = event.data.data;
     console.log('Proof generation data:', {
       age,
-      minAgeField,
+      minAge,
       signature,
       issuerPublicKey,
     });
@@ -68,13 +71,28 @@ window.addEventListener('message', async (event) => {
         throw new Error('ZkProgram not compiled yet');
       }
 
-      console.log('Generating proof');
-      const proof = await zkProgram.verifyAge(
+      let minAgeField = Field(minAge);
+      let ageField = Field(age);
+      let issuerPubKeyPK = PublicKey.fromBase58(issuerPublicKey);
+      let signatureSig = Signature.fromBase58(signature);
+
+      console.log('Proof generation data after typing:', {
+        ageField,
         minAgeField,
-        age,
-        issuerPublicKey,
-        signature
+        signatureSig,
+        issuerPubKeyPK,
+      });
+
+      console.log('Generating proof');
+      let proof = await zkProgram.verifyAge(
+        minAgeField,
+        ageField,
+        issuerPubKeyPK,
+        signatureSig
       );
+
+      let verification = await zkProgram.verify(proof);
+      console.log('Verified proof:', verification);
 
       console.log('Proof generated successfully');
       window.parent.postMessage(
