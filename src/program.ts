@@ -1,22 +1,21 @@
-import { Proof, Field } from 'o1js';
+import { Proof, Field, PublicKey, Bytes } from 'o1js';
 import {
   type GetData,
   Attestation,
   Input,
   Operation,
+  PublicInputs,
   Spec,
 } from './program-config.ts';
 import { Tuple } from './types.ts';
 
 export { createProgram };
 
-type TODO = any;
-
 type Program<Data, Inputs extends Tuple<Input>> = {
   compile(): Promise<{ verificationKey: { data: string; hash: Field } }>;
 
   run(input: { [K in keyof Inputs]: GetData<Inputs[K]> }): Promise<
-    Proof<TODO, Data>
+    Proof<PublicInputs<Inputs>, Data>
   >;
 };
 
@@ -55,15 +54,15 @@ if (isMain) {
   async function notExecuted() {
     // input types are inferred from spec
     // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
-    let result = await program.run([
+    let proof = await program.run([
       { age: Field(42), name: Bytes32.fromString('Alice') },
       Field(18),
       Bytes32.fromString('Alice'),
     ]);
 
-    // output types are inferred from spec
-    // TODO infer result.publicInput
-    result.publicOutput satisfies Field;
+    // proof types are inferred from spec
+    proof.publicInput satisfies [PublicKey, { age: Field; name: Bytes }, Field];
+    proof.publicOutput satisfies Field;
   }
 }
 

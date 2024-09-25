@@ -10,7 +10,7 @@ import {
   VerificationKey,
   type ProvablePure,
 } from 'o1js';
-import type { Tuple } from './types.ts';
+import type { FilterTupleExclude, Flatten, Tuple } from './types.ts';
 import {
   InferProvableType,
   ProvablePureType,
@@ -22,7 +22,7 @@ import {
  * - can be done by defining an enum of supported base types
  */
 
-export type { Node };
+export type { Node, PublicInputs };
 export { Spec, Attestation, Operation, Input, GetData };
 
 type Spec<Data = any, Inputs extends Tuple<Input> = Tuple<Input>> = {
@@ -241,6 +241,27 @@ if (isMain) {
       data: Operation.property(data, 'age'),
     })
   );
-
   console.log(spec);
+
+  // public inputs, extracted at the type level
+  type specPublicInputs = PublicInputs<typeof spec.inputs>;
 }
+
+type PublicInputs<InputTuple extends Tuple<Input>> = Flatten<
+  FilterTupleExclude<MapToPublic<InputTuple>, undefined>
+>;
+
+type MapToPublic<T extends Tuple<Input>> = {
+  [K in keyof T]: ToPublic<T[K]>;
+};
+
+type ToPublic<T extends Input> = T extends Attestation<
+  string,
+  infer Public,
+  any,
+  infer Data
+>
+  ? [Public, Data]
+  : T extends Public<infer Data>
+  ? [Data]
+  : undefined;
