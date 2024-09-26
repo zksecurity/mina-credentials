@@ -41,7 +41,7 @@ export {
   publicInputTypes,
   publicOutputType,
   privateInputTypes,
-  combinedDataInputType as combinedInputType,
+  recombineDataInputs,
 };
 
 type Spec<
@@ -378,14 +378,16 @@ if (isMain) {
   console.log(spec.logic);
 
   // evaluate the logic at input
-  let root: DataInputs<typeof spec.inputs> = {
-    signedData: { name: Bytes32.fromString('Bob'), age: Field(42) },
-    targetAge: Field(42),
-    targetName: Bytes32.fromString('Alice'),
-  };
+  let root = recombineDataInputs(
+    spec,
+    { targetAge: Field(42) },
+    {
+      signedData: { data: { name: Bytes32.fromString('Bob'), age: Field(42) } },
+    }
+  );
   let assert = Node.eval(root, spec.logic.assert);
   let data = Node.eval(root, spec.logic.data);
-  Provable.log({ assert, data });
+  Provable.log({ root, assert, data });
 
   let inputTypes = publicInputTypes(spec);
   let privateTypes = privateInputTypes(spec);
@@ -417,16 +419,6 @@ function publicInputTypes<S extends Spec>({
   return result;
 }
 
-function publicOutputType<S extends Spec>(spec: S): ProvablePure<any> {
-  let rootType = combinedDataInputType(spec);
-  let outputTypeNested = Node.evalType(rootType, spec.logic.data);
-  let outputType: Provable<any> = ProvableType.isProvableType(outputTypeNested)
-    ? ProvableType.get(outputTypeNested)
-    : Struct(outputTypeNested);
-  assertPure(outputType);
-  return outputType;
-}
-
 function privateInputTypes<S extends Spec>({
   inputs,
 }: S): Record<string, NestedProvable> {
@@ -434,7 +426,7 @@ function privateInputTypes<S extends Spec>({
 
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'attestation') {
-      result[key] = input.private;
+      result[key] = { private: input.private, data: input.data };
     }
     if (input.type === 'private') {
       result[key] = input.data;
@@ -443,7 +435,15 @@ function privateInputTypes<S extends Spec>({
   return result;
 }
 
-function combinedDataInputType<S extends Spec>({ inputs }: S): NestedProvable {
+function publicOutputType<S extends Spec>(spec: S): ProvablePure<any> {
+  let root = dataInputTypes(spec);
+  let outputTypeNested = Node.evalType(root, spec.logic.data);
+  let outputType = NestedProvable.get(outputTypeNested);
+  assertPure(outputType);
+  return outputType;
+}
+
+function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
   let result: Record<string, NestedProvable> = {};
   Object.entries(inputs).forEach(([key, input]) => {
     result[key] = input.data;
@@ -451,8 +451,47 @@ function combinedDataInputType<S extends Spec>({ inputs }: S): NestedProvable {
   return result;
 }
 
+function recombineDataInputs<S extends Spec>(
+  spec: S,
+  publicInputs: Record<string, any>,
+  privateInputs: Record<string, any>
+): DataInputs<S['inputs']>;
+function recombineDataInputs<S extends Spec>(
+  spec: S,
+  publicInputs: Record<string, any>,
+  privateInputs: Record<string, any>
+): Record<string, any> {
+  let result: Record<string, any> = {};
+
+  Object.entries(spec.inputs).forEach(([key, input]) => {
+    if (input.type === 'attestation') {
+      result[key] = privateInputs[key].data;
+    }
+    if (input.type === 'public') {
+      result[key] = publicInputs[key];
+    }
+    if (input.type === 'private') {
+      result[key] = privateInputs[key];
+    }
+    if (input.type === 'constant') {
+      result[key] = input.value;
+    }
+  });
+  return result;
+}
+
+type AllInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToAllInputs<Inputs>,
+  never
+>;
+
 type PublicInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   MapToPublic<Inputs>,
+  never
+>;
+
+type PrivateInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToPrivate<Inputs>,
   never
 >;
 
@@ -466,8 +505,16 @@ type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   never
 >;
 
+type MapToAllInputs<T extends Record<string, Input>> = {
+  [K in keyof T]: ToAll<T[K]>;
+};
+
 type MapToPublic<T extends Record<string, Input>> = {
   [K in keyof T]: ToPublic<T[K]>;
+};
+
+type MapToPrivate<T extends Record<string, Input>> = {
+  [K in keyof T]: ToPrivate<T[K]>;
 };
 
 type MapToUserInput<T extends Record<string, Input>> = {
@@ -478,6 +525,17 @@ type MapToDataInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToDataInput<T[K]>;
 };
 
+type ToAll<T extends Input> = T extends Attestation<
+  string,
+  infer Public,
+  infer Private,
+  infer Data
+>
+  ? { public: Public; private: Private; data: Data }
+  : T extends Input<infer Data>
+  ? Data
+  : never;
+
 type ToPublic<T extends Input> = T extends Attestation<
   string,
   infer Public,
@@ -486,6 +544,17 @@ type ToPublic<T extends Input> = T extends Attestation<
 >
   ? Public
   : T extends Public<infer Data>
+  ? Data
+  : never;
+
+type ToPrivate<T extends Input> = T extends Attestation<
+  string,
+  any,
+  infer Private,
+  infer Data
+>
+  ? { private: Private; data: Data }
+  : T extends Private<infer Data>
   ? Data
   : never;
 

@@ -14,6 +14,7 @@ import {
   privateInputTypes,
   publicInputTypes,
   publicOutputType,
+  recombineDataInputs,
   Spec,
   type PublicInputs,
   type UserInputs,
@@ -44,6 +45,9 @@ function createProgram<S extends Spec>(
       run: {
         privateInputs: [PrivateInput],
         method(publicInput, privateInput) {
+          console.log('running', { publicInput, privateInput });
+          let inputs = recombineDataInputs(spec, publicInput, privateInput);
+          console.log('recombined', inputs);
           throw Error('Not implemented');
         },
       },
@@ -99,6 +103,7 @@ if (isMain) {
   let signedData = createAttestation(InputData, data);
 
   let program = createProgram(spec);
+  await program.compile();
 
   async function notExecuted() {
     await program.compile();

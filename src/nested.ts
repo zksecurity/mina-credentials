@@ -3,7 +3,7 @@
  * wrap types in `Struct` and similar.
  */
 import { Provable, type ProvablePure, Struct } from 'o1js';
-import type { ProvablePureType, ProvableType } from './o1js-missing.ts';
+import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
 
 export { NestedProvable };
 
@@ -16,7 +16,9 @@ export type {
 
 const NestedProvable = {
   get: (<T>(type: NestedProvableFor<T>): Provable<T> => {
-    return Struct(type);
+    return ProvableType.isProvableType(type)
+      ? ProvableType.get(type)
+      : Struct(type);
   }) as {
     <T>(type: NestedProvablePureFor<T>): ProvablePure<T>;
     <T>(type: NestedProvableFor<T>): Provable<T>;
