@@ -42,7 +42,14 @@ function Spec<Data, Inputs extends Record<string, Input>>(
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => OutputNode<Data>
 ): Spec<Data, Inputs> {
-  return { inputs, logic: spec(inputs) };
+  let rootNode = root(inputs);
+  let inputNodes: {
+    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+  } = {} as any;
+  for (let key in inputs) {
+    inputNodes[key] = property(rootNode, key) as any;
+  }
+  return { inputs, logic: spec(inputNodes) };
 }
 
 const Undefined_: ProvablePure<undefined> = Undefined;
@@ -176,7 +183,8 @@ type Input<Data = any> =
   | Private<Data>;
 
 type Node<Data = any> =
-  | Input<Data>
+  | { type: 'dummy'; data: Data } // this is just there so that the type param is used, for inference
+  | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
   | { type: 'equals'; left: Node; right: Node }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> };
@@ -186,7 +194,7 @@ type OutputNode<Data = any> = {
   data?: Node<Data>;
 };
 
-type GetData<T extends Node> = T extends Node<infer Data> ? Data : never;
+type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
 function constant<DataType extends ProvableType>(
   data: DataType,
@@ -205,6 +213,14 @@ function privateParameter<DataType extends ProvableType>(
   data: DataType
 ): Private<InferProvableType<DataType>> {
   return { type: 'private', data };
+}
+
+// Node constructors
+
+function root<Inputs extends Record<string, Input>>(
+  inputs: Inputs
+): Node<{ [K in keyof Inputs]: Node<GetData<Inputs[K]>> }> {
+  return { type: 'root', input: inputs };
 }
 
 function property<K extends string, Data extends { [key in K]: any }>(
