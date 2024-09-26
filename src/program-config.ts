@@ -32,15 +32,17 @@ import {
  * - can be done by defining an enum of supported base types
  */
 
-export type { Node, PublicInputs, UserInputs };
+export type { PublicInputs, UserInputs };
 export {
   Spec,
+  Node,
   Attestation,
   Operation,
   Input,
   publicInputTypes,
   publicOutputType,
   privateInputTypes,
+  verifyAttestations,
   recombineDataInputs,
 };
 
@@ -449,6 +451,21 @@ function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
     result[key] = input.data;
   });
   return result;
+}
+
+function verifyAttestations<S extends Spec>(
+  spec: S,
+  publicInputs: Record<string, any>,
+  privateInputs: Record<string, any>
+) {
+  Object.entries(spec.inputs).forEach(([key, input]) => {
+    if (input.type === 'attestation') {
+      let publicInput = publicInputs[key];
+      let { private: privateInput, data } = privateInputs[key];
+      console.log('verifying', key, input.id);
+      input.verify(publicInput, privateInput, data);
+    }
+  });
 }
 
 function recombineDataInputs<S extends Spec>(

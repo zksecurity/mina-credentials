@@ -10,12 +10,14 @@ import {
 import {
   Attestation,
   Input,
+  Node,
   Operation,
   privateInputTypes,
   publicInputTypes,
   publicOutputType,
   recombineDataInputs,
   Spec,
+  verifyAttestations,
   type PublicInputs,
   type UserInputs,
 } from './program-config.ts';
@@ -45,10 +47,13 @@ function createProgram<S extends Spec>(
       run: {
         privateInputs: [PrivateInput],
         method(publicInput, privateInput) {
-          console.log('running', { publicInput, privateInput });
-          let inputs = recombineDataInputs(spec, publicInput, privateInput);
-          console.log('recombined', inputs);
-          throw Error('Not implemented');
+          verifyAttestations(spec, publicInput, privateInput);
+
+          let root = recombineDataInputs(spec, publicInput, privateInput);
+          let assertion = Node.eval(root, spec.logic.assert);
+          let output = Node.eval(root, spec.logic.data);
+          assertion.assertTrue();
+          return output;
         },
       },
     },
