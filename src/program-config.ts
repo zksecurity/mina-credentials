@@ -3,6 +3,7 @@ import {
   Bool,
   Bytes,
   Field,
+  PrivateKey,
   Provable,
   PublicKey,
   Signature,
@@ -380,30 +381,36 @@ if (isMain) {
   );
   console.log(spec.logic);
 
-  // evaluate the logic at input
-  let root = recombineDataInputs(
-    spec,
-    { targetAge: Field(42) },
-    {
-      signedData: { data: { name: Bytes32.fromString('Bob'), age: Field(42) } },
-    }
-  );
-  let assert = Node.eval(root, spec.logic.assert);
-  let data = Node.eval(root, spec.logic.data);
-  Provable.log({ root, assert, data });
+  // create user inputs
+  let data = { age: Field(18), name: Bytes32.fromString('Alice') };
+  let signedData = createAttestation(InputData, data);
 
-  let inputTypes = publicInputTypes(spec);
-  let privateTypes = privateInputTypes(spec);
-  let outputType = publicOutputType(spec);
-  console.log('public input types', inputTypes);
-  console.log('private input types', privateTypes);
-  console.log('public output type', outputType);
+  let userInputs: UserInputs<typeof spec.inputs> = {
+    signedData,
+    targetAge: Field(18),
+  };
+
+  // evaluate the logic at input
+  let { privateInput, publicInput } = splitUserInputs(spec, userInputs);
+  let root = recombineDataInputs(spec, publicInput, privateInput);
+  let assert = Node.eval(root, spec.logic.assert);
+  let output = Node.eval(root, spec.logic.data);
+  Provable.log({ publicInput, privateInput, root, assert, output });
 
   // public inputs, extracted at the type level
   type specPublicInputs = PublicInputs<typeof spec.inputs>;
 
-  // user inputs to the program
-  type specUserInputs = UserInputs<typeof spec.inputs>;
+  // private inputs, extracted at the type level
+  type specPrivateInputs = PrivateInputs<typeof spec.inputs>;
+
+  function createAttestation<Data>(type: NestedProvableFor<Data>, data: Data) {
+    let issuer = PrivateKey.randomKeypair();
+    let signature = Signature.create(
+      issuer.privateKey,
+      NestedProvable.get(type).toFields(data)
+    );
+    return { public: issuer.publicKey, private: signature, data };
+  }
 }
 
 function publicInputTypes<S extends Spec>({
@@ -454,6 +461,13 @@ function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
   return result;
 }
 
+function splitUserInputs<S extends Spec>(
+  spec: S,
+  userInputs: Record<string, any>
+): {
+  publicInput: PublicInputs<S['inputs']>;
+  privateInput: PrivateInputs<S['inputs']>;
+};
 function splitUserInputs<S extends Spec>(
   spec: S,
   userInputs: Record<string, any>
@@ -526,11 +540,6 @@ function recombineDataInputs<S extends Spec>(
   return result;
 }
 
-type AllInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
-  MapToAllInputs<Inputs>,
-  never
->;
-
 type PublicInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   MapToPublic<Inputs>,
   never
@@ -551,10 +560,6 @@ type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   never
 >;
 
-type MapToAllInputs<T extends Record<string, Input>> = {
-  [K in keyof T]: ToAll<T[K]>;
-};
-
 type MapToPublic<T extends Record<string, Input>> = {
   [K in keyof T]: ToPublic<T[K]>;
 };
@@ -570,17 +575,6 @@ type MapToUserInput<T extends Record<string, Input>> = {
 type MapToDataInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToDataInput<T[K]>;
 };
-
-type ToAll<T extends Input> = T extends Attestation<
-  string,
-  infer Public,
-  infer Private,
-  infer Data
->
-  ? { public: Public; private: Private; data: Data }
-  : T extends Input<infer Data>
-  ? Data
-  : never;
 
 type ToPublic<T extends Input> = T extends Attestation<
   string,
