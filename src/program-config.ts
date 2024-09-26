@@ -42,6 +42,27 @@ function Spec<Data, Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+  }) => {
+    assert?: Node<Bool>;
+    data: Node<Data>;
+  }
+): Spec<Data, Inputs>;
+
+// variant without data output
+function Spec<Inputs extends Record<string, Input>>(
+  inputs: Inputs,
+  spec: (inputs: {
+    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+  }) => {
+    assert?: Node<Bool>;
+  }
+): Spec<undefined, Inputs>;
+
+// implementation
+function Spec<Data, Inputs extends Record<string, Input>>(
+  inputs: Inputs,
+  spec: (inputs: {
+    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => OutputNode<Data>
 ): Spec<Data, Inputs> {
   let rootNode = root(inputs);
