@@ -42,6 +42,7 @@ export {
   publicInputTypes,
   publicOutputType,
   privateInputTypes,
+  splitUserInputs,
   verifyAttestations,
   recombineDataInputs,
 };
@@ -451,6 +452,34 @@ function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
     result[key] = input.data;
   });
   return result;
+}
+
+function splitUserInputs<S extends Spec>(
+  spec: S,
+  userInputs: Record<string, any>
+): { publicInput: Record<string, any>; privateInput: Record<string, any> } {
+  let publicInput: Record<string, any> = {};
+  let privateInput: Record<string, any> = {};
+
+  Object.entries(spec.inputs).forEach(([key, input]) => {
+    if (input.type === 'attestation') {
+      publicInput[key] = userInputs[key].public;
+      privateInput[key] = {
+        private: userInputs[key].private,
+        data: userInputs[key].data,
+      };
+    }
+    if (input.type === 'public') {
+      publicInput[key] = userInputs[key];
+    }
+    if (input.type === 'private') {
+      privateInput[key] = userInputs[key];
+    }
+    if (input.type === 'constant') {
+      // do nothing
+    }
+  });
+  return { publicInput, privateInput };
 }
 
 function verifyAttestations<S extends Spec>(

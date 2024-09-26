@@ -6,6 +6,7 @@ import {
   Signature,
   VerificationKey,
   ZkProgram,
+  Provable,
 } from 'o1js';
 import {
   Attestation,
@@ -17,6 +18,7 @@ import {
   publicOutputType,
   recombineDataInputs,
   Spec,
+  splitUserInputs,
   verifyAttestations,
   type PublicInputs,
   type UserInputs,
@@ -52,7 +54,7 @@ function createProgram<S extends Spec>(
           let root = recombineDataInputs(spec, publicInput, privateInput);
           let assertion = Node.eval(root, spec.logic.assert);
           let output = Node.eval(root, spec.logic.data);
-          assertion.assertTrue();
+          assertion.assertTrue('Program assertion failed!');
           return output;
         },
       },
@@ -64,8 +66,10 @@ function createProgram<S extends Spec>(
       const result = await program.compile();
       return result.verificationKey;
     },
-    run(input) {
-      throw Error('Not implemented');
+    async run(input) {
+      let { publicInput, privateInput } = splitUserInputs(spec, input);
+      let result = await program.run(publicInput, privateInput);
+      return result as any;
     },
   };
 }
@@ -104,23 +108,24 @@ if (isMain) {
     return { public: issuer.publicKey, private: signature, data };
   }
 
-  let data = { age: Field(42), name: Bytes32.fromString('Alice') };
+  let data = { age: Field(18), name: Bytes32.fromString('Alice') };
   let signedData = createAttestation(InputData, data);
 
   let program = createProgram(spec);
   await program.compile();
 
-  async function notExecuted() {
-    await program.compile();
+  // input types are inferred from spec
+  // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
+  let proof = await program.run({ signedData, targetAge: Field(18) });
 
-    // input types are inferred from spec
-    // TODO leverage `From<>` type to pass in inputs directly as numbers / strings etc
-    let proof = await program.run({ signedData, targetAge: Field(18) });
+  Provable.log({
+    publicInput: proof.publicInput,
+    publicOutput: proof.publicOutput,
+  });
 
-    // proof types are inferred from spec
-    proof.publicInput satisfies { signedData: PublicKey; targetAge: Field };
-    proof.publicOutput satisfies Field;
-  }
+  // proof types are inferred from spec
+  proof.publicInput satisfies { signedData: PublicKey; targetAge: Field };
+  proof.publicOutput satisfies Field;
 }
 
 // helper
