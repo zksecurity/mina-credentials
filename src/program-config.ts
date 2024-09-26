@@ -3,6 +3,7 @@ import {
   Bool,
   Bytes,
   Field,
+  Provable,
   PublicKey,
   Signature,
   Struct,
@@ -16,6 +17,7 @@ import {
   type ProvablePureType,
   ProvableType,
 } from './o1js-missing.ts';
+import { assertHasProperty } from './util.ts';
 
 /**
  * TODO: program spec must be serializable
@@ -30,7 +32,7 @@ type Spec<
   Inputs extends Record<string, Input> = Record<string, Input>
 > = {
   inputs: Inputs;
-  logic: OutputNode<Data>;
+  logic: Required<OutputNode<Data>>;
 };
 
 /**
@@ -49,7 +51,11 @@ function Spec<Data, Inputs extends Record<string, Input>>(
   for (let key in inputs) {
     inputNodes[key] = property(rootNode, key) as any;
   }
-  return { inputs, logic: spec(inputNodes) };
+  let logic = spec(inputNodes);
+  let assert = logic.assert ?? Node.constant(Bool(true));
+  let data: Node<Data> = logic.data ?? (Node.constant(undefined) as any);
+
+  return { inputs, logic: { assert, data } };
 }
 
 const Undefined_: ProvablePure<undefined> = Undefined;
@@ -183,7 +189,7 @@ type Input<Data = any> =
   | Private<Data>;
 
 type Node<Data = any> =
-  | { type: 'dummy'; data: Data } // this is just there so that the type param is used, for inference
+  | { type: 'constant'; data: Data }
   | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
   | { type: 'equals'; left: Node; right: Node }
@@ -193,6 +199,38 @@ type OutputNode<Data = any> = {
   assert?: Node<Bool>;
   data?: Node<Data>;
 };
+
+const Node = {
+  eval: evalNode,
+  constant<Data>(data: Data): Node<Data> {
+    return { type: 'constant', data };
+  },
+};
+
+function evalNode<Data>(ctx: { root: any }, node: Node<Data>): Data {
+  switch (node.type) {
+    case 'constant':
+      return node.data;
+    case 'root':
+      return ctx.root as any;
+    case 'property': {
+      let inner = evalNode<unknown>(ctx, node.inner);
+      assertHasProperty(inner, node.key);
+      return inner[node.key] as Data;
+    }
+    case 'equals': {
+      let left = evalNode(ctx, node.left);
+      let right = evalNode(ctx, node.right);
+      let bool = Provable.equal(ProvableType.fromValue(left), left, right);
+      return bool as Data;
+    }
+    case 'and': {
+      let left = evalNode(ctx, node.left);
+      let right = evalNode(ctx, node.right);
+      return left.and(right) as Data;
+    }
+  }
+}
 
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
@@ -260,7 +298,18 @@ if (isMain) {
       data: Operation.property(signedData, 'age'),
     })
   );
-  console.log(spec);
+  console.log(spec.logic);
+
+  // evaluate the logic at input
+  let root: DataInputs<typeof spec.inputs> = {
+    signedData: { name: Bytes32.fromString('Bob'), age: Field(42) },
+    targetAge: Field(42),
+    targetName: Bytes32.fromString('Alice'),
+  };
+  let ctx = { root };
+  let assert = Node.eval(ctx, spec.logic.assert);
+  let data = Node.eval(ctx, spec.logic.data);
+  Provable.log({ assert, data });
 
   // public inputs, extracted at the type level
   type specPublicInputs = PublicInputs<typeof spec.inputs>;
@@ -279,12 +328,21 @@ type UserInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
   never
 >;
 
+type DataInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
+  MapToDataInput<InputTuple>,
+  never
+>;
+
 type MapToPublic<T extends Record<string, Input>> = {
   [K in keyof T]: ToPublic<T[K]>;
 };
 
 type MapToUserInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToUserInput<T[K]>;
+};
+
+type MapToDataInput<T extends Record<string, Input>> = {
+  [K in keyof T]: ToDataInput<T[K]>;
 };
 
 type ToPublic<T extends Input> = T extends Attestation<
@@ -310,3 +368,5 @@ type ToUserInput<T extends Input> = T extends Attestation<
   : T extends Private<infer Data>
   ? Data
   : never;
+
+type ToDataInput<T extends Input> = T extends Input<infer Data> ? Data : never;
