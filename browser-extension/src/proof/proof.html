@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Generate Proof</title>
+    <script type="module" src="proof.js"></script>
+  </head>
+  <body>
+    <div>
+      <label for="minAge">Minimum Age:</label>
+      <input type="number" id="minAge" min="0" />
+    </div>
+    <button id="generateProofBtn">Generate Proof</button>
+    <div id="proofResult"></div>
+
+    <iframe
+      id="sandboxFrame"
+      sandbox="allow-scripts"
+      src="sandbox.html"
+      style="display: none"
+      allow="cross-origin-isolated"
+    ></iframe>
+  </body>
+</html>
