@@ -5,7 +5,6 @@ import {
   PrivateKey,
   Signature,
   VerificationKey,
-  Struct,
   ZkProgram,
 } from 'o1js';
 import {
@@ -19,7 +18,7 @@ import {
   type PublicInputs,
   type UserInputs,
 } from './program-config.ts';
-import { ProvableType } from './o1js-missing.ts';
+import { NestedProvable, type NestedProvableFor } from './nested.ts';
 
 export { createProgram };
 
@@ -33,12 +32,12 @@ function createProgram<S extends Spec>(
   spec: S
 ): Program<GetSpecData<S>, S['inputs']> {
   // 1. split spec inputs into public and private inputs
-  let PublicInput = Struct(publicInputTypes(spec));
+  let PublicInput = NestedProvable.get(publicInputTypes(spec));
   let PublicOutput = publicOutputType(spec);
-  let PrivateInput = Struct(privateInputTypes(spec));
+  let PrivateInput = NestedProvable.get(privateInputTypes(spec));
 
   let program = ZkProgram({
-    name: 'todo',
+    name: `todo`, // we should create a name deterministically derived from the spec, e.g. `credential-${hash(spec)}`
     publicInput: PublicInput,
     publicOutput: PublicOutput,
     methods: {
@@ -66,10 +65,10 @@ function createProgram<S extends Spec>(
 
 const isMain = import.meta.filename === process.argv[1];
 if (isMain) {
-  let { Bytes, Struct } = await import('o1js');
+  let { Bytes } = await import('o1js');
 
   const Bytes32 = Bytes(32);
-  class InputData extends Struct({ age: Field, name: Bytes32 }) {}
+  const InputData = { age: Field, name: Bytes32 };
 
   // TODO always include owner pk and verify signature on it
   const spec = Spec(
@@ -87,11 +86,11 @@ if (isMain) {
     })
   );
 
-  function createAttestation<Data>(type: ProvableType<Data>, data: Data) {
+  function createAttestation<Data>(type: NestedProvableFor<Data>, data: Data) {
     let issuer = PrivateKey.randomKeypair();
     let signature = Signature.create(
       issuer.privateKey,
-      ProvableType.get(type).toFields(data)
+      NestedProvable.get(type).toFields(data)
     );
     return { public: issuer.publicKey, private: signature, data };
   }

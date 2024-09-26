@@ -19,6 +19,13 @@ import {
   ProvableType,
 } from './o1js-missing.ts';
 import { assertHasProperty } from './util.ts';
+import {
+  type InferNestedProvable,
+  NestedProvable,
+  type NestedProvableFor,
+  type NestedProvablePure,
+  type NestedProvablePureFor,
+} from './nested.ts';
 
 /**
  * TODO: program spec must be serializable
@@ -104,7 +111,7 @@ type Attestation<Id extends string, Public, Private, Data> = {
   id: Id;
   public: ProvablePureType<Public>;
   private: ProvableType<Private>;
-  data: ProvablePureType<Data>;
+  data: NestedProvablePureFor<Data>;
 
   verify(publicInput: Public, privateInput: Private, data: Data): void;
 };
@@ -118,27 +125,27 @@ function defineAttestation<
   public: PublicType;
   private: PrivateType;
 
-  verify<DataType extends ProvablePureType>(
+  verify<DataType extends NestedProvablePure>(
     publicInput: InferProvableType<PublicType>,
     privateInput: InferProvableType<PrivateType>,
     dataType: DataType,
-    data: InferProvableType<DataType>
+    data: InferNestedProvable<DataType>
   ): void;
-}): <DataType extends ProvablePureType>(
-  data: DataType
-) => Attestation<
-  Id,
-  InferProvableType<PublicType>,
-  InferProvableType<PrivateType>,
-  InferProvableType<DataType>
-> {
-  return function attestation(dataType) {
+}) {
+  return function attestation<DataType extends NestedProvablePure>(
+    dataType: DataType
+  ): Attestation<
+    Id,
+    InferProvableType<PublicType>,
+    InferProvableType<PrivateType>,
+    InferNestedProvable<DataType>
+  > {
     return {
       type: 'attestation',
       id: config.id,
       public: config.public,
       private: config.private,
-      data: dataType,
+      data: dataType as any,
       verify(publicInput, privateInput, data) {
         return config.verify(publicInput, privateInput, dataType, data);
       },
@@ -164,7 +171,10 @@ const ASignature = defineAttestation({
 
   // verify the signature
   verify(issuerPk, signature, type, data) {
-    let ok = signature.verify(issuerPk, ProvableType.get(type).toFields(data));
+    let ok = signature.verify(
+      issuerPk,
+      NestedProvable.get(type).toFields(data)
+    );
     assert(ok, 'Invalid signature');
   },
 });
@@ -212,8 +222,8 @@ type Constant<Data> = {
   data: ProvableType<Data>;
   value: Data;
 };
-type Public<Data> = { type: 'public'; data: ProvablePureType<Data> };
-type Private<Data> = { type: 'private'; data: ProvableType<Data> };
+type Public<Data> = { type: 'public'; data: NestedProvablePureFor<Data> };
+type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
   | Attestation<string, any, any, Data>
@@ -267,8 +277,6 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
   }
 }
 
-type NestedProvable = Provable<any> | { [key: string]: NestedProvable };
-
 function evalNodeType<Data>(
   rootType: NestedProvable,
   node: Node<Data>
@@ -310,16 +318,16 @@ function constant<DataType extends ProvableType>(
   return { type: 'constant', data, value };
 }
 
-function publicParameter<DataType extends ProvablePureType>(
+function publicParameter<DataType extends NestedProvablePure>(
   data: DataType
-): Public<InferProvableType<DataType>> {
-  return { type: 'public', data };
+): Public<InferNestedProvable<DataType>> {
+  return { type: 'public', data: data as any };
 }
 
-function privateParameter<DataType extends ProvableType>(
+function privateParameter<DataType extends NestedProvable>(
   data: DataType
-): Private<InferProvableType<DataType>> {
-  return { type: 'private', data };
+): Private<InferNestedProvable<DataType>> {
+  return { type: 'private', data: data as any };
 }
 
 // Node constructors
@@ -351,13 +359,7 @@ function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
 const isMain = import.meta.filename === process.argv[1];
 if (isMain) {
   const Bytes32 = Bytes(32);
-  const InputData = Struct({ age: Field, name: Bytes32 });
-
-  let bytes = Bytes32.fromString('Alice');
-  console.log(
-    'bytes aux',
-    Bytes32.provable.toAuxiliary(bytes).flat().flat().flat()
-  );
+  const InputData = { age: Field, name: Bytes32 };
 
   const spec = Spec(
     {
@@ -401,8 +403,8 @@ if (isMain) {
 
 function publicInputTypes<S extends Spec>({
   inputs,
-}: S): Record<string, ProvablePureType> {
-  let result: Record<string, ProvablePureType> = {};
+}: S): Record<string, NestedProvablePure> {
+  let result: Record<string, NestedProvablePure> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'attestation') {
@@ -427,8 +429,8 @@ function publicOutputType<S extends Spec>(spec: S): ProvablePure<any> {
 
 function privateInputTypes<S extends Spec>({
   inputs,
-}: S): Record<string, ProvableType> {
-  let result: Record<string, ProvableType> = {};
+}: S): Record<string, NestedProvable> {
+  let result: Record<string, NestedProvable> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'attestation') {
