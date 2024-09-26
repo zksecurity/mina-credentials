@@ -15,7 +15,6 @@ import {
   type PublicInputs,
   type UserInputs,
 } from './program-config.ts';
-import type { Tuple } from './types.ts';
 
 export { createProgram };
 
@@ -40,6 +39,7 @@ if (isMain) {
   const Bytes32 = Bytes(32);
   class InputData extends Struct({ age: Field, name: Bytes32 }) {}
 
+  // TODO always include owner pk and verify signature on it
   const spec = Spec(
     {
       signedData: Attestation.signature(InputData),

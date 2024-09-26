@@ -126,6 +126,8 @@ const ASignature = defineAttestation({
 // TODO recursive proof
 const AProof = defineAttestation({
   type: 'attestation-proof',
+  // TODO include hash of public inputs of the inner proof
+  // TODO maybe names could be issuer, credential
   public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
   private: Struct({
     vk: VerificationKey, // the verification key

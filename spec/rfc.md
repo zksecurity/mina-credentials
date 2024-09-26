@@ -86,6 +86,7 @@ The flow begins by defining a ZK program using `credentialProgram.create` this d
 A `claim` is then constructed, a `claim` is private data which the user wants to attest to. This `claim` can be turned into a `Credential` which could even be used later to attest to the data in the `claim`.
 
 The `Credential` can then be used to generate a proof based on public params such as minAge in this specific example and the `credentialProgram` generated earlier.
+
 ```javascript
 import { Credential } from '@custom-sdk/credentials';
 import credentialProgram from '@custom-sdk/credentialProgram';
@@ -94,18 +95,19 @@ import { PrivateKey, PublicKey } from '@custom-sdk';
 
 // Define the VerifyComplexAge program using modular operations from the library
 const VerifyComplexAgeProgramConfig = {
-    name: 'VerifyComplexAge',
-    input: { minAge: 'number', maxAge: 'number' },
-    output: { valid: 'boolean' },
-    logic: Operations.and([
-        Operations.greaterThanOrEqual('credential.age', 'input.minAge'),
-        Operations.lessThanOrEqual('credential.age', 'input.maxAge')
-    ]),
-    attestationType: 'signature'
+  name: 'VerifyComplexAge',
+  input: { minAge: 'number', maxAge: 'number' },
+  output: { valid: 'boolean' },
+  logic: Operations.and([
+    Operations.greaterThanOrEqual('credential.age', 'input.minAge'),
+    Operations.lessThanOrEqual('credential.age', 'input.maxAge'),
+  ]),
 };
 
 // Create the VerifyComplexAge program instance
-const VerifyComplexAge = credentialProgram.create(VerifyComplexAgeProgramConfig);
+const VerifyComplexAge = credentialProgram.create(
+  VerifyComplexAgeProgramConfig
+);
 
 // Generate issuer private and public keys
 const issuerPrvKey = PrivateKey.random();
@@ -116,14 +118,22 @@ const subjectPrvKey = PrivateKey.random();
 const subjectPubKey = subjectPrvKey.toPublicKey().toBase58(); // Convert to string format for use in the challenge
 
 // Construct a claim about the subject, including a signature by the issuer
-const claimsObject = { age: 21, subject: subjectPubKey, signature: issuerPrvKey.sign('age:21') };
+const claimsObject = {
+  age: 21,
+  subject: subjectPubKey,
+  signature: issuerPrvKey.sign('age:21'),
+};
 const claims = JSON.stringify(claimsObject);
 
 // Construct a credential using the claim
 const credential = Credential.create(claims);
 
 // Prove the credential satisfies the challenge using the VerifyComplexAge program
-const proofResponse = await credential.prove('age', { minAge: 18, maxAge: 65, issuerPublicKey: issuerPubKey }, VerifyComplexAge);
+const proofResponse = await credential.prove(
+  'age',
+  { minAge: 18, maxAge: 65, issuerPublicKey: issuerPubKey },
+  VerifyComplexAge
+);
 
 console.log(proofResponse);
 ```
@@ -136,16 +146,16 @@ The API should be initialized within the wallet provider context. It could use a
 
 ```javascript
 interface MinaWallet {
-    attestation: AttestationAPI;
+  attestation: AttestationAPI;
 }
 
 interface AttestationAPI {
-    initialize(config: AttestationConfig): Promise<void>;
+  initialize(config: AttestationConfig): Promise<void>;
 }
 
 interface AttestationConfig {
-    apiKey: string;
-    endpoint: string;
+  apiKey: string;
+  endpoint: string;
 }
 ```
 
@@ -155,20 +165,20 @@ This API allows users to create credentials about various data types locally.
 
 ```javascript
 interface AttestationAPI {
-    create(params: LocalCredentialParams): Promise<CredentialResponse>;
+  create(params: LocalCredentialParams): Promise<CredentialResponse>;
 }
 
 interface LocalCredentialParams {
-    claims: { [key: string]: any }; // Claims about the subject
+  claims: { [key: string]: any }; // Claims about the subject
 }
 
 interface CredentialResponse {
-    credentialId: string;
-    credential: string; // Encoded credential
-    nullifier?: string; // Unique identifier for the credential
-    nullifierKey?: string; // Key associated with the nullifier
-    nullifierProof?: string; // Proof that the nullifierKey was derived as expected
-    expiration?: number; // Expiration time if set
+  credentialId: string;
+  credential: string; // Encoded credential
+  nullifier?: string; // Unique identifier for the credential
+  nullifierKey?: string; // Key associated with the nullifier
+  nullifierProof?: string; // Proof that the nullifierKey was derived as expected
+  expiration?: number; // Expiration time if set
 }
 ```
 
@@ -178,41 +188,41 @@ This API is used to define a Zero-Knowledge (ZK) program that specifies the logi
 
 ```javascript
 interface CredentialProgramInput {
-    [key: string]: 'number' | 'string' | 'boolean';
+  [key: string]: 'number' | 'string' | 'boolean';
 }
 
 interface CredentialProgramOutput {
-    [key: string]: 'boolean';
+  [key: string]: 'boolean';
 }
 
 interface CredentialProgramConfig {
-    name: string;
-    input: CredentialProgramInput;
-    output: CredentialProgramOutput;
-    logic: OperationNode; // Updated to use a static object
+  name: string;
+  input: CredentialProgramInput;
+  output: CredentialProgramOutput;
+  logic: OperationNode; // Updated to use a static object
 }
 
 interface OperationNode {
-    operation: string;
-    inputs?: (OperationNode | any)[]; // The inputs can be either another operation node or a static value
-    [key: string]: any; // Allow for additional properties specific to the operation
+  operation: string;
+  inputs?: (OperationNode | any)[]; // The inputs can be either another operation node or a static value
+  [key: string]: any; // Allow for additional properties specific to the operation
 }
 
 interface CredentialProgram {
-    create(config: CredentialProgramConfig): CredentialVerificationInstance;
+  create(config: CredentialProgramConfig): CredentialVerificationInstance;
 }
 
 interface CredentialVerificationInstance {
-    name: string;
-    input: CredentialProgramInput;
-    output: CredentialProgramOutput;
-    logic: OperationNode;
+  name: string;
+  input: CredentialProgramInput;
+  output: CredentialProgramOutput;
+  logic: OperationNode;
 }
 ```
 
 When generating a new ZK Program,
 
- the `create` must know how to parse the `CredentialVerificationInstance` logic and generate input compatible with our custom DSL (see below custom DSL definition).
+the `create` must know how to parse the `CredentialVerificationInstance` logic and generate input compatible with our custom DSL (see below custom DSL definition).
 
 ### `credentialProgram.Operations` API
 
@@ -221,7 +231,7 @@ Every credential program receives an `OperationNode`, an operation node is an ob
 ```json
 {
     "operation": "and",
-    "inputs": [ 
+    "inputs": [
                 {
                     "operation": "greaterThan",
                     "firstInput": 18,
@@ -229,7 +239,7 @@ Every credential program receives an `OperationNode`, an operation node is an ob
                 },
                 {
                     "operation": "lessThan",
-                    "firstInput": 51, 
+                    "firstInput": 51,
                     "secondInput": "credential.maxAge",
                 },
                 ...
@@ -242,44 +252,44 @@ However, writing such a verbose expression is complex, hard to debug, and prone 
 ```javascript
 // Define boolean operations
 const Operations = {
-    greaterThanOrEqual: (firstInput, secondInput) => ({
-        operation: 'greaterThanOrEqual',
-        firstInput,
-        secondInput
-    }),
-    lessThanOrEqual: (firstInput, secondInput) => ({
-        operation: 'lessThanOrEqual',
-        firstInput,
-        secondInput
-    }),
-    and: (inputs) => ({
-        operation: 'and',
-        inputs
-    }),
-    or: (inputs) => ({
-        operation: 'or',
-        inputs
-    }),
-    equals: (firstInput, secondInput) => ({
-        operation: 'equals',
-        firstInput,
-        secondInput
-    }),
-    hash: (input) => ({
-        operation: 'hash',
-        input
-    }),
-    verifySignature: (message, signature, publicKey) => ({
-        operation: 'verifySignature',
-        message,
-        signature,
-        publicKey
-    }),
-    verifyProof: (inputs) => ({
-        operation: 'verifyProof',
-        inputs
-    })
-    // Add more operations as needed
+  greaterThanOrEqual: (firstInput, secondInput) => ({
+    operation: 'greaterThanOrEqual',
+    firstInput,
+    secondInput,
+  }),
+  lessThanOrEqual: (firstInput, secondInput) => ({
+    operation: 'lessThanOrEqual',
+    firstInput,
+    secondInput,
+  }),
+  and: (inputs) => ({
+    operation: 'and',
+    inputs,
+  }),
+  or: (inputs) => ({
+    operation: 'or',
+    inputs,
+  }),
+  equals: (firstInput, secondInput) => ({
+    operation: 'equals',
+    firstInput,
+    secondInput,
+  }),
+  hash: (input) => ({
+    operation: 'hash',
+    input,
+  }),
+  verifySignature: (message, signature, publicKey) => ({
+    operation: 'verifySignature',
+    message,
+    signature,
+    publicKey,
+  }),
+  verifyProof: (inputs) => ({
+    operation: 'verifyProof',
+    inputs,
+  }),
+  // Add more operations as needed
 };
 
 export default Operations;
@@ -289,10 +299,14 @@ Users can now use these methods to compose complex logic.
 
 ```javascript
 const operationsJSON = Operations.and([
-        Operations.greaterThanOrEqual('credential.age', 18),
-        Operations.lessThanOrEqual('credential.age', 65),
-        Operations.verifySignature('credential.message', 'credential.signature', 'credential.publicKey')
-])
+  Operations.greaterThanOrEqual('credential.age', 18),
+  Operations.lessThanOrEqual('credential.age', 65),
+  Operations.verifySignature(
+    'credential.message',
+    'credential.signature',
+    'credential.publicKey'
+  ),
+]);
 ```
 
 ### `Credential.create` API
@@ -301,13 +315,13 @@ This API is used to create a credential from a set of claims.
 
 ```javascript
 interface CredentialAPI {
-    create(claims: string): Credential;
+  create(claims: string): Credential;
 }
 
 interface Credential {
-    claims: { [key: string]: any };
-    issuerPublicKey: string;
-    signature: string;
+  claims: { [key: string]: any };
+  issuerPublicKey: string;
+  signature: string;
 }
 ```
 
@@ -317,21 +331,25 @@ This API is used to generate a cryptographic proof based on a credential, a set 
 
 ```javascript
 interface ProofAPI {
-    prove(claimKey: string, publicParams: object, credentialVerificationInstance: CredentialVerificationInstance): Promise<ProofResponse>;
+  prove(
+    claimKey: string,
+    publicParams: object,
+    credentialVerificationInstance: CredentialVerificationInstance
+  ): Promise<ProofResponse>;
 }
 
 interface ProofResponse {
-    proof: object;
-    proofId: string;
-    valid: boolean;
-    publicParams: object;
+  proof: object;
+  proofId: string;
+  valid: boolean;
+  publicParams: object;
 }
 
 interface CredentialVerificationInstance {
-    name: string;
-    input: { [key: string]: 'number' | 'string' | 'boolean' };
-    output: { [key: string]: 'number' | 'string' | 'boolean' };
-    logic: (input: { [key: string]: any }) => { [key: string]: any };
+  name: string;
+  input: { [key: string]: 'number' | 'string' | 'boolean' };
+  output: { [key: string]: 'number' | 'string' | 'boolean' };
+  logic: (input: { [key: string]: any }) => { [key: string]: any };
 }
 ```
 
@@ -341,16 +359,16 @@ This API allows users to compose multiple proofs into a composite proof.
 
 ```javascript
 interface AttestationAPI {
-    composeAttestation(params: ComposeParams): Promise<ComposeResponse>;
+  composeAttestation(params: ComposeParams): Promise<ComposeResponse>;
 }
 
 interface ComposeParams {
-    attestationIds: string[]; // List of attestation IDs to be composed
+  attestationIds: string[]; // List of attestation IDs to be composed
 }
 
 interface ComposeResponse {
-    compositeAttestationId: string;
-    compositeProof: string; // Composite cryptographic proof
+  compositeAttestationId: string;
+  compositeProof: string; // Composite cryptographic proof
 }
 ```
 
@@ -367,6 +385,7 @@ A nullifier is a cryptographic element used to mark a proof as consumed. Once a 
 The nullifier implementation involves generating a unique identifier for each proof, which will be stored and checked during verification. Here’s a detailed approach to implementing nullifiers within the Wallet Provider Private Attestation API:
 
 1. **Nullifier Generation**:
+
    - During proof generation, a nullifier will be created using a deterministic function based on the credential’s unique identifier and claims. This ensures that the nullifier is unique to each proof.
    - The nullifier should be coupled with a `nullifierKey`, which is generated by hashing the nullifier with a zkApp-specific hash and an auto-generated salt. This ensures that the nullifierKey is specific to the application.
    - The salt will be auto-generated for each proof to ensure uniqueness and enhance security.
@@ -375,70 +394,84 @@ The nullifier implementation involves generating a unique identifier for each pr
    - The wallet should warn users if a nullifier key is being requested with the same zkApp-specific hash, as this could link different user activities.
 
 2. **Nullifier Storage**:
+
    - Once a proof is used, its nullifier is recorded in a secure storage system. This storage can be on-chain or off-chain, depending on the application requirements and security considerations.
    - The storage system must ensure that nullifiers are immutable and tamper-proof.
 
 3. **Verification Process**:
+
    - During the verification of a proof, the nullifier, the nullifierKey, and the salt are checked against the recorded nullifiers to ensure they have not been used before.
    - If the nullifier is found in the storage, the proof is rejected to prevent reuse.
    - This verification step ensures that each proof remains unique and prevents replay attacks.
 
    ```javascript
    interface VerifyParams {
-       proofId: string;
-       verificationKey: string; // Verification key
-       nullifier: string; // Nullifier to be checked
-       nullifierKey: string; // Key associated with the nullifier
-       salt: string; // Salt used during proof generation
-       credentialId: string; // Unique identifier for the credential
-       claims: any; // Claims used to generate the nullifier
+     proofId: string;
+     verificationKey: string; // Verification key
+     nullifier: string; // Nullifier to be checked
+     nullifierKey: string; // Key associated with the nullifier
+     salt: string; // Salt used during proof generation
+     credentialId: string; // Unique identifier for the credential
+     claims: any; // Claims used to generate the nullifier
    }
 
    interface VerifyResponse {
-       valid: boolean;
-       message: string;
+     valid: boolean;
+     message: string;
    }
 
    async function verifyProof(params: VerifyParams): Promise<VerifyResponse> {
-       // Reconstruct the nullifier using the credentialId and claims
-       const expectedNullifier = generateNullifier(params.credentialId, params.claims);
-       if (expectedNullifier !== params.nullifier) {
-           return { valid: false, message: "Invalid nullifier." };
-       }
+     // Reconstruct the nullifier using the credentialId and claims
+     const expectedNullifier = generateNullifier(
+       params.credentialId,
+       params.claims
+     );
+     if (expectedNullifier !== params.nullifier) {
+       return { valid: false, message: 'Invalid nullifier.' };
+     }
 
-       // Verify that the nullifier and nullifierKey were derived using the salt
-       const expectedNullifierKey = generateNullifierKey(expectedNullifier, params.salt);
-       if (expectedNullifierKey !== params.nullifierKey) {
-           return { valid: false, message: "Invalid nullifier key." };
-       }
+     // Verify that the nullifier and nullifierKey were derived using the salt
+     const expectedNullifierKey = generateNullifierKey(
+       expectedNullifier,
+       params.salt
+     );
+     if (expectedNullifierKey !== params.nullifierKey) {
+       return { valid: false, message: 'Invalid nullifier key.' };
+     }
 
-       const nullifierExists = await checkNullifier(params.nullifier, params.nullifierKey);
-       if (nullifierExists) {
-           return { valid: false, message: "Proof has already been used." };
-       }
+     const nullifierExists = await checkNullifier(
+       params.nullifier,
+       params.nullifierKey
+     );
+     if (nullifierExists) {
+       return { valid: false, message: 'Proof has already been used.' };
+     }
 
-       // Additional verification logic here
-       return { valid: true, message: "Proof is valid." };
+     // Additional verification logic here
+     return { valid: true, message: 'Proof is valid.' };
    }
 
-   async function checkNullifier(nullifier: string, nullifierKey: string): Promise<boolean> {
-       // Check the storage for the nullifier and nullifierKey
-       // Return true if nullifier exists, false otherwise
+   async function checkNullifier(
+     nullifier: string,
+     nullifierKey: string
+   ): Promise<boolean> {
+     // Check the storage for the nullifier and nullifierKey
+     // Return true if nullifier exists, false otherwise
    }
 
    function generateNullifierKey(nullifier: string, salt: string): string {
-       // Generate the nullifierKey using the nullifier and salt
-       // This is a placeholder implementation and should use a secure hash function
-       return someHashFunction(nullifier + salt);
+     // Generate the nullifierKey using the nullifier and salt
+     // This is a placeholder implementation and should use a secure hash function
+     return someHashFunction(nullifier + salt);
    }
 
    function generateNullifier(credentialId: string, claims: any): string {
-       // Generate the nullifier using a secure hash function
-       return someHashFunction(credentialId + JSON.stringify(claims));
+     // Generate the nullifier using a secure hash function
+     return someHashFunction(credentialId + JSON.stringify(claims));
    }
 
    function generateSalt(): string {
-       return randomBytes(16).toString('hex'); // Generate a 16-byte salt and convert to hex
+     return randomBytes(16).toString('hex'); // Generate a 16-byte salt and convert to hex
    }
    ```
 
@@ -466,22 +499,22 @@ The command language needs to be simple yet expressive enough to handle typical 
 #### Command Language Syntax
 
 1. **Set Input**: Assign values to input variables.
-    ```plaintext
-    SET INPUT variable value;
-    ```
+   ```plaintext
+   SET INPUT variable value;
+   ```
 2. **Set Output**: Assign values to output variables.
-    ```plaintext
-    SET OUTPUT variable value;
-    ```
+   ```plaintext
+   SET OUTPUT variable value;
+   ```
 3. **Conditional Statements**: Perform conditional logic.
-    ```plaintext
-    IF variable1 operator variable2 THEN
-        commands
-    ELSE
-        commands
-    ENDIF;
-    ```
-    - **Operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
+   ```plaintext
+   IF variable1 operator variable2 THEN
+       commands
+   ELSE
+       commands
+   ENDIF;
+   ```
+   - **Operators**: `==`, `!=`, `<`, `>`, `<=`, `>=`
 
 ### Example Program in Command Language
 
@@ -490,20 +523,28 @@ Here is the `VerifyAge` program defined via our Attestation API:
 ```javascript
 // Define the VerifyAge program
 const VerifyAge = credentialProgram.create({
-    name: 'VerifyAge',
-    input: { age: 'number', minAge: 'number' },
-    output: { valid: 'boolean' },
-    logic: (input) => {
-        return { valid: input.age >= input.minAge };
-    }
+  name: 'VerifyAge',
+  input: { age: 'number', minAge: 'number' },
+  output: { valid: 'boolean' },
+  logic: (input) => {
+    return { valid: input.age >= input.minAge };
+  },
 });
 ```
 
 ```javascript
-const claimsObject = { age: 21, subject: subjectPubKey, signature: issuerPrvKey.sign('age:21') };
+const claimsObject = {
+  age: 21,
+  subject: subjectPubKey,
+  signature: issuerPrvKey.sign('age:21'),
+};
 const claims = JSON.stringify(claimsObject);
 const credential = Credential.create(claims);
-const proofResponse = await credential.prove('age', { minAge: 18, issuerPublicKey: issuerPubKey }, VerifyAge);
+const proofResponse = await credential.prove(
+  'age',
+  { minAge: 18, issuerPublicKey: issuerPubKey },
+  VerifyAge
+);
 ```
 
 Here is the `VerifyAge` program outputted in the command language, the command language is compiled at the Attestation API level:
