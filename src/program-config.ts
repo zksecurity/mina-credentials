@@ -13,6 +13,7 @@ import {
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
+  assertPure,
   type InferProvableType,
   type ProvablePureType,
   ProvableType,
@@ -25,7 +26,16 @@ import { assertHasProperty } from './util.ts';
  */
 
 export type { Node, PublicInputs, UserInputs };
-export { Spec, Attestation, Operation, Input };
+export {
+  Spec,
+  Attestation,
+  Operation,
+  Input,
+  publicInputTypes,
+  publicOutputType,
+  privateInputTypes,
+  combinedDataInputType as combinedInputType,
+};
 
 type Spec<
   Data = any,
@@ -90,7 +100,8 @@ const Undefined_: ProvablePure<undefined> = Undefined;
  * - a function `verify(publicInput: Public, privateInput: Private, data: Data)` that asserts the attestation is valid
  */
 type Attestation<Id extends string, Public, Private, Data> = {
-  type: Id;
+  type: 'attestation';
+  id: Id;
   public: ProvablePureType<Public>;
   private: ProvableType<Private>;
   data: ProvablePureType<Data>;
@@ -103,7 +114,7 @@ function defineAttestation<
   PublicType extends ProvablePureType,
   PrivateType extends ProvableType
 >(config: {
-  type: Id;
+  id: Id;
   public: PublicType;
   private: PrivateType;
 
@@ -123,7 +134,8 @@ function defineAttestation<
 > {
   return function attestation(dataType) {
     return {
-      type: config.type,
+      type: 'attestation',
+      id: config.id,
       public: config.public,
       private: config.private,
       data: dataType,
@@ -136,7 +148,7 @@ function defineAttestation<
 
 // dummy attestation with no proof attached
 const ANone = defineAttestation({
-  type: 'attestation-none',
+  id: 'none',
   public: Undefined_,
   private: Undefined_,
   verify() {
@@ -146,7 +158,7 @@ const ANone = defineAttestation({
 
 // native signature
 const ASignature = defineAttestation({
-  type: 'attestation-signature',
+  id: 'native-signature',
   public: PublicKey, // issuer public key
   private: Signature,
 
@@ -159,7 +171,7 @@ const ASignature = defineAttestation({
 
 // TODO recursive proof
 const AProof = defineAttestation({
-  type: 'attestation-proof',
+  id: 'proof',
   // TODO include hash of public inputs of the inner proof
   // TODO maybe names could be issuer, credential
   public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
@@ -223,32 +235,68 @@ type OutputNode<Data = any> = {
 
 const Node = {
   eval: evalNode,
+  evalType: evalNodeType,
+
   constant<Data>(data: Data): Node<Data> {
     return { type: 'constant', data };
   },
 };
 
-function evalNode<Data>(ctx: { root: any }, node: Node<Data>): Data {
+function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
     case 'constant':
       return node.data;
     case 'root':
-      return ctx.root as any;
+      return root as any;
     case 'property': {
-      let inner = evalNode<unknown>(ctx, node.inner);
+      let inner = evalNode<unknown>(root, node.inner);
       assertHasProperty(inner, node.key);
       return inner[node.key] as Data;
     }
     case 'equals': {
-      let left = evalNode(ctx, node.left);
-      let right = evalNode(ctx, node.right);
+      let left = evalNode(root, node.left);
+      let right = evalNode(root, node.right);
       let bool = Provable.equal(ProvableType.fromValue(left), left, right);
       return bool as Data;
     }
     case 'and': {
-      let left = evalNode(ctx, node.left);
-      let right = evalNode(ctx, node.right);
+      let left = evalNode(root, node.left);
+      let right = evalNode(root, node.right);
       return left.and(right) as Data;
+    }
+  }
+}
+
+type NestedProvable = Provable<any> | { [key: string]: NestedProvable };
+
+function evalNodeType<Data>(
+  rootType: NestedProvable,
+  node: Node<Data>
+): NestedProvable {
+  switch (node.type) {
+    case 'constant':
+      return ProvableType.fromValue(node.data);
+    case 'root':
+      return rootType;
+    case 'property': {
+      // TODO would be nice to get inner types of structs more easily
+      let inner = evalNodeType<unknown>(rootType, node.inner);
+
+      // case 1: inner is a provable type
+      if (ProvableType.isProvableType(inner)) {
+        let innerValue = ProvableType.synthesize(inner);
+        assertHasProperty(innerValue, node.key);
+        let value: Data = innerValue[node.key] as any;
+        return ProvableType.fromValue(value);
+      }
+      // case 2: inner is a record of provable types
+      return inner[node.key] as any;
+    }
+    case 'equals': {
+      return Bool as any;
+    }
+    case 'and': {
+      return Bool as any;
     }
   }
 }
@@ -305,6 +353,12 @@ if (isMain) {
   const Bytes32 = Bytes(32);
   const InputData = Struct({ age: Field, name: Bytes32 });
 
+  let bytes = Bytes32.fromString('Alice');
+  console.log(
+    'bytes aux',
+    Bytes32.provable.toAuxiliary(bytes).flat().flat().flat()
+  );
+
   const spec = Spec(
     {
       signedData: Attestation.signature(InputData),
@@ -327,10 +381,16 @@ if (isMain) {
     targetAge: Field(42),
     targetName: Bytes32.fromString('Alice'),
   };
-  let ctx = { root };
-  let assert = Node.eval(ctx, spec.logic.assert);
-  let data = Node.eval(ctx, spec.logic.data);
+  let assert = Node.eval(root, spec.logic.assert);
+  let data = Node.eval(root, spec.logic.data);
   Provable.log({ assert, data });
+
+  let inputTypes = publicInputTypes(spec);
+  let privateTypes = privateInputTypes(spec);
+  let outputType = publicOutputType(spec);
+  console.log('public input types', inputTypes);
+  console.log('private input types', privateTypes);
+  console.log('public output type', outputType);
 
   // public inputs, extracted at the type level
   type specPublicInputs = PublicInputs<typeof spec.inputs>;
@@ -339,18 +399,68 @@ if (isMain) {
   type specUserInputs = UserInputs<typeof spec.inputs>;
 }
 
-type PublicInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
-  MapToPublic<InputTuple>,
+function publicInputTypes<S extends Spec>({
+  inputs,
+}: S): Record<string, ProvablePureType> {
+  let result: Record<string, ProvablePureType> = {};
+
+  Object.entries(inputs).forEach(([key, input]) => {
+    if (input.type === 'attestation') {
+      result[key] = input.public;
+    }
+    if (input.type === 'public') {
+      result[key] = input.data;
+    }
+  });
+  return result;
+}
+
+function publicOutputType<S extends Spec>(spec: S): ProvablePure<any> {
+  let rootType = combinedDataInputType(spec);
+  let outputTypeNested = Node.evalType(rootType, spec.logic.data);
+  let outputType: Provable<any> = ProvableType.isProvableType(outputTypeNested)
+    ? ProvableType.get(outputTypeNested)
+    : Struct(outputTypeNested);
+  assertPure(outputType);
+  return outputType;
+}
+
+function privateInputTypes<S extends Spec>({
+  inputs,
+}: S): Record<string, ProvableType> {
+  let result: Record<string, ProvableType> = {};
+
+  Object.entries(inputs).forEach(([key, input]) => {
+    if (input.type === 'attestation') {
+      result[key] = input.private;
+    }
+    if (input.type === 'private') {
+      result[key] = input.data;
+    }
+  });
+  return result;
+}
+
+function combinedDataInputType<S extends Spec>({ inputs }: S): NestedProvable {
+  let result: Record<string, NestedProvable> = {};
+  Object.entries(inputs).forEach(([key, input]) => {
+    result[key] = input.data;
+  });
+  return result;
+}
+
+type PublicInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToPublic<Inputs>,
   never
 >;
 
-type UserInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
-  MapToUserInput<InputTuple>,
+type UserInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToUserInput<Inputs>,
   never
 >;
 
-type DataInputs<InputTuple extends Record<string, Input>> = ExcludeFromRecord<
-  MapToDataInput<InputTuple>,
+type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToDataInput<Inputs>,
   never
 >;
 

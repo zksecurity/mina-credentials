@@ -1,4 +1,4 @@
-export { assert, assertHasProperty };
+export { assert, assertHasProperty, hasProperty };
 
 function assert(condition: boolean, message?: string): asserts condition {
   if (!condition) {
@@ -15,5 +15,15 @@ function assertHasProperty<K extends string>(
     ((typeof obj === 'object' && obj !== null) || typeof obj === 'function') &&
       key in obj,
     message ?? `Expected object to have property ${key}`
+  );
+}
+
+function hasProperty<K extends string>(
+  obj: unknown,
+  key: K
+): obj is Record<K, unknown> {
+  return (
+    ((typeof obj === 'object' && obj !== null) || typeof obj === 'function') &&
+    key in obj
   );
 }

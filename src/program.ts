@@ -5,11 +5,16 @@ import {
   PrivateKey,
   Signature,
   VerificationKey,
+  Struct,
+  ZkProgram,
 } from 'o1js';
 import {
   Attestation,
   Input,
   Operation,
+  privateInputTypes,
+  publicInputTypes,
+  publicOutputType,
   Spec,
   type PublicInputs,
   type UserInputs,
@@ -27,7 +32,34 @@ type Program<Data, Inputs extends Record<string, Input>> = {
 function createProgram<S extends Spec>(
   spec: S
 ): Program<GetSpecData<S>, S['inputs']> {
-  throw Error('Not implemented');
+  // 1. split spec inputs into public and private inputs
+  let PublicInput = Struct(publicInputTypes(spec));
+  let PublicOutput = publicOutputType(spec);
+  let PrivateInput = Struct(privateInputTypes(spec));
+
+  let program = ZkProgram({
+    name: 'todo',
+    publicInput: PublicInput,
+    publicOutput: PublicOutput,
+    methods: {
+      run: {
+        privateInputs: [PrivateInput],
+        method(publicInput, privateInput) {
+          throw Error('Not implemented');
+        },
+      },
+    },
+  });
+
+  return {
+    async compile() {
+      const result = await program.compile();
+      return result.verificationKey;
+    },
+    run(input) {
+      throw Error('Not implemented');
+    },
+  };
 }
 
 // inline test
@@ -67,9 +99,9 @@ if (isMain) {
   let data = { age: Field(42), name: Bytes32.fromString('Alice') };
   let signedData = createAttestation(InputData, data);
 
-  async function notExecuted() {
-    let program = createProgram(spec);
+  let program = createProgram(spec);
 
+  async function notExecuted() {
     await program.compile();
 
     // input types are inferred from spec
