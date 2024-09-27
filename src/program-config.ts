@@ -2,6 +2,9 @@ import {
   assert,
   Bool,
   Bytes,
+  UInt8,
+  UInt32,
+  UInt64,
   Field,
   PrivateKey,
   Provable,
@@ -218,6 +221,7 @@ const Input = {
 const Operation = {
   property,
   equals,
+  lessThan,
   and,
 };
 
@@ -240,6 +244,7 @@ type Node<Data = any> =
   | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
   | { type: 'equals'; left: Node; right: Node }
+  | { type: 'lessThan'; left: Node; right: Node }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> };
 
 type OutputNode<Data = any> = {
@@ -256,6 +261,8 @@ const Node = {
   },
 };
 
+type NumericType = Field | UInt64 | UInt32 | UInt8;
+
 function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
     case 'constant':
@@ -271,6 +278,46 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
       let bool = Provable.equal(ProvableType.fromValue(left), left, right);
+      return bool as Data;
+    }
+    case 'lessThan': {
+      const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
+
+      let left = evalNode(root, node.left);
+      let right = evalNode(root, node.right);
+      // TODO: implementation
+      const leftTypeIndex = numericTypeOrder.findIndex(
+        (type) => left instanceof type
+      );
+      const rightTypeIndex = numericTypeOrder.findIndex(
+        (type) => right instanceof type
+      );
+
+      let bool;
+
+      if (leftTypeIndex == rightTypeIndex) {
+        bool = left.lessThan(right);
+      } else {
+        const leftConverted =
+          leftTypeIndex < rightTypeIndex
+            ? right instanceof Field
+              ? left.toField()
+              : right instanceof UInt64
+              ? left.toUInt64()
+              : left.toUInt32()
+            : left;
+
+        const rightConverted =
+          leftTypeIndex > rightTypeIndex
+            ? left instanceof Field
+              ? right.toField()
+              : left instanceof UInt64
+              ? right.toUInt64()
+              : right.toUInt32()
+            : right;
+
+        bool = leftConverted.lessThan(rightConverted);
+      }
       return bool as Data;
     }
     case 'and': {
@@ -305,6 +352,9 @@ function evalNodeType<Data>(
       return inner[node.key] as any;
     }
     case 'equals': {
+      return Bool as any;
+    }
+    case 'lessThan': {
       return Bool as any;
     }
     case 'and': {
@@ -351,6 +401,10 @@ function property<K extends string, Data extends { [key in K]: any }>(
 
 function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
   return { type: 'equals', left, right };
+}
+
+function lessThan<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
+  return { type: 'lessThan', left, right };
 }
 
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
