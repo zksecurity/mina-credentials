@@ -15,11 +15,8 @@
   "types": "build/src/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "buildw": "tsc --watch",
-    "coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "watch": "tsc --watch",
     "format": "prettier --write --ignore-unknown **/*",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "extension:dev": "vite build --config browser-extension/vite.config.js --watch",
     "extension:build": "vite build --config browser-extension/vite.config.js"
   },
