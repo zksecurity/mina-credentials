@@ -1,7 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { Bytes, Field } from 'o1js';
-import { Spec, Input, Operation, Node } from '../src/program-config.ts';
+import {
+  Spec,
+  Input,
+  Operation,
+  Node,
+  Attestation,
+  type UserInputs,
+  splitUserInputs,
+  recombineDataInputs,
+} from '../src/program-config.ts';
+import { createAttestation } from './test-utils.ts';
 
 test(' Spec and Node operations', async (t) => {
   const Bytes32 = Bytes(32);
@@ -23,9 +33,6 @@ test(' Spec and Node operations', async (t) => {
       data: { age: Field(25) },
       targetAge: Field(25),
     };
-
-    console.log('spec.logic.assert:', spec.logic.assert);
-    console.log('spec.logic.data:', spec.logic.data);
 
     const assertResult = Node.eval(root, spec.logic.assert);
     const dataResult = Node.eval(root, spec.logic.data);
@@ -125,5 +132,41 @@ test(' Spec and Node operations', async (t) => {
 
     assert.strictEqual(assertResult.toString(), 'true');
     assert.deepStrictEqual(dataResult, Bytes32.fromString('Charlie'));
+  });
+
+  await t.test('Spec with attestation', () => {
+    const InputData = { age: Field, name: Bytes32 };
+    const spec = Spec(
+      {
+        signedData: Attestation.signature(InputData),
+        targetAge: Input.public(Field),
+        targetName: Input.public(Bytes32),
+      },
+      ({ signedData, targetAge, targetName }) => ({
+        assert: Operation.and(
+          Operation.equals(Operation.property(signedData, 'age'), targetAge),
+          Operation.equals(Operation.property(signedData, 'name'), targetName)
+        ),
+        data: Operation.property(signedData, 'age'),
+      })
+    );
+
+    const data = { age: Field(30), name: Bytes32.fromString('David') };
+    const signedData = createAttestation(InputData, data);
+
+    let userInputs: UserInputs<typeof spec.inputs> = {
+      signedData,
+      targetAge: Field(30),
+      targetName: Bytes32.fromString('David'),
+    };
+
+    let { privateInput, publicInput } = splitUserInputs(spec, userInputs);
+    let root = recombineDataInputs(spec, publicInput, privateInput);
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toString(), 'true');
+    assert.deepStrictEqual(dataResult, Field(30));
   });
 });

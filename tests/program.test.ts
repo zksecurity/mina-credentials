@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { Field, Bytes, PrivateKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Attestation, Input, Operation, Spec } from '../src/program-config.ts';
-import { NestedProvable } from '../src/nested.ts';
+import { createAttestation } from './test-utils.ts';
 
 test('createProgram with simple spec', async (t) => {
   const Bytes32 = Bytes(32);
@@ -95,12 +95,3 @@ test('createProgram with simple spec', async (t) => {
     );
   });
 });
-
-function createAttestation<Data>(type: NestedProvable, data: Data) {
-  const issuer = PrivateKey.random();
-  const signature = Signature.create(
-    issuer,
-    NestedProvable.get(type).toFields(data)
-  );
-  return { public: issuer.toPublicKey(), private: signature, data };
-}
