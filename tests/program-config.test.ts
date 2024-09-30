@@ -63,4 +63,42 @@ test(' Spec and Node operations', async (t) => {
     assert.strictEqual(assertResult.toString(), 'true');
     assert.deepStrictEqual(dataResult, Field(30));
   });
+
+  await t.test('Spec with nested properties', () => {
+    const InputData = { age: Field, name: Bytes32 };
+    const NestedInputData = { person: InputData, points: Field };
+
+    const spec = Spec(
+      {
+        data: Input.private(NestedInputData),
+        targetAge: Input.public(Field),
+        targetPoints: Input.public(Field),
+      },
+      ({ data, targetAge, targetPoints }) => ({
+        assert: Operation.and(
+          Operation.equals(
+            Operation.property(Operation.property(data, 'person'), 'age'),
+            targetAge
+          ),
+          Operation.equals(Operation.property(data, 'points'), targetPoints)
+        ),
+        data: Operation.property(Operation.property(data, 'person'), 'name'),
+      })
+    );
+
+    const root = {
+      data: {
+        person: { age: Field(25), name: Bytes32.fromString('Bob') },
+        points: Field(100),
+      },
+      targetAge: Field(25),
+      targetPoints: Field(100),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toString(), 'true');
+    assert.deepStrictEqual(dataResult, Bytes32.fromString('Bob'));
+  });
 });
