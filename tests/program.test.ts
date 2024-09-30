@@ -26,7 +26,7 @@ test('createProgram with simple spec', async (t) => {
 
   const program = createProgram(spec);
 
-  await t.test('compile porgram', async () => {
+  await t.test('compile program', async () => {
     const vk = await program.compile();
     assert(vk, 'Verification key should be generated for zk program');
   });
@@ -48,6 +48,28 @@ test('createProgram with simple spec', async (t) => {
       proof.publicOutput,
       Field(18),
       'Public output should match the age'
+    );
+  });
+
+  await t.test('run program with invalid input', async () => {
+    const data = { age: Field(20), name: Bytes32.fromString('Bob') };
+    const signedData = createAttestation(InputData, data);
+
+    await assert.rejects(
+      async () => await program.run({ signedData, targetAge: Field(18) }),
+      (err) => {
+        assert(err instanceof Error, 'Should throw an Error');
+        assert(
+          err.message.includes('Program assertion failed'),
+          'Error message should include program assertion failure'
+        );
+        assert(
+          err.message.includes('Constraint unsatisfied'),
+          'Error message should include unsatisfied constraint'
+        );
+        return true;
+      },
+      'Program should fail with invalid input'
     );
   });
 });
