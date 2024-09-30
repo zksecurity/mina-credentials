@@ -51,8 +51,30 @@ test('createProgram with simple spec', async (t) => {
     );
   });
 
-  await t.test('run program with invalid input', async () => {
-    const data = { age: Field(20), name: Bytes32.fromString('Bob') };
+  await t.test('run program with invalid age input', async () => {
+    const data = { age: Field(20), name: Bytes32.fromString('Alice') };
+    const signedData = createAttestation(InputData, data);
+
+    await assert.rejects(
+      async () => await program.run({ signedData, targetAge: Field(18) }),
+      (err) => {
+        assert(err instanceof Error, 'Should throw an Error');
+        assert(
+          err.message.includes('Program assertion failed'),
+          'Error message should include program assertion failure'
+        );
+        assert(
+          err.message.includes('Constraint unsatisfied'),
+          'Error message should include unsatisfied constraint'
+        );
+        return true;
+      },
+      'Program should fail with invalid input'
+    );
+  });
+
+  await t.test('run program with invalid name input', async () => {
+    const data = { age: Field(18), name: Bytes32.fromString('Bob') };
     const signedData = createAttestation(InputData, data);
 
     await assert.rejects(
