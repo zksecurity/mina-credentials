@@ -101,4 +101,29 @@ test(' Spec and Node operations', async (t) => {
     assert.strictEqual(assertResult.toString(), 'true');
     assert.deepStrictEqual(dataResult, Bytes32.fromString('Bob'));
   });
+
+  await t.test('Spec with constant input', () => {
+    const InputData = { age: Field, name: Bytes32 };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        constAge: Input.constant(Field, Field(25)),
+      },
+      ({ data, constAge }) => ({
+        assert: Operation.equals(Operation.property(data, 'age'), constAge),
+        data: Operation.property(data, 'name'),
+      })
+    );
+
+    const root = {
+      data: { age: Field(25), name: Bytes32.fromString('Charlie') },
+      constAge: Field(25),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toString(), 'true');
+    assert.deepStrictEqual(dataResult, Bytes32.fromString('Charlie'));
+  });
 });
