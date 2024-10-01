@@ -295,29 +295,26 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
 
       let bool;
 
-      if (leftTypeIndex == rightTypeIndex) {
-        bool = left.lessThan(right);
-      } else {
-        const leftConverted =
-          leftTypeIndex < rightTypeIndex
-            ? right instanceof Field
-              ? left.toField()
-              : right instanceof UInt64
-              ? left.toUInt64()
-              : left.toUInt32()
-            : left;
+      const leftConverted =
+        leftTypeIndex < rightTypeIndex
+          ? right instanceof Field
+            ? left.toField()
+            : right instanceof UInt64
+            ? left.toUInt64()
+            : left.toUInt32()
+          : left;
 
-        const rightConverted =
-          leftTypeIndex > rightTypeIndex
-            ? left instanceof Field
-              ? right.toField()
-              : left instanceof UInt64
-              ? right.toUInt64()
-              : right.toUInt32()
-            : right;
+      const rightConverted =
+        leftTypeIndex > rightTypeIndex
+          ? left instanceof Field
+            ? right.toField()
+            : left instanceof UInt64
+            ? right.toUInt64()
+            : right.toUInt32()
+          : right;
 
-        bool = leftConverted.lessThan(rightConverted);
-      }
+      bool = leftConverted.lessThan(rightConverted);
+
       return bool as Data;
     }
     case 'and': {
