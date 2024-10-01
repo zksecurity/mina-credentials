@@ -222,6 +222,7 @@ const Operation = {
   property,
   equals,
   lessThan,
+  lessThanEq,
   and,
 };
 
@@ -245,6 +246,7 @@ type Node<Data = any> =
   | { type: 'property'; key: string; inner: Node }
   | { type: 'equals'; left: Node; right: Node }
   | { type: 'lessThan'; left: Node; right: Node }
+  | { type: 'lessThanEq'; left: Node; right: Node }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> };
 
 type OutputNode<Data = any> = {
@@ -260,8 +262,6 @@ const Node = {
     return { type: 'constant', data };
   },
 };
-
-type NumericType = Field | UInt64 | UInt32 | UInt8;
 
 function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
@@ -280,49 +280,55 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let bool = Provable.equal(ProvableType.fromValue(left), left, right);
       return bool as Data;
     }
-    case 'lessThan': {
-      const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
-
-      let left = evalNode(root, node.left);
-      let right = evalNode(root, node.right);
-      // TODO: implementation
-      const leftTypeIndex = numericTypeOrder.findIndex(
-        (type) => left instanceof type
-      );
-      const rightTypeIndex = numericTypeOrder.findIndex(
-        (type) => right instanceof type
-      );
-
-      let bool;
-
-      const leftConverted =
-        leftTypeIndex < rightTypeIndex
-          ? right instanceof Field
-            ? left.toField()
-            : right instanceof UInt64
-            ? left.toUInt64()
-            : left.toUInt32()
-          : left;
-
-      const rightConverted =
-        leftTypeIndex > rightTypeIndex
-          ? left instanceof Field
-            ? right.toField()
-            : left instanceof UInt64
-            ? right.toUInt64()
-            : right.toUInt32()
-          : right;
-
-      bool = leftConverted.lessThan(rightConverted);
-
-      return bool as Data;
-    }
+    case 'lessThan':
+    case 'lessThanEq':
+      return compareNodes(root, node, node.type === 'lessThanEq') as Data;
     case 'and': {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
       return left.and(right) as Data;
     }
   }
+}
+
+function compareNodes(
+  root: object,
+  node: { left: Node<any>; right: Node<any> },
+  allowEqual: boolean
+): Bool {
+  const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
+
+  let left = evalNode(root, node.left);
+  let right = evalNode(root, node.right);
+
+  const leftTypeIndex = numericTypeOrder.findIndex(
+    (type) => left instanceof type
+  );
+  const rightTypeIndex = numericTypeOrder.findIndex(
+    (type) => right instanceof type
+  );
+
+  const leftConverted =
+    leftTypeIndex < rightTypeIndex
+      ? right instanceof Field
+        ? left.toField()
+        : right instanceof UInt64
+        ? left.toUInt64()
+        : left.toUInt32()
+      : left;
+
+  const rightConverted =
+    leftTypeIndex > rightTypeIndex
+      ? left instanceof Field
+        ? right.toField()
+        : left instanceof UInt64
+        ? right.toUInt64()
+        : right.toUInt32()
+      : right;
+
+  return allowEqual
+    ? leftConverted.lessThanOrEqual(rightConverted)
+    : leftConverted.lessThan(rightConverted);
 }
 
 function evalNodeType<Data>(
@@ -352,6 +358,9 @@ function evalNodeType<Data>(
       return Bool as any;
     }
     case 'lessThan': {
+      return Bool as any;
+    }
+    case 'lessThanEq': {
       return Bool as any;
     }
     case 'and': {
@@ -400,8 +409,19 @@ function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
   return { type: 'equals', left, right };
 }
 
-function lessThan<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
+type NumericType = Field | UInt64 | UInt32 | UInt8;
+function lessThan<Data extends NumericType>(
+  left: Node<Data>,
+  right: Node<Data>
+): Node<Bool> {
   return { type: 'lessThan', left, right };
+}
+
+function lessThanEq<Data extends NumericType>(
+  left: Node<Data>,
+  right: Node<Data>
+): Node<Bool> {
+  return { type: 'lessThanEq', left, right };
 }
 
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
