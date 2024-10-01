@@ -71,6 +71,66 @@ test(' Spec and Node operations', async (t) => {
     assert.deepStrictEqual(dataResult, Field(30));
   });
 
+  await t.test('Spec with multiple assertions and lessThan', () => {
+    const InputData = { age: Field, name: Bytes32 };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        targetAge: Input.public(Field),
+        targetName: Input.public(Bytes32),
+      },
+      ({ data, targetAge, targetName }) => ({
+        assert: Operation.and(
+          Operation.lessThan(targetAge, Operation.property(data, 'age')),
+          Operation.equals(Operation.property(data, 'name'), targetName)
+        ),
+        data: Operation.property(data, 'age'),
+      })
+    );
+
+    const root = {
+      data: { age: Field(30), name: Bytes32.fromString('Alice') },
+      targetAge: Field(18),
+      targetName: Bytes32.fromString('Alice'),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toBoolean(), true);
+    assert.deepStrictEqual(dataResult, Field(30));
+  });
+
+  await t.test('Spec with multiple assertions and lessThanEq', () => {
+    const InputData = { age: Field, name: Bytes32 };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        targetAge: Input.public(Field),
+        targetName: Input.public(Bytes32),
+      },
+      ({ data, targetAge, targetName }) => ({
+        assert: Operation.and(
+          Operation.lessThanEq(Operation.property(data, 'age'), targetAge),
+          Operation.equals(Operation.property(data, 'name'), targetName)
+        ),
+        data: Operation.property(data, 'age'),
+      })
+    );
+
+    const root = {
+      data: { age: Field(30), name: Bytes32.fromString('Alice') },
+      targetAge: Field(30),
+      targetName: Bytes32.fromString('Alice'),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toBoolean(), true);
+    assert.deepStrictEqual(dataResult, Field(30));
+  });
+
   await t.test('Spec with nested properties', () => {
     const InputData = { age: Field, name: Bytes32 };
     const NestedInputData = { person: InputData, points: Field };
