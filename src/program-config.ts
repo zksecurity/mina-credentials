@@ -428,62 +428,6 @@ function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
   return { type: 'and', left, right };
 }
 
-// TODO remove
-// small inline test
-
-const isMain = import.meta.filename === process.argv[1];
-if (isMain) {
-  const Bytes32 = Bytes(32);
-  const InputData = { age: Field, name: Bytes32 };
-
-  const spec = Spec(
-    {
-      signedData: Attestation.signature(InputData),
-      targetAge: Input.public(Field),
-      targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
-    },
-    ({ signedData, targetAge, targetName }) => ({
-      assert: Operation.and(
-        Operation.equals(Operation.property(signedData, 'age'), targetAge),
-        Operation.equals(Operation.property(signedData, 'name'), targetName)
-      ),
-      data: Operation.property(signedData, 'age'),
-    })
-  );
-  console.log(spec.logic);
-
-  // create user inputs
-  let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-  let signedData = createAttestation(InputData, data);
-
-  let userInputs: UserInputs<typeof spec.inputs> = {
-    signedData,
-    targetAge: Field(18),
-  };
-
-  // evaluate the logic at input
-  let { privateInput, publicInput } = splitUserInputs(spec, userInputs);
-  let root = recombineDataInputs(spec, publicInput, privateInput);
-  let assert = Node.eval(root, spec.logic.assert);
-  let output = Node.eval(root, spec.logic.data);
-  Provable.log({ publicInput, privateInput, root, assert, output });
-
-  // public inputs, extracted at the type level
-  type specPublicInputs = PublicInputs<typeof spec.inputs>;
-
-  // private inputs, extracted at the type level
-  type specPrivateInputs = PrivateInputs<typeof spec.inputs>;
-
-  function createAttestation<Data>(type: NestedProvableFor<Data>, data: Data) {
-    let issuer = PrivateKey.randomKeypair();
-    let signature = Signature.create(
-      issuer.privateKey,
-      NestedProvable.get(type).toFields(data)
-    );
-    return { public: issuer.publicKey, private: signature, data };
-  }
-}
-
 function publicInputTypes<S extends Spec>({
   inputs,
 }: S): Record<string, NestedProvablePure> {
