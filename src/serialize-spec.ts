@@ -1,11 +1,11 @@
 import {
   NestedProvable,
-  NestedProvableFor,
-  NestedProvablePure,
-  NestedProvablePureFor,
-} from './nested';
-import { type ProvablePureType, ProvableType } from './o1js-missing';
-import { Spec, Input, Node } from './program-config';
+  type NestedProvableFor,
+  type NestedProvablePure,
+  type NestedProvablePureFor,
+} from './nested.ts';
+import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
+import { Spec, Input, Node } from './program-config.ts';
 import {
   Field,
   Bool,
@@ -15,22 +15,24 @@ import {
   PublicKey,
   Signature,
   Provable,
-  ProvablePure,
+  type ProvablePure,
   Struct,
 } from 'o1js';
 
 // Enum of supported o1js base types
-enum O1jsType {
-  Field = 'Field',
-  Bool = 'Bool',
-  UInt8 = 'UInt8',
-  UInt32 = 'UInt32',
-  UInt64 = 'UInt64',
-  PublicKey = 'PublicKey',
-  Signature = 'Signature',
-}
+const O1jsType = {
+  Field: 'Field',
+  Bool: 'Bool',
+  UInt8: 'UInt8',
+  UInt32: 'UInt32',
+  UInt64: 'UInt64',
+  PublicKey: 'PublicKey',
+  Signature: 'Signature',
+} as const;
 
-const supportedTypes: Record<O1jsType, Provable<any>> = {
+type O1jsTypeName = (typeof O1jsType)[keyof typeof O1jsType];
+
+const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
   [O1jsType.Field]: Field,
   [O1jsType.Bool]: Bool,
   [O1jsType.UInt8]: UInt8,
@@ -114,17 +116,21 @@ function convertNodeToSerializable(node: Node): any {
   }
 }
 
-function serializeProvableType(type: ProvableType<any>): any {
-  if (type instanceof Struct) {
-    return {
-      type: 'Struct',
-      properties: Object.fromEntries(
-        Object.entries(type)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, value]) => [key, serializeProvableType(value)])
-      ),
-    };
-  }
+function isStruct(type: ProvableType<any>): type is Struct<any> {
+  return '_isStruct' in type && (type as any)._isStruct === true;
+}
+
+export function serializeProvableType(type: ProvableType<any>): any {
+  // if (isStruct(type)) {
+  //   return {
+  //     type: 'Struct',
+  //     properties: Object.fromEntries(
+  //       Object.entries(type)
+  //         .sort(([a], [b]) => a.localeCompare(b))
+  //         .map(([key, value]) => [key, serializeProvableType(value)])
+  //     ),
+  //   };
+  // }
   for (const [typeName, provableType] of Object.entries(supportedTypes)) {
     if (type === provableType) {
       return { type: typeName };
