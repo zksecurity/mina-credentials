@@ -42,6 +42,8 @@ const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
   [O1jsType.Signature]: Signature,
 };
 
+export { serializeProvableType, serializeNestedProvableFor };
+
 function serializeSpec(spec: Spec): string {
   return JSON.stringify(convertSpecToSerializable(spec), null, 2);
 }
@@ -116,21 +118,8 @@ function convertNodeToSerializable(node: Node): any {
   }
 }
 
-function isStruct(type: ProvableType<any>): type is Struct<any> {
-  return '_isStruct' in type && (type as any)._isStruct === true;
-}
-
-export function serializeProvableType(type: ProvableType<any>): any {
-  // if (isStruct(type)) {
-  //   return {
-  //     type: 'Struct',
-  //     properties: Object.fromEntries(
-  //       Object.entries(type)
-  //         .sort(([a], [b]) => a.localeCompare(b))
-  //         .map(([key, value]) => [key, serializeProvableType(value)])
-  //     ),
-  //   };
-  // }
+function serializeProvableType(type: ProvableType<any>): Record<string, any> {
+  // TODO: handle case when type is a Struct
   for (const [typeName, provableType] of Object.entries(supportedTypes)) {
     if (type === provableType) {
       return { type: typeName };
@@ -143,7 +132,27 @@ function serializeProvablePureType(type: ProvablePureType): any {
   return serializeProvableType(type);
 }
 
-function serializeNestedProvableFor(type: NestedProvableFor<any>): any {}
+function serializeNestedProvableFor(
+  type: NestedProvableFor<any>
+): Record<string, any> {
+  if (ProvableType.isProvableType(type)) {
+    return serializeProvableType(type);
+  }
+
+  if (typeof type === 'object' && type !== null) {
+    const serializedObject: Record<string, any> = {};
+    // sort by keys so we always get the same serialization for the same spec
+    // will be important for hashing
+    for (const [key, value] of Object.entries(type).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    )) {
+      serializedObject[key] = serializeNestedProvableFor(value);
+    }
+    return serializedObject;
+  }
+
+  throw new Error(`Unsupported type in NestedProvableFor: ${type}`);
+}
 
 function serializeNestedProvablePureFor(
   type: NestedProvablePureFor<any>
