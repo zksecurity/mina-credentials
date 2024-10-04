@@ -137,6 +137,157 @@ test('Serialize Nodes', async (t) => {
 
     assert.deepEqual(serialized, expected);
   });
+
+  await t.test('should serialize root Node', () => {
+    const rootNode: Node = {
+      type: 'root',
+      input: {
+        age: Input.private(Field),
+        isAdmin: Input.public(Bool),
+      },
+    };
+
+    const serialized = convertNodeToSerializable(rootNode);
+
+    const expected = {
+      type: 'root',
+      input: {
+        age: { type: 'private', data: { type: 'Field' } },
+        isAdmin: { type: 'public', data: { type: 'Bool' } },
+      },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize propery Node', () => {
+    const propertyNode: Node = {
+      type: 'property',
+      key: 'age',
+      inner: {
+        type: 'root',
+        input: {
+          age: Input.private(Field),
+          isAdmin: Input.public(Bool),
+        },
+      },
+    };
+
+    const serialized = convertNodeToSerializable(propertyNode);
+
+    const expected = {
+      type: 'property',
+      key: 'age',
+      inner: {
+        type: 'root',
+        input: {
+          age: { type: 'private', data: { type: 'Field' } },
+          isAdmin: { type: 'public', data: { type: 'Bool' } },
+        },
+      },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize equals Node', () => {
+    const equalsNode: Node<Bool> = Operation.equals(
+      { type: 'constant', data: Field(10) },
+      { type: 'constant', data: Field(10) }
+    );
+
+    const serialized = convertNodeToSerializable(equalsNode);
+
+    const expected = {
+      type: 'equals',
+      left: { type: 'constant', data: { type: 'Field', value: '10' } },
+      right: { type: 'constant', data: { type: 'Field', value: '10' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize lessThan Node', () => {
+    const lessThanNode: Node<Bool> = Operation.lessThan(
+      { type: 'constant', data: UInt32.from(5) },
+      { type: 'constant', data: UInt32.from(10) }
+    );
+
+    const serialized = convertNodeToSerializable(lessThanNode);
+
+    const expected = {
+      type: 'lessThan',
+      left: { type: 'constant', data: { type: 'UInt32', value: '5' } },
+      right: { type: 'constant', data: { type: 'UInt32', value: '10' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize lessThanEq Node', () => {
+    const lessThanEqNode: Node<Bool> = Operation.lessThanEq(
+      { type: 'constant', data: UInt64.from(15) },
+      { type: 'constant', data: UInt64.from(15) }
+    );
+
+    const serialized = convertNodeToSerializable(lessThanEqNode);
+
+    const expected = {
+      type: 'lessThanEq',
+      left: { type: 'constant', data: { type: 'UInt64', value: '15' } },
+      right: { type: 'constant', data: { type: 'UInt64', value: '15' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize and Node', () => {
+    const andNode: Node<Bool> = Operation.and(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Bool(false) }
+    );
+
+    const serialized = convertNodeToSerializable(andNode);
+
+    const expected = {
+      type: 'and',
+      left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+      right: { type: 'constant', data: { type: 'Bool', value: 'false' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize nested Nodes', () => {
+    const nestedNode: Node<Bool> = Operation.and(
+      Operation.lessThan(
+        { type: 'constant', data: Field(5) },
+        { type: 'constant', data: Field(10) }
+      ),
+      Operation.equals(
+        { type: 'constant', data: Bool(true) },
+        { type: 'constant', data: Bool(true) }
+      )
+    );
+
+    const serialized = convertNodeToSerializable(nestedNode);
+
+    const expected = {
+      type: 'and',
+      left: {
+        type: 'lessThan',
+        left: { type: 'constant', data: { type: 'Field', value: '5' } },
+        right: { type: 'constant', data: { type: 'Field', value: '10' } },
+      },
+      right: {
+        type: 'equals',
+        left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+        right: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+      },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
 });
 
 test('convertInputToSerializable', async (t) => {
@@ -169,7 +320,9 @@ test('convertInputToSerializable', async (t) => {
 
   await t.test('should serialize private input', () => {
     const input = Input.private(Field);
+
     const serialized = convertInputToSerializable(input);
+
     const expected = {
       type: 'private',
       data: { type: 'Field' },
@@ -180,7 +333,9 @@ test('convertInputToSerializable', async (t) => {
   await t.test('should serialize attestation input', () => {
     const InputData = { age: Field, isAdmin: Bool };
     const input = Attestation.signature(InputData);
+
     const serialized = convertInputToSerializable(input);
+
     const expected = {
       type: 'attestation',
       id: 'native-signature',
@@ -191,6 +346,7 @@ test('convertInputToSerializable', async (t) => {
         isAdmin: { type: 'Bool' },
       },
     };
+
     assert.deepStrictEqual(serialized, expected);
   });
 
@@ -203,7 +359,9 @@ test('convertInputToSerializable', async (t) => {
       score: UInt32,
     };
     const input = Input.private(NestedInputData);
+
     const serialized = convertInputToSerializable(input);
+
     const expected = {
       type: 'private',
       data: {
@@ -214,6 +372,7 @@ test('convertInputToSerializable', async (t) => {
         score: { type: 'UInt32' },
       },
     };
+
     assert.deepStrictEqual(serialized, expected);
   });
 

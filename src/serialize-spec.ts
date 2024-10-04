@@ -52,7 +52,7 @@ export {
 
 // TODO: simplify and unify serialization
 // like maybe instead of data: {type: 'Field'} it can be data: data: 'Field' idk, will figure out
-// TODO: Bytes
+// TODO: Bytes?
 function serializeSpec(spec: Spec): string {
   return JSON.stringify(convertSpecToSerializable(spec), null, 2);
 }
