@@ -13,6 +13,8 @@ import {
   serializeNestedProvableFor,
   convertNodeToSerializable,
   convertInputToSerializable,
+  convertSpecToSerializable,
+  serializeSpec,
 } from '../src/serialize-spec.ts';
 import {
   Bool,
@@ -382,5 +384,334 @@ test('convertInputToSerializable', async (t) => {
       name: 'Error',
       message: 'Invalid input type',
     });
+  });
+});
+
+test('convertSpecToSerializable', async (t) => {
+  await t.test('should serialize a simple Spec', () => {
+    const spec = Spec(
+      {
+        age: Input.private(Field),
+        isAdmin: Input.public(Bool),
+        maxAge: Input.constant(Field, Field(100)),
+      },
+      ({ age, isAdmin, maxAge }) => ({
+        assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
+        data: age,
+      })
+    );
+
+    const serialized = convertSpecToSerializable(spec);
+
+    const expected = {
+      inputs: {
+        age: { type: 'private', data: { type: 'Field' } },
+        isAdmin: { type: 'public', data: { type: 'Bool' } },
+        maxAge: { type: 'constant', data: { type: 'Field' }, value: '100' },
+      },
+      logic: {
+        assert: {
+          type: 'and',
+          left: {
+            type: 'lessThan',
+            left: {
+              type: 'property',
+              key: 'age',
+              inner: {
+                type: 'root',
+                input: {
+                  age: { type: 'private', data: { type: 'Field' } },
+                  isAdmin: { type: 'public', data: { type: 'Bool' } },
+                  maxAge: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '100',
+                  },
+                },
+              },
+            },
+            right: {
+              type: 'property',
+              key: 'maxAge',
+              inner: {
+                type: 'root',
+                input: {
+                  age: { type: 'private', data: { type: 'Field' } },
+                  isAdmin: { type: 'public', data: { type: 'Bool' } },
+                  maxAge: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '100',
+                  },
+                },
+              },
+            },
+          },
+          right: {
+            type: 'property',
+            key: 'isAdmin',
+            inner: {
+              type: 'root',
+              input: {
+                age: { type: 'private', data: { type: 'Field' } },
+                isAdmin: { type: 'public', data: { type: 'Bool' } },
+                maxAge: {
+                  type: 'constant',
+                  data: { type: 'Field' },
+                  value: '100',
+                },
+              },
+            },
+          },
+        },
+        data: {
+          type: 'property',
+          key: 'age',
+          inner: {
+            type: 'root',
+            input: {
+              age: { type: 'private', data: { type: 'Field' } },
+              isAdmin: { type: 'public', data: { type: 'Bool' } },
+              maxAge: {
+                type: 'constant',
+                data: { type: 'Field' },
+                value: '100',
+              },
+            },
+          },
+        },
+      },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize a Spec with an attestation', () => {
+    const spec = Spec(
+      {
+        signedData: Attestation.signature({ field: Field }),
+        zeroField: Input.constant(Field, Field(0)),
+      },
+      ({ signedData, zeroField }) => ({
+        assert: Operation.equals(
+          Operation.property(signedData, 'field'),
+          zeroField
+        ),
+        data: signedData,
+      })
+    );
+
+    const serialized = convertSpecToSerializable(spec);
+    const expected = {
+      inputs: {
+        signedData: {
+          type: 'attestation',
+          id: 'native-signature',
+          public: { type: 'PublicKey' },
+          private: { type: 'Signature' },
+          data: {
+            field: { type: 'Field' },
+          },
+        },
+        zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
+      },
+      logic: {
+        assert: {
+          type: 'equals',
+          left: {
+            type: 'property',
+            key: 'field',
+            inner: {
+              type: 'property',
+              key: 'signedData',
+              inner: {
+                type: 'root',
+                input: {
+                  signedData: {
+                    type: 'attestation',
+                    id: 'native-signature',
+                    public: { type: 'PublicKey' },
+                    private: { type: 'Signature' },
+                    data: {
+                      field: { type: 'Field' },
+                    },
+                  },
+                  zeroField: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '0',
+                  },
+                },
+              },
+            },
+          },
+          right: {
+            type: 'property',
+            key: 'zeroField',
+            inner: {
+              type: 'root',
+              input: {
+                signedData: {
+                  type: 'attestation',
+                  id: 'native-signature',
+                  public: { type: 'PublicKey' },
+                  private: { type: 'Signature' },
+                  data: {
+                    field: { type: 'Field' },
+                  },
+                },
+                zeroField: {
+                  type: 'constant',
+                  data: { type: 'Field' },
+                  value: '0',
+                },
+              },
+            },
+          },
+        },
+        data: {
+          type: 'property',
+          key: 'signedData',
+          inner: {
+            type: 'root',
+            input: {
+              signedData: {
+                type: 'attestation',
+                id: 'native-signature',
+                public: { type: 'PublicKey' },
+                private: { type: 'Signature' },
+                data: {
+                  field: { type: 'Field' },
+                },
+              },
+              zeroField: {
+                type: 'constant',
+                data: { type: 'Field' },
+                value: '0',
+              },
+            },
+          },
+        },
+      },
+    };
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize a Spec with nested operations', () => {
+    const spec = Spec(
+      {
+        field1: Input.private(Field),
+        field2: Input.private(Field),
+        zeroField: Input.constant(Field, Field(0)),
+      },
+      ({ field1, field2, zeroField }) => ({
+        assert: Operation.and(
+          Operation.lessThan(field1, field2),
+          Operation.equals(field1, zeroField)
+        ),
+        data: field2,
+      })
+    );
+
+    const serialized = convertSpecToSerializable(spec);
+    const expected = {
+      inputs: {
+        field1: { type: 'private', data: { type: 'Field' } },
+        field2: { type: 'private', data: { type: 'Field' } },
+        zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
+      },
+      logic: {
+        assert: {
+          type: 'and',
+          left: {
+            type: 'lessThan',
+            left: {
+              type: 'property',
+              key: 'field1',
+              inner: {
+                type: 'root',
+                input: {
+                  field1: { type: 'private', data: { type: 'Field' } },
+                  field2: { type: 'private', data: { type: 'Field' } },
+                  zeroField: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '0',
+                  },
+                },
+              },
+            },
+            right: {
+              type: 'property',
+              key: 'field2',
+              inner: {
+                type: 'root',
+                input: {
+                  field1: { type: 'private', data: { type: 'Field' } },
+                  field2: { type: 'private', data: { type: 'Field' } },
+                  zeroField: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '0',
+                  },
+                },
+              },
+            },
+          },
+          right: {
+            type: 'equals',
+            left: {
+              type: 'property',
+              key: 'field1',
+              inner: {
+                type: 'root',
+                input: {
+                  field1: { type: 'private', data: { type: 'Field' } },
+                  field2: { type: 'private', data: { type: 'Field' } },
+                  zeroField: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '0',
+                  },
+                },
+              },
+            },
+            right: {
+              type: 'property',
+              key: 'zeroField',
+              inner: {
+                type: 'root',
+                input: {
+                  field1: { type: 'private', data: { type: 'Field' } },
+                  field2: { type: 'private', data: { type: 'Field' } },
+                  zeroField: {
+                    type: 'constant',
+                    data: { type: 'Field' },
+                    value: '0',
+                  },
+                },
+              },
+            },
+          },
+        },
+        data: {
+          type: 'property',
+          key: 'field2',
+          inner: {
+            type: 'root',
+            input: {
+              field1: { type: 'private', data: { type: 'Field' } },
+              field2: { type: 'private', data: { type: 'Field' } },
+              zeroField: {
+                type: 'constant',
+                data: { type: 'Field' },
+                value: '0',
+              },
+            },
+          },
+        },
+      },
+    };
+    assert.deepStrictEqual(serialized, expected);
   });
 });

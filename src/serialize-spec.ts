@@ -1,10 +1,5 @@
-import {
-  NestedProvable,
-  type NestedProvableFor,
-  type NestedProvablePure,
-  type NestedProvablePureFor,
-} from './nested.ts';
-import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
+import { type NestedProvableFor } from './nested.ts';
+import { ProvableType } from './o1js-missing.ts';
 import { Spec, Input, Node } from './program-config.ts';
 import {
   Field,
@@ -15,7 +10,6 @@ import {
   PublicKey,
   Signature,
   Provable,
-  type ProvablePure,
   Struct,
 } from 'o1js';
 
@@ -48,6 +42,8 @@ export {
   serializeNestedProvableFor,
   convertNodeToSerializable,
   convertInputToSerializable,
+  convertSpecToSerializable,
+  serializeSpec,
 };
 
 // TODO: simplify and unify serialization
@@ -58,7 +54,7 @@ function serializeSpec(spec: Spec): string {
 }
 
 // TODO: test
-function convertSpecToSerializable(spec: Spec): any {
+function convertSpecToSerializable(spec: Spec): Record<string, any> {
   return {
     inputs: Object.fromEntries(
       // sort by keys so we always get the same serialization for the same spec
