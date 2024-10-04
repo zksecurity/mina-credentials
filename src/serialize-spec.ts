@@ -19,7 +19,7 @@ import {
   Struct,
 } from 'o1js';
 
-// Enum of supported o1js base types
+// Supported o1js base types
 const O1jsType = {
   Field: 'Field',
   Bool: 'Bool',
@@ -42,18 +42,29 @@ const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
   [O1jsType.Signature]: Signature,
 };
 
-export { serializeProvableType, serializeNestedProvableFor };
+// TODO: only export serializeSpec, deserializeSpec and hashing
+export {
+  serializeProvableType,
+  serializeNestedProvableFor,
+  convertNodeToSerializable,
+  convertInputToSerializable,
+};
 
+// TODO: simplify and unify serialization
+// like maybe instead of data: {type: 'Field'} it can be data: data: 'Field' idk, will figure out
+// TODO: Bytes
 function serializeSpec(spec: Spec): string {
   return JSON.stringify(convertSpecToSerializable(spec), null, 2);
 }
 
-// TODO: make deterministic
+// TODO: test
 function convertSpecToSerializable(spec: Spec): any {
   return {
     inputs: Object.fromEntries(
+      // sort by keys so we always get the same serialization for the same spec
+      // will be important for hashing
       Object.entries(spec.inputs)
-        .sort(([a], [b]) => a.localeCompare(b))
+        .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([key, input]) => [key, convertInputToSerializable(input)])
     ),
     logic: {
@@ -63,29 +74,30 @@ function convertSpecToSerializable(spec: Spec): any {
   };
 }
 
+// TODO: test
 function convertInputToSerializable(input: Input): any {
-  if ('type' in Input) {
+  if ('type' in input) {
     switch (input.type) {
       case 'attestation': {
         return {
           type: 'attestation',
           id: input.id,
-          public: serializeProvablePureType(input.public),
+          public: serializeProvableType(input.public),
           private: serializeProvableType(input.private),
-          data: serializeNestedProvablePureFor(input.data),
+          data: serializeNestedProvableFor(input.data),
         };
       }
       case 'constant': {
         return {
           type: 'constant',
           data: serializeProvableType(input.data),
-          value: input.data,
+          value: serializeProvable(input.value).value,
         };
       }
       case 'public': {
         return {
           type: 'public',
-          data: serializeNestedProvablePureFor(input.data),
+          data: serializeNestedProvableFor(input.data),
         };
       }
       case 'private': {
@@ -102,19 +114,39 @@ function convertInputToSerializable(input: Input): any {
 function convertNodeToSerializable(node: Node): any {
   switch (node.type) {
     case 'constant': {
+      return {
+        type: 'constant',
+        data: serializeProvable(node.data),
+      };
     }
     case 'root': {
+      return {
+        type: 'root',
+        input: Object.fromEntries(
+          // sort by keys so we always get the same serialization for the same spec
+          // will be important for hashing
+          Object.entries(node.input)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([key, input]) => [key, convertInputToSerializable(input)])
+        ),
+      };
     }
     case 'property': {
+      return {
+        type: 'property',
+        key: node.key,
+        inner: convertNodeToSerializable(node.inner),
+      };
     }
-    case 'equals': {
-    }
-    case 'lessThan': {
-    }
-    case 'lessThanEq': {
-    }
-    case 'and': {
-    }
+    case 'equals':
+    case 'lessThan':
+    case 'lessThanEq':
+    case 'and':
+      return {
+        type: node.type,
+        left: convertNodeToSerializable(node.left),
+        right: convertNodeToSerializable(node.right),
+      };
   }
 }
 
@@ -128,8 +160,51 @@ function serializeProvableType(type: ProvableType<any>): Record<string, any> {
   throw new Error(`Unsupported provable type: ${type}`);
 }
 
-function serializeProvablePureType(type: ProvablePureType): any {
-  return serializeProvableType(type);
+// Type guard functions
+function isField(value: any): value is Field {
+  return value instanceof Field;
+}
+
+function isBool(value: any): value is Bool {
+  return value instanceof Bool;
+}
+
+function isUInt8(value: any): value is UInt8 {
+  return value instanceof UInt8;
+}
+
+function isUInt32(value: any): value is UInt32 {
+  return value instanceof UInt32;
+}
+
+function isUInt64(value: any): value is UInt64 {
+  return value instanceof UInt64;
+}
+
+function isPublicKey(value: any): value is PublicKey {
+  return value instanceof PublicKey;
+}
+
+function isSignature(value: any): value is Signature {
+  return value instanceof Signature;
+}
+
+// TODO: there must be a simpler way
+// I did it this way because I couldn't check the type of the value using instanceof
+function serializeProvable(provable: Provable<any>): {
+  type: O1jsTypeName;
+  value: string;
+} {
+  const value = ProvableType.get(provable);
+  if (isField(value)) return { type: 'Field', value: value.toString() };
+  if (isBool(value))
+    return { type: 'Bool', value: value.toBoolean().toString() };
+  if (isUInt8(value)) return { type: 'UInt8', value: value.toString() };
+  if (isUInt32(value)) return { type: 'UInt32', value: value.toString() };
+  if (isUInt64(value)) return { type: 'UInt64', value: value.toString() };
+  if (isPublicKey(value)) return { type: 'PublicKey', value: value.toBase58() };
+  if (isSignature(value)) return { type: 'Signature', value: value.toJSON() };
+  throw new Error(`Unsupported Provable: ${value.constructor.name}`);
 }
 
 function serializeNestedProvableFor(
@@ -153,7 +228,3 @@ function serializeNestedProvableFor(
 
   throw new Error(`Unsupported type in NestedProvableFor: ${type}`);
 }
-
-function serializeNestedProvablePureFor(
-  type: NestedProvablePureFor<any>
-): any {}

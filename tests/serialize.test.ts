@@ -1,10 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Input, Attestation, Operation, Spec } from '../src/program-config.ts';
+import {
+  Input,
+  Attestation,
+  Operation,
+  Spec,
+  Node,
+} from '../src/program-config.ts';
 
 import {
   serializeProvableType,
   serializeNestedProvableFor,
+  convertNodeToSerializable,
+  convertInputToSerializable,
 } from '../src/serialize-spec.ts';
 import {
   Bool,
@@ -20,7 +28,7 @@ import {
   VerificationKey,
 } from 'o1js';
 
-test('Serialize spec and related types', async (t) => {
+test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
     assert.deepStrictEqual(serializeProvableType(Field), { type: 'Field' });
     assert.deepStrictEqual(serializeProvableType(Bool), { type: 'Bool' });
@@ -109,6 +117,111 @@ test('Serialize spec and related types', async (t) => {
     assert.throws(() => serializeNestedProvableFor('unsupported' as any), {
       name: 'Error',
       message: 'Unsupported type in NestedProvableFor: unsupported',
+    });
+  });
+});
+
+test('Serialize Nodes', async (t) => {
+  await t.test('should serialize constant Node', () => {
+    const constantNode: Node<Field> = { type: 'constant', data: Field(123) };
+
+    const serialized = convertNodeToSerializable(constantNode);
+
+    const expected = {
+      type: 'constant',
+      data: {
+        type: 'Field',
+        value: '123',
+      },
+    };
+
+    assert.deepEqual(serialized, expected);
+  });
+});
+
+test('convertInputToSerializable', async (t) => {
+  await t.test('should serialize constant input', () => {
+    const input = Input.constant(Field, Field(42));
+
+    const serialized = convertInputToSerializable(input);
+
+    const expected = {
+      type: 'constant',
+      data: { type: 'Field' },
+      value: '42',
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize public input', () => {
+    const input = Input.public(Field);
+
+    const serialized = convertInputToSerializable(input);
+
+    const expected = {
+      type: 'public',
+      data: { type: 'Field' },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize private input', () => {
+    const input = Input.private(Field);
+    const serialized = convertInputToSerializable(input);
+    const expected = {
+      type: 'private',
+      data: { type: 'Field' },
+    };
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize attestation input', () => {
+    const InputData = { age: Field, isAdmin: Bool };
+    const input = Attestation.signature(InputData);
+    const serialized = convertInputToSerializable(input);
+    const expected = {
+      type: 'attestation',
+      id: 'native-signature',
+      public: { type: 'PublicKey' },
+      private: { type: 'Signature' },
+      data: {
+        age: { type: 'Field' },
+        isAdmin: { type: 'Bool' },
+      },
+    };
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize nested input', () => {
+    const NestedInputData = {
+      personal: {
+        age: Field,
+        id: UInt64,
+      },
+      score: UInt32,
+    };
+    const input = Input.private(NestedInputData);
+    const serialized = convertInputToSerializable(input);
+    const expected = {
+      type: 'private',
+      data: {
+        personal: {
+          age: { type: 'Field' },
+          id: { type: 'UInt64' },
+        },
+        score: { type: 'UInt32' },
+      },
+    };
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should throw error for unsupported input type', () => {
+    const invalidInput = { type: 'invalid' } as any;
+    assert.throws(() => convertInputToSerializable(invalidInput), {
+      name: 'Error',
+      message: 'Invalid input type',
     });
   });
 });
