@@ -33,8 +33,6 @@ function DynamicBytes({
   return DynamicBytes;
 }
 
-type PlainDynamicBytes = { bytes: UInt8[]; length: Field };
-
 let NULL = UInt8.from(0);
 
 class DynamicBytesBase {
@@ -73,7 +71,7 @@ class DynamicBytesBase {
     if (input instanceof DynamicBytesBase) return input;
     let length = Provable.witness(Field, () => input.length);
     let bytes = new this(input, length);
-    this._verifyLength(bytes, bytes.maxLength);
+    bytes._verifyLength();
     return bytes;
   }
   static fromStatic(input: InputBytes | DynamicBytesBase) {
@@ -81,20 +79,23 @@ class DynamicBytesBase {
     return new this(input, Field(input.length));
   }
 
-  static _verifyLength(self: PlainDynamicBytes, maxLength: number) {
-    assert(self.bytes.length <= maxLength);
+  static fromString(s: string) {
+    let bytes = new TextEncoder().encode(s);
+    return this.from(bytes);
+  }
 
+  _verifyLength() {
     // - length must be <= maxLength
     // - every entry past `length` must be NULL
-    let length = self.length;
+    let length = this.length;
     let pastLength = Bool(false);
 
-    self.bytes.forEach((x, i) => {
+    this.bytes.forEach((x, i) => {
       let isLength = length.equals(i);
       pastLength = pastLength.or(isLength);
       Provable.assertEqualIf(pastLength, UInt8, x, NULL);
     });
-    let isLength = length.equals(maxLength + 1);
+    let isLength = length.equals(this.maxLength + 1);
     pastLength.or(isLength).assertTrue();
   }
 }
@@ -139,7 +140,7 @@ function provable(
     // check has to validate length in addition to the other checks
     check(value) {
       PlainBytes.check(value);
-      DynamicBytesBase._verifyLength(value, maxLength);
+      value._verifyLength();
     },
   };
 }
