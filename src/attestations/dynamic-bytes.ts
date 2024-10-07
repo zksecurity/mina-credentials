@@ -20,15 +20,17 @@ function DynamicBytes({
 }: {
   maxLength: number;
 }): typeof DynamicBytesBase {
-  return class DynamicBytes extends DynamicBytesBase {
+  class DynamicBytes extends DynamicBytesBase {
     static get maxLength() {
       return maxLength;
     }
-
     static get provable() {
-      return provable(this, maxLength);
+      return provableBytes;
     }
-  };
+  }
+  const provableBytes = provable(DynamicBytes);
+
+  return DynamicBytes;
 }
 
 type PlainDynamicBytes = { bytes: UInt8[]; length: Field };
@@ -39,17 +41,17 @@ class DynamicBytesBase {
   bytes: UInt8[];
   length: Field;
 
-  // props to override
+  // prop to override
   static get maxLength(): number {
     throw Error('Max length must be defined in a subclass.');
   }
-  static get provable(): ProvablePure<DynamicBytesBase, Uint8Array> {
-    throw Error('.provable is defined on subclass.');
-  }
 
-  // derived prop
+  // derived props
   get maxLength(): number {
     return (this.constructor as typeof DynamicBytesBase).maxLength;
+  }
+  static get provable() {
+    return provable(this);
   }
 
   constructor(input: InputBytes, length: Field) {
@@ -104,10 +106,11 @@ DynamicBytes.Base = DynamicBytesBase;
 
 // TODO make this easier by exporting provableFromClass from o1js
 
-function provable<T extends DynamicBytesBase>(
-  Class: Constructor<T>,
-  maxLength: number
-): ProvablePure<T, Uint8Array> {
+function provable(
+  Class: typeof DynamicBytesBase
+): ProvablePure<DynamicBytesBase, Uint8Array> {
+  let maxLength = Class.maxLength;
+
   let PlainBytes = Struct({
     bytes: Provable.Array(UInt8, maxLength),
     length: Field,
@@ -133,11 +136,10 @@ function provable<T extends DynamicBytesBase>(
       return value;
     },
 
-    // check has to validate length
+    // check has to validate length in addition to the other checks
     check(value) {
+      PlainBytes.check(value);
       DynamicBytesBase._verifyLength(value, maxLength);
     },
   };
 }
-
-type Constructor<T> = new (...args: any) => T;
