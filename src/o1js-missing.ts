@@ -1,7 +1,7 @@
 /**
  * This file exports types and functions that actually should be exported from o1js
  */
-import { type InferProvable, Provable, type ProvablePure } from 'o1js';
+import { Field, type InferProvable, Provable, type ProvablePure } from 'o1js';
 
 export { ProvableType, type ProvablePureType, type InferProvableType };
 
@@ -14,6 +14,14 @@ const ProvableType = {
         ? type.provable
         : type
     ) as ToProvable<A>;
+  },
+
+  synthesize<T>(type: ProvableType<T>): T {
+    let t = ProvableType.get(type);
+    return t.fromFields(
+      Array.from({ length: t.sizeInFields() }, () => Field(0)),
+      t.toAuxiliary()
+    );
   },
 };
 
