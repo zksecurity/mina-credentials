@@ -13,8 +13,14 @@ type DynamicArray<T> = DynamicArrayBase<T>;
  * - dynamic actual length
  *
  * ```ts
- * const Bytes = DynamicBytes({ maxLength: 32 });
+ * const Bytes = DynamicArray(UInt8, { maxLength: 32 });
  * ```
+ *
+ * **Details**: Internally, this is represented as a static-sized array, plus a Field element
+ * that represents the length.
+ * The only requirement on these is that the length has to be smaller than the maxLength.
+ * In particular, there are no provable guarantees maintained on the content of the
+ * static-sized array beyond the actual length.
  */
 function DynamicArray<
   A extends ProvableType,
@@ -92,6 +98,72 @@ class DynamicArrayBase<T = any> {
 
     this.array = bytes;
     this.length = length;
+  }
+
+  // public methods
+
+  /**
+   * Gets a value at index i and proves that the index is in the array.
+   */
+  get(i: Field): T {
+    throw Error('todo');
+  }
+
+  /**
+   * Gets a value at index i, or a dummy value if the index is not in the array
+   */
+  getOrDummy(i: Field): T {
+    throw Error('todo');
+  }
+
+  /**
+   * Gets a value at index i, ASSUMING that the index is in the array.
+   *
+   * If the index is in fact not in the array, the return value is completely unconstrained.
+   *
+   * **Warning**: Only use this if you already know/proved by other means that the index is within bounds.
+   */
+  getOrUnconstrained(i: Field): T {
+    throw Error('todo');
+  }
+
+  /**
+   * Sets a value at index i and proves that the index is in the array.
+   */
+  set(i: Field, value: T): void {
+    throw Error('todo');
+  }
+
+  /**
+   * Sets a value at index i, or does nothing if the index is not in the array
+   */
+  setOrDoNothing(i: Field, value: T): void {
+    throw Error('todo');
+  }
+
+  map<S>(type: Provable<S>, f: (t: T) => S): DynamicArray<S> {
+    let Array = DynamicArray(type, { maxLength: this.maxLength });
+    let array = this.array.map(f);
+    return new Array(array, this.length);
+  }
+
+  forEach(f: (t: T, isDummy: Bool) => void) {
+    throw Error('todo');
+  }
+
+  reduce<S>(
+    stateType: Provable<S>,
+    state: S,
+    f: (state: S, t: T, isDummy: Bool) => T
+  ): S {
+    throw Error('todo');
+  }
+
+  /**
+   * Split into a (dynamic) number of fixed-size chunks
+   */
+  chunk(chunkSize: number): DynamicArray<T[]> {
+    throw Error('todo');
   }
 
   _verifyLength() {
