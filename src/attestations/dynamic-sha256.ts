@@ -1,6 +1,7 @@
 import { Field, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array';
 import { assert } from 'console';
+import { chunk } from '../util';
 
 const { SHA256 } = Gadgets;
 
@@ -62,11 +63,4 @@ function bytesToWord(bytes: UInt8[]) {
   });
 
   return UInt32.Unsafe.fromField(word);
-}
-
-function chunk<T>(array: T[], size: number): T[][] {
-  assert(array.length % size === 0, 'invalid input length');
-  return Array.from({ length: array.length / size }, (_, i) =>
-    array.slice(size * i, size * (i + 1))
-  );
 }

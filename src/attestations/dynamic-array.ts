@@ -1,13 +1,14 @@
 import {
   Bool,
   Field,
+  Gadgets,
   InferProvable,
   Option,
   Provable,
   Struct,
   UInt32,
 } from 'o1js';
-import { assert, zip } from '../util.ts';
+import { assert, chunk, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { InferValue } from 'o1js/dist/node/bindings/lib/provable-generic.js';
 import { arrayGet } from 'o1js/dist/node/lib/provable/gadgets/basic.js';
@@ -203,34 +204,77 @@ class DynamicArrayBase<T = any> {
     });
   }
 
+  /**
+   * Map every element of the array to a new value.
+   *
+   * Warning: The callback will be passed unconstrained dummy values.
+   */
   map<S>(type: Provable<S>, f: (t: T) => S): DynamicArray<S> {
     let Array = DynamicArray(type, { maxLength: this.maxLength });
     let array = this.array.map(f);
-    return new Array(array, this.length);
-  }
+    let newArray = new Array(array, this.length);
 
-  forEach(f: (t: T, isDummy: Bool) => void) {
-    throw Error('todo');
-  }
-
-  reduce<S>(
-    stateType: Provable<S>,
-    state: S,
-    f: (state: S, t: T, isDummy: Bool) => T
-  ): S {
-    throw Error('todo');
+    // new array has same length/maxLength, so it can use the same cached masks
+    newArray._indexMasks = this._indexMasks;
+    newArray._indicesInRange = this._indicesInRange;
+    newArray.__dummyMask = this.__dummyMask;
+    return newArray;
   }
 
   /**
-   * Split into a (dynamic) number of fixed-size chunks
+   * Iterate over all elements of the array.
+   *
+   * The callback will be passed an element and a boolean `isDummy` indicating whether the value is part of the actual array.
+   */
+  forEach(f: (t: T, isDummy: Bool) => void) {
+    zip(this.array, this._dummyMask()).forEach(([t, isDummy]) => {
+      f(t, isDummy);
+    });
+  }
+
+  /**
+   * Reduce the array to a single value.
+   *
+   * The callback will be passed the current state, an element, and a boolean `isDummy` indicating whether the value is part of the actual array.
+   */
+  reduce<S>(
+    stateType: Provable<S>,
+    state: S,
+    f: (state: S, t: T, isDummy: Bool) => S
+  ): S {
+    this.forEach((t, isDummy) => {
+      let newState = f(state, t, isDummy);
+      state = Provable.if(isDummy, stateType, state, newState);
+    });
+    return state;
+  }
+
+  /**
+   * Split into a (dynamic) number of fixed-size chunks.
+   * Assumes that the max length is a multiple of the chunk size, but not that the actual length is.
+   *
+   * Warning: The last chunk will contain dummy values if the actual length is not a multiple of the chunk size.
    */
   chunk(chunkSize: number): DynamicArray<T[]> {
-    throw Error('todo');
+    assert(chunkSize < 2 ** 16, 'chunkSize must be < 2^16');
+    let chunked = chunk(this.array, chunkSize);
+    // new length = Math.ceil(this.length / chunkSize)
+    let newLength = UInt32.Unsafe.fromField(this.length.add(chunkSize - 1)).div(
+      chunkSize
+    );
+
+    const Chunk = Provable.Array(this.innerType, chunkSize);
+    const Chunked = DynamicArray(Chunk, {
+      maxLength: this.maxLength / chunkSize,
+    });
+    return new Chunked(chunked, newLength.value);
   }
 
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
-  _masks: Map<Field, Bool[]> = new Map();
+  _indexMasks: Map<Field, Bool[]> = new Map();
   _indicesInRange: Set<Field> = new Set();
+  __dummyMask?: Bool[];
+  _isInRangeMask?: Bool[];
 
   /**
    * Compute i.equals(j) for all indices j in the static-size array.
@@ -239,9 +283,29 @@ class DynamicArrayBase<T = any> {
    * TODO: equals() could be optimized to just 1 double generic because j is constant, o1js doesn't do that
    */
   _indexMask(i: Field) {
-    let mask = this._masks.get(i);
+    let mask = this._indexMasks.get(i);
     mask ??= this.array.map((_, j) => i.equals(j));
-    this._masks.set(i, mask);
+    this._indexMasks.set(i, mask);
+    return mask;
+  }
+
+  /**
+   * Tells us which elements are dummies = not actually in the array.
+   *
+   * 0 0 0 1 1 1 1
+   *       ^
+   *       length
+   */
+  _dummyMask() {
+    if (this.__dummyMask !== undefined) return this.__dummyMask;
+    let isLength = this._indexMask(this.length);
+    let wasLength = Bool(false);
+
+    let mask = isLength.map((isLength) => {
+      wasLength = wasLength.or(isLength);
+      return wasLength;
+    });
+    this.__dummyMask = mask;
     return mask;
   }
 }
