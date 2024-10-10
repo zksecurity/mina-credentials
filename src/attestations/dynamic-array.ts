@@ -11,13 +11,7 @@ import { assert, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { InferValue } from 'o1js/dist/node/bindings/lib/provable-generic.js';
 import { arrayGet } from 'o1js/dist/node/lib/provable/gadgets/basic.js';
-import {
-  assertInRange16,
-  assertLessThan16,
-  lessThan16,
-  seal,
-  unsafeIf,
-} from './gadgets.ts';
+import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
 
 export { DynamicArray };
 
@@ -134,7 +128,7 @@ class DynamicArrayBase<T = any> {
   /**
    * Asserts that 0 <= i < this.length, using a cached check that's not duplicated when doing it on the same variable multiple times.
    *
-   * Cost: 1.5 constraints
+   * Cost: 1.5
    */
   assertIndexInRange(i: UInt32) {
     if (!this._indicesInRange.has(i.value)) {
@@ -156,25 +150,16 @@ class DynamicArrayBase<T = any> {
   /**
    * Gets a value at index i, as an option that is None if the index is not in the array.
    *
-   * Cost:
-   * - 1.5N for the index mask
-   * - TN for unsafeIf
-   * - 2.5 for less than
-   * = (1.5 + T)*N + 2.5
+   * Note: The correct type for `i` is actually UInt16 which doesn't exist. The method is not complete (but sound) for i >= 2^16.
+   *
+   * Cost: TN + 2.5
    */
   getOption(i: UInt32): Option<T> {
-    // TODO Using a 16-bit less-than + getOrUnconstrained here would be more efficient for most array sizes
     let type = this.innerType;
-    let value = ProvableType.synthesize(type);
-    let equalsI = this._indexMask(i.value);
-    let iContained = lessThan16(i.value, this.length);
-
-    zip(this.array, equalsI).forEach(([t, equalsIJ]) => {
-      value = unsafeIf(equalsIJ, type, value, t);
-    });
-    value = seal(type, value); // otherwise return value is a long AST
+    let isContained = lessThan16(i.value, this.length);
+    let value = this.getOrUnconstrained(i.value);
     const OptionT = Option(type);
-    return OptionT.fromValue({ isSome: iContained, value });
+    return OptionT.fromValue({ isSome: isContained, value });
   }
 
   /**
@@ -184,7 +169,7 @@ class DynamicArrayBase<T = any> {
    *
    * **Warning**: Only use this if you already know/proved by other means that the index is within bounds.
    *
-   * Cost: T*N
+   * Cost: T*N where T = size of the type
    */
   getOrUnconstrained(i: Field): T {
     let type = this.innerType;

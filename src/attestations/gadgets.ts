@@ -58,6 +58,8 @@ function assertLessThan16(i: UInt32, x: Field | number) {
 /**
  * Returns i <? x for i, x < 2^16.
  *
+ * Note: This is also sound for i < 2^32, just not complete in that case
+ *
  * Cost: 2.5
  */
 function lessThan16(i: Field, x: Field): Bool {
