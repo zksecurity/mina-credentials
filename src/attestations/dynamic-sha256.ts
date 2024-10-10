@@ -1,4 +1,4 @@
-import { Field, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
+import { Field, Gadgets, Packed, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { assert, chunk } from '../util.ts';
 
@@ -11,6 +11,11 @@ class Bytes extends DynamicArray(UInt8, { maxLength: 80 }) {
     );
   }
 }
+// hierarchy of packed types to do make array ops more efficient
+const UInt16 = Packed.create(Provable.Array(UInt8, 2));
+const UInt16x8 = Provable.Array(UInt16, 8);
+const UInt128 = Packed.create(UInt16x8);
+const UInt128x4 = Provable.Array(UInt128, 4);
 const State = Provable.Array(UInt32, 16);
 
 let bytes = Bytes.fromString('test');
@@ -25,18 +30,44 @@ let state = blocks.reduce(State, SHA256.initialState, hashBlock);
 function createPaddedBlocks(
   bytes: DynamicArray<UInt8>
 ): DynamicArray<UInt32[]> {
-  // sha2 blocks are 64 bytes = 16 uint32s each
-  let blocks = bytes.chunk(64).map(State, bytesToState);
+  /* padded message looks like this:
+  
+  M ... M 0x1 0x0 ... 0x0 L L L L L L L L
 
-  // apply padding:
-  // 1. get the last block
-  let lastIndex = blocks.length.sub(1);
-  let last = blocks.getOrUnconstrained(lastIndex);
+  where
+  - M is the original message
+  - the 8 L bytes encode the length of the original message, as a uint64
+  - padding always starts with a 0x1 byte
+  - there are k 0x0 bytes, where k is the smallest number such that
+    the padded length (in bytes) is a multiple of 64
 
-  // 2. apply padding and update block again (no-op if there are zero blocks)
-  blocks.setOrDoNothing(lastIndex, padLastBlock(last));
+  Corollary: the entire padding is always contained in the same (last) block
+  */
 
-  return blocks;
+  // create chunks of 64 bytes each
+  let { chunks: blocksOfUInt8, innerLength } = bytes.chunk(64);
+
+  // pack each block of 64 bytes into 32 uint16s
+  let blocksOfUInt16 = blocksOfUInt8.map(UInt16x8, (block) =>
+    chunk(block, 2).map(UInt16.pack)
+  );
+
+  // pack each block of 32 uint16s into 4 uint128s
+  let blocksOfUInt128 = blocksOfUInt16.map(UInt128x4, (block) =>
+    chunk(block, 8).map(UInt128.pack)
+  );
+
+  throw Error('todo');
+
+  // // apply padding:
+  // // 1. get the last block
+  // let lastIndex = blocksOfBytes.length.sub(1);
+  // let last = blocksOfBytes.getOrUnconstrained(lastIndex);
+
+  // // 2. apply padding and update block again (no-op if there are zero blocks)
+  // blocksOfBytes.setOrDoNothing(lastIndex, padLastBlock(last));
+
+  // return blocksOfBytes;
 }
 
 function padLastBlock(lastBlock: UInt32[]): UInt32[] {
