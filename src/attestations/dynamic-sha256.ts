@@ -1,7 +1,6 @@
 import { Field, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
-import { DynamicArray } from './dynamic-array';
-import { assert } from 'console';
-import { chunk } from '../util';
+import { DynamicArray } from './dynamic-array.ts';
+import { assert, chunk } from '../util.ts';
 
 const { SHA256 } = Gadgets;
 

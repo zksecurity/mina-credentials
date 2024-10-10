@@ -1,17 +1,16 @@
 import {
   Bool,
   Field,
-  Gadgets,
-  InferProvable,
+  type InferProvable,
   Option,
   Provable,
   Struct,
   UInt32,
+  type InferValue,
+  Gadgets,
 } from 'o1js';
-import { assert, chunk, zip } from '../util.ts';
+import { assert, chunk, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
-import { InferValue } from 'o1js/dist/node/bindings/lib/provable-generic.js';
-import { arrayGet } from 'o1js/dist/node/lib/provable/gadgets/basic.js';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
 
 export { DynamicArray };
@@ -115,10 +114,7 @@ class DynamicArrayBase<T = any> {
     assert(input.length <= maxLength, 'input exceeds maxLength');
 
     let NULL = ProvableType.synthesize(this.innerType);
-    let array = Array.from({ length: maxLength }, () => NULL);
-    input.forEach((t, i) => {
-      array[i] = t;
-    });
+    let array = pad(input, maxLength, NULL);
 
     this.array = array;
     this.length = length;
@@ -182,7 +178,7 @@ class DynamicArrayBase<T = any> {
 
     for (let j = 0; j < type.sizeInFields(); j++) {
       let column = fields.map((x) => x[j]!);
-      arrayGet(column, i).assertEquals(aiFields[j]!);
+      Gadgets.arrayGet(column, i).assertEquals(aiFields[j]!);
     }
     return ai;
   }
@@ -251,22 +247,23 @@ class DynamicArrayBase<T = any> {
 
   /**
    * Split into a (dynamic) number of fixed-size chunks.
-   * Assumes that the max length is a multiple of the chunk size, but not that the actual length is.
+   * Does not assumes that the max length or actual length are multiples of the chunk size.
    *
    * Warning: The last chunk will contain dummy values if the actual length is not a multiple of the chunk size.
    */
   chunk(chunkSize: number): DynamicArray<T[]> {
     assert(chunkSize < 2 ** 16, 'chunkSize must be < 2^16');
-    let chunked = chunk(this.array, chunkSize);
+    let NULL = ProvableType.synthesize(this.innerType);
+    let newMaxLength = Math.ceil(this.maxLength / chunkSize);
+    let padded = pad(this.array, newMaxLength * chunkSize, NULL);
+    let chunked = chunk(padded, chunkSize);
     // new length = Math.ceil(this.length / chunkSize)
     let newLength = UInt32.Unsafe.fromField(this.length.add(chunkSize - 1)).div(
       chunkSize
     );
 
     const Chunk = Provable.Array(this.innerType, chunkSize);
-    const Chunked = DynamicArray(Chunk, {
-      maxLength: this.maxLength / chunkSize,
-    });
+    const Chunked = DynamicArray(Chunk, { maxLength: newMaxLength });
     return new Chunked(chunked, newLength.value);
   }
 
