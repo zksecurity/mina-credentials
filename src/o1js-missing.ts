@@ -71,6 +71,7 @@ function assertPure<T>(
 type NestedArray = any[] | NestedArray[];
 
 function lengthRecursive(array: NestedArray): number {
+  if (!Array.isArray(array)) return 1;
   let length = 0;
   for (let i = 0; i < array.length; i++) {
     length += lengthRecursive(array[i]);
