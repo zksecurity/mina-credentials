@@ -300,7 +300,7 @@ class DynamicArrayBase<T = any> {
 
   /**
    * Split into a (dynamic) number of fixed-size chunks.
-   * Does not assumes that the max length or actual length are multiples of the chunk size.
+   * Does not assume that the max length or actual length are multiples of the chunk size.
    *
    * Warning: The last chunk will contain dummy values if the actual length is not a multiple of the chunk size.
    */

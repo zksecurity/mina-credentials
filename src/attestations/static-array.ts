@@ -10,7 +10,7 @@ import {
   Gadgets,
   ProvableHashable,
 } from 'o1js';
-import { assert, zip } from '../util.ts';
+import { assert, chunk, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertLessThan16, lessThan16 } from './gadgets.ts';
 
@@ -50,7 +50,7 @@ function StaticArray<
    *
    * Note: Both the actual length and the values beyond the original ones will be constant.
    */
-  from(v: (T | V)[]): StaticArrayBase<T>;
+  from(v: (T | V)[] | StaticArrayBase<T>): StaticArrayBase<T>;
 } {
   let innerType: ProvableHashable<T, V> = ProvableType.get(type) as any;
 
@@ -217,6 +217,18 @@ class StaticArrayBase<T = any> {
       state = f(state, t);
     });
     return state;
+  }
+
+  /**
+   * Split into a static number of fixed-size chunks.
+   * Requires that the length is a multiple of the chunk size.
+   */
+  chunk(chunkSize: number) {
+    let chunked = chunk(this.array, chunkSize);
+    let newLength = this.length / chunkSize;
+    const Chunk = StaticArray(this.innerType, chunkSize);
+    const Chunked = StaticArray(Chunk, newLength);
+    return new Chunked(chunked.map(Chunk.from));
   }
 
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index

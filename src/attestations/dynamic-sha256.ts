@@ -51,25 +51,32 @@ function createPaddedBlocks(
 
   // pack each block of 64 bytes into 32 uint16s
   let blocksOfUInt16 = blocksOfUInt8.map(UInt16x8, (block) =>
-    UInt16x8.from(chunk(block.array, 2).map(UInt8x2.from).map(UInt16.pack))
+    UInt16x8.from(block.chunk(2).map(UInt16, UInt16.pack))
   );
 
   // pack each block of 32 uint16s into 4 uint128s
   let blocksOfUInt128 = blocksOfUInt16.map(UInt128x4, (block) =>
-    UInt128x4.from(chunk(block.array, 8).map(UInt16x8.from).map(UInt128.pack))
+    UInt128x4.from(block.chunk(8).map(UInt128, UInt128.pack))
   );
 
+  // splice the length in the same way
+  // length = l0 + 2*(l10 + 8*l11) + 64*blocks.length
+  let { rest: l0, quotient: l1 } =
+    UInt32.Unsafe.fromField(innerLength).divMod(2);
+  let { rest: l10, quotient: l11 } = l1.divMod(8);
+
+  // get the last block, and correct sub-blocks within that
+  let lastIndex = blocksOfUInt128.length.sub(1);
+  let lastBlock = blocksOfUInt128.getOrUnconstrained(lastIndex);
+  let lastUint128 = lastBlock.getOrUnconstrained(l11.value).unpack();
+  let lastUint16 = lastUint128.getOrUnconstrained(l10.value).unpack();
+
+  // set 0x1 byte at `length`
+  lastUint16.setOrDoNothing(l0.value, UInt8.from(0x1));
+  lastUint128.setOrDoNothing(l11.value, UInt16.pack(lastUint16));
+  lastBlock.setOrDoNothing(l10.value, UInt128.pack(lastUint128));
+
   throw Error('todo');
-
-  // // apply padding:
-  // // 1. get the last block
-  // let lastIndex = blocksOfBytes.length.sub(1);
-  // let last = blocksOfBytes.getOrUnconstrained(lastIndex);
-
-  // // 2. apply padding and update block again (no-op if there are zero blocks)
-  // blocksOfBytes.setOrDoNothing(lastIndex, padLastBlock(last));
-
-  // return blocksOfBytes;
 }
 
 function padLastBlock(lastBlock: UInt32[]): UInt32[] {
