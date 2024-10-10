@@ -128,7 +128,18 @@ class DynamicArrayBase<T = any> {
    * **Warning**: Only use this if you already know/proved by other means that the index is within bounds.
    */
   getOrUnconstrained(i: Field): T {
-    return arrayGetGeneric(this.innerType, this.array, i);
+    let type = this.innerType;
+    let ai = Provable.witness(type, () => this.array[Number(i)]);
+    let aiFields = type.toFields(ai);
+
+    // assert a is correct on every field column with arrayGet()
+    let fields = this.array.map((t) => type.toFields(t));
+
+    for (let j = 0; j < type.sizeInFields(); j++) {
+      let column = fields.map((x) => x[j]!);
+      arrayGet(column, i).assertEquals(aiFields[j]!);
+    }
+    return ai;
   }
 
   /**
@@ -266,26 +277,4 @@ function add(t: Field[], s: Field[]) {
 function zip<T, S>(a: T[], b: S[]) {
   assert(a.length === b.length, 'zip(): arrays of unequal length');
   return a.map((a, i): [T, S] => [a, b[i]!]);
-}
-
-/**
- * Get value from array in O(n) constraints.
- *
- * Assumes that index is in [0, n), returns an unconstrained result otherwise.
- */
-function arrayGetGeneric<T>(type: ProvableType<T>, array: T[], index: Field) {
-  type = ProvableType.get(type);
-  // witness result
-  let a = Provable.witness(type, () => array[Number(index)]);
-  let aFields = type.toFields(a);
-
-  // constrain each field of the result
-  let size = type.sizeInFields();
-  let arrays = array.map(type.toFields);
-
-  for (let j = 0; j < size; j++) {
-    let arrayFieldsJ = arrays.map((x) => x[j]!);
-    arrayGet(arrayFieldsJ, index).assertEquals(aFields[j]!);
-  }
-  return a;
 }
