@@ -1,7 +1,8 @@
-import { Bool, Field, InferProvable, Provable, Struct } from 'o1js';
+import { Bool, Field, InferProvable, Option, Provable, Struct } from 'o1js';
 import { assert } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { InferValue } from 'o1js/dist/node/bindings/lib/provable-generic.js';
+import { arrayGet } from 'o1js/dist/node/lib/provable/gadgets/basic.js';
 
 export { DynamicArray };
 
@@ -103,17 +104,20 @@ class DynamicArrayBase<T = any> {
   // public methods
 
   /**
-   * Gets a value at index i and proves that the index is in the array.
+   * Gets a value at index i, as an option that is None if the index is not in the array.
    */
-  get(i: Field): T {
-    throw Error('todo');
-  }
+  get(i: Field): Option<T> {
+    let type = this.innerType;
+    let value = ProvableType.synthesize(type);
+    let equalsI = this._indexMask(i);
+    let foundI = Bool(false);
 
-  /**
-   * Gets a value at index i, or a dummy value if the index is not in the array
-   */
-  getOrDummy(i: Field): T {
-    throw Error('todo');
+    zip(this.array, equalsI).forEach(([t, equalsIJ]) => {
+      value = unsafeIf(equalsIJ, type, value, t);
+      foundI = foundI.or(equalsIJ);
+    });
+    const OptionT = Option(type);
+    return OptionT.fromValue({ isSome: foundI, value });
   }
 
   /**
@@ -124,7 +128,7 @@ class DynamicArrayBase<T = any> {
    * **Warning**: Only use this if you already know/proved by other means that the index is within bounds.
    */
   getOrUnconstrained(i: Field): T {
-    throw Error('todo');
+    return arrayGetGeneric(this.innerType, this.array, i);
   }
 
   /**
@@ -181,6 +185,15 @@ class DynamicArrayBase<T = any> {
     let isLength = length.equals(this.maxLength + 1);
     pastLength.or(isLength).assertTrue();
   }
+
+  _masks: Map<Field, Bool[]> = new Map();
+
+  _indexMask(i: Field) {
+    let mask = this._masks.get(i);
+    mask ??= this.array.map((_, j) => i.equals(j));
+    this._masks.set(i, mask);
+    return mask;
+  }
 }
 
 /**
@@ -225,4 +238,54 @@ function provable<T, V>(
       value._verifyLength();
     },
   };
+}
+
+// helper
+
+/**
+ * Slightly more efficient version of Provable.if() which produces garbage if both t is a non-dummy and b is true.
+ *
+ * t + b*s
+ */
+function unsafeIf<T>(b: Bool, type: Provable<T>, t: T, s: T): T {
+  let fields = add(type.toFields(t), mul(type.toFields(s), b));
+  let aux = type.toAuxiliary(t);
+  Provable.asProver(() => {
+    if (b.toBoolean()) aux = type.toAuxiliary(s);
+  });
+  return type.fromFields(fields, aux);
+}
+
+function mul(fields: Field[], mask: Bool) {
+  return fields.map((x) => x.mul(mask.toField()));
+}
+function add(t: Field[], s: Field[]) {
+  return t.map((t, i) => t.add(s[i]!));
+}
+
+function zip<T, S>(a: T[], b: S[]) {
+  assert(a.length === b.length, 'zip(): arrays of unequal length');
+  return a.map((a, i): [T, S] => [a, b[i]!]);
+}
+
+/**
+ * Get value from array in O(n) constraints.
+ *
+ * Assumes that index is in [0, n), returns an unconstrained result otherwise.
+ */
+function arrayGetGeneric<T>(type: ProvableType<T>, array: T[], index: Field) {
+  type = ProvableType.get(type);
+  // witness result
+  let a = Provable.witness(type, () => array[Number(index)]);
+  let aFields = type.toFields(a);
+
+  // constrain each field of the result
+  let size = type.sizeInFields();
+  let arrays = array.map(type.toFields);
+
+  for (let j = 0; j < size; j++) {
+    let arrayFieldsJ = arrays.map((x) => x[j]!);
+    arrayGet(arrayFieldsJ, index).assertEquals(aFields[j]!);
+  }
+  return a;
 }
