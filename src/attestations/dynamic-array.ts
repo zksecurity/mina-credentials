@@ -1,4 +1,13 @@
-import { Bool, Field, InferProvable, Option, Provable, Struct } from 'o1js';
+import {
+  Bool,
+  Field,
+  Gadgets,
+  InferProvable,
+  Option,
+  Provable,
+  Struct,
+  UInt32,
+} from 'o1js';
 import { assert } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { InferValue } from 'o1js/dist/node/bindings/lib/provable-generic.js';
@@ -17,11 +26,13 @@ type DynamicArray<T> = DynamicArrayBase<T>;
  * const Bytes = DynamicArray(UInt8, { maxLength: 32 });
  * ```
  *
+ * `maxLength` can be any number from 0 to 2^16-1.
+ *
  * **Details**: Internally, this is represented as a static-sized array, plus a Field element
  * that represents the length.
- * The only requirement on these is that the length has to be smaller than the maxLength.
- * In particular, there are no provable guarantees maintained on the content of the
- * static-sized array beyond the actual length.
+ * The _only_ requirement on these is that the length is less or equal maxLength.
+ * In particular, there are no provable guarantees maintained on the content of the static-sized array beyond the actual length.
+ * Instead, our methods ensure integrity of array operations _within_ the actual length.
  */
 function DynamicArray<
   A extends ProvableType,
@@ -41,6 +52,10 @@ function DynamicArray<
 } {
   let innerType: Provable<T, V> = ProvableType.get(type);
 
+  // assert maxLength bounds
+  assert(maxLength >= 0, 'maxLength must be >= 0');
+  assert(maxLength < 2 ** 16, 'maxLength must be < 2^16');
+
   class DynamicArray extends DynamicArrayBase<T> {
     get innerType() {
       return innerType;
@@ -56,9 +71,10 @@ function DynamicArray<
       if (input instanceof DynamicArrayBase) return input;
       let values = input.map((t) => innerType.fromValue(t));
       let length = Provable.witness(Field, () => input.length);
-      let bytes = new this(values, length);
-      bytes._verifyLength();
-      return bytes;
+      // length must be within maxLength
+      assertInRange16(length, this.maxLength);
+
+      return new this(values, length);
     }
   }
   const provableArray = provable<T, V>(innerType, DynamicArray);
@@ -67,7 +83,14 @@ function DynamicArray<
 }
 
 class DynamicArrayBase<T = any> {
+  /**
+   * The internal array, which includes the actual values, padded up to `maxLength` with unconstrained values.
+   */
   array: T[];
+
+  /**
+   * Length of the array. Guaranteed to be in [0, maxLength].
+   */
   length: Field;
 
   // prop to override
@@ -88,25 +111,33 @@ class DynamicArrayBase<T = any> {
 
   constructor(input: T[], length: Field) {
     let maxLength = this.maxLength;
-
-    assert(input.length <= maxLength, 'input too long');
+    assert(input.length <= maxLength, 'input exceeds maxLength');
 
     let NULL = ProvableType.synthesize(this.innerType);
-    let bytes = Array.from({ length: maxLength }, () => NULL);
+    let array = Array.from({ length: maxLength }, () => NULL);
     input.forEach((t, i) => {
-      bytes[i] = t;
+      array[i] = t;
     });
 
-    this.array = bytes;
+    this.array = array;
     this.length = length;
   }
 
   // public methods
 
   /**
+   * Gets value at index i, and proves that the index is in the array.
+   */
+  get(i: UInt32): T {
+    assertLessThan16(i, this.length);
+    return this.getOrUnconstrained(i.value);
+  }
+
+  /**
    * Gets a value at index i, as an option that is None if the index is not in the array.
    */
-  get(i: Field): Option<T> {
+  getOption(i: Field): Option<T> {
+    // TODO Using a 16-bit less-than + getOrUnconstrained here would be more efficient for most array sizes
     let type = this.innerType;
     let value = ProvableType.synthesize(type);
     let equalsI = this._indexMask(i);
@@ -182,19 +213,8 @@ class DynamicArrayBase<T = any> {
   }
 
   _verifyLength() {
-    // - length must be <= maxLength
-    // - every entry past `length` must be NULL
-    let length = this.length;
-    let pastLength = Bool(false);
-
-    this.array.forEach((x, i) => {
-      let isLength = length.equals(i);
-      pastLength = pastLength.or(isLength);
-      let NULL = ProvableType.synthesize(this.innerType);
-      Provable.assertEqualIf(pastLength, this.innerType, x, NULL);
-    });
-    let isLength = length.equals(this.maxLength + 1);
-    pastLength.or(isLength).assertTrue();
+    // length must satsify 0 <= length <= maxLength
+    assertInRange16(this.length, this.maxLength);
   }
 
   _masks: Map<Field, Bool[]> = new Map();
@@ -277,4 +297,22 @@ function add(t: Field[], s: Field[]) {
 function zip<T, S>(a: T[], b: S[]) {
   assert(a.length === b.length, 'zip(): arrays of unequal length');
   return a.map((a, i): [T, S] => [a, b[i]!]);
+}
+
+/**
+ * Asserts that 0 <= i <= x without other assumptions on i,
+ * assuming that 0 <= x < 2^16.
+ */
+function assertInRange16(i: Field, x: Field | number) {
+  Gadgets.rangeCheck16(i);
+  Gadgets.rangeCheck16(Field(x).sub(i).seal());
+}
+
+/**
+ * Asserts that i < x, assuming that i in [0,2^32) and x in [0,2^16).
+ */
+function assertLessThan16(i: UInt32, x: Field | number) {
+  // assumptions on i, x imply that x - 1 - i is in [0, 2^16) - 1 - [0, 2^32) = [-1-2^32, 2^16-1) = (p-2^32, p) u [0, 2^16-1)
+  // checking 0 <= x - 1 - i < 2^16 excludes the negative part of the range
+  Gadgets.rangeCheck16(Field(x).sub(1).sub(i.value).seal());
 }

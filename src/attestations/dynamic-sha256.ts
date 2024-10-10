@@ -31,7 +31,7 @@ function createPaddedBlocks(
   // apply padding:
   // 1. get the last block
   let lastIndex = blocks.length.sub(1);
-  let last = blocks.getOrDummy(lastIndex);
+  let last = blocks.getOrUnconstrained(lastIndex);
 
   // 2. apply padding and update block again (no-op if there are zero blocks)
   blocks.setOrDoNothing(lastIndex, padLastBlock(last));
