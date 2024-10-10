@@ -4,11 +4,11 @@ import {
   type InferProvable,
   Option,
   Provable,
-  Struct,
+  provable as struct,
   UInt32,
   type InferValue,
   Gadgets,
-  ProvableHashable,
+  type ProvableHashable,
 } from 'o1js';
 import { assert, chunk, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
@@ -41,7 +41,7 @@ function StaticArray<
   V extends InferValue<A> = InferValue<A>
 >(
   type: A,
-  maxLength: number
+  length: number
 ): typeof StaticArrayBase<T> & {
   provable: ProvableHashable<StaticArrayBase<T>, V[]>;
 
@@ -55,15 +55,15 @@ function StaticArray<
   let innerType: ProvableHashable<T, V> = ProvableType.get(type) as any;
 
   // assert maxLength bounds
-  assert(maxLength >= 0, 'maxLength must be >= 0');
-  assert(maxLength < 2 ** 16, 'maxLength must be < 2^16');
+  assert(length >= 0, 'length must be >= 0');
+  assert(length < 2 ** 16, 'length must be < 2^16');
 
   class StaticArray_ extends StaticArrayBase<T> {
     get innerType() {
       return innerType;
     }
-    static get maxLength() {
-      return maxLength;
+    static get length() {
+      return length;
     }
     static get provable(): ProvableHashable<StaticArrayBase<T>, V[]> {
       return provableArray;
@@ -269,7 +269,7 @@ function provable<T, V>(
   Class: typeof StaticArrayBase<T>
 ): ProvableHashable<StaticArrayBase<T>, V[]> {
   let maxLength = Class.length;
-  let PlainArray = Struct({ array: Provable.Array(type, maxLength) });
+  let PlainArray = struct({ array: Provable.Array(type, maxLength) });
 
   return {
     ...PlainArray,
