@@ -12,6 +12,7 @@ import {
 import { assert, chunk, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
+import { StaticArray } from './static-array.ts';
 
 export { DynamicArray };
 
@@ -108,13 +109,10 @@ class DynamicArrayBase<T = any> {
   get maxLength(): number {
     return (this.constructor as typeof DynamicArrayBase).maxLength;
   }
-  static get provable(): Provable<any> {
-    return provable(this.prototype.innerType, this);
-  }
 
   constructor(array: T[], length: Field) {
     let maxLength = this.maxLength;
-    assert(array.length !== maxLength, 'input has to match maxLength');
+    assert(array.length === maxLength, 'input has to match maxLength');
 
     this.array = array;
     this.length = length;
@@ -238,7 +236,7 @@ class DynamicArrayBase<T = any> {
    * The callback will be passed the current state, an element, and a boolean `isDummy` indicating whether the value is part of the actual array.
    */
   reduce<S>(
-    stateType: Provable<S>,
+    stateType: ProvableType<S>,
     state: S,
     f: (state: S, t: T, isDummy: Bool) => S
   ): S {
@@ -317,10 +315,10 @@ class DynamicArrayBase<T = any> {
       this.length.add(chunkSize - 1)
     ).divMod(chunkSize);
 
-    const Chunk = Provable.Array(this.innerType, chunkSize);
+    const Chunk = StaticArray(this.innerType, chunkSize);
     const Chunked = DynamicArray(Chunk, { maxLength: newMaxLength });
     return {
-      chunks: new Chunked(chunked, newLength.value),
+      chunks: new Chunked(chunked.map(Chunk.from), newLength.value),
       innerLength: rest.value,
     };
   }

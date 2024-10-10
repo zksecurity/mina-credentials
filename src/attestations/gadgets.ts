@@ -62,8 +62,10 @@ function assertLessThan16(i: UInt32, x: Field | number) {
  *
  * Cost: 2.5
  */
-function lessThan16(i: Field, x: Field): Bool {
-  let b = Provable.witness(Field, () => BigInt(i.toBigInt() < x.toBigInt()));
+function lessThan16(i: Field, x: Field | number): Bool {
+  let b = Provable.witness(Field, () =>
+    BigInt(i.toBigInt() < Field(x).toBigInt())
+  );
   let isLessThan = b.assertBool();
   Gadgets.rangeCheck16(
     b

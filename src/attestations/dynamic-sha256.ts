@@ -1,5 +1,6 @@
 import { Field, Gadgets, Packed, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
+import { StaticArray } from './static-array.ts';
 import { assert, chunk } from '../util.ts';
 
 const { SHA256 } = Gadgets;
@@ -12,10 +13,11 @@ class Bytes extends DynamicArray(UInt8, { maxLength: 80 }) {
   }
 }
 // hierarchy of packed types to do make array ops more efficient
-const UInt16 = Packed.create(Provable.Array(UInt8, 2));
-const UInt16x8 = Provable.Array(UInt16, 8);
+const UInt8x2 = StaticArray(UInt8, 2);
+const UInt16 = Packed.create(UInt8x2);
+const UInt16x8 = StaticArray(UInt16, 8);
 const UInt128 = Packed.create(UInt16x8);
-const UInt128x4 = Provable.Array(UInt128, 4);
+const UInt128x4 = StaticArray(UInt128, 4);
 const State = Provable.Array(UInt32, 16);
 
 let bytes = Bytes.fromString('test');
@@ -49,12 +51,12 @@ function createPaddedBlocks(
 
   // pack each block of 64 bytes into 32 uint16s
   let blocksOfUInt16 = blocksOfUInt8.map(UInt16x8, (block) =>
-    chunk(block, 2).map(UInt16.pack)
+    UInt16x8.from(chunk(block.array, 2).map(UInt8x2.from).map(UInt16.pack))
   );
 
   // pack each block of 32 uint16s into 4 uint128s
   let blocksOfUInt128 = blocksOfUInt16.map(UInt128x4, (block) =>
-    chunk(block, 8).map(UInt128.pack)
+    UInt128x4.from(chunk(block.array, 8).map(UInt16x8.from).map(UInt128.pack))
   );
 
   throw Error('todo');
