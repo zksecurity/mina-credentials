@@ -48,9 +48,15 @@ function DynamicArray<
 ): typeof DynamicArrayBase<T> & {
   provable: Provable<DynamicArrayBase<T>, V[]>;
 
+  /**
+   * Create a new DynamicArray from an array of values.
+   *
+   * Note: Both the actual length and the values beyond the original ones will be constant.
+   */
   from(v: (T | V)[]): DynamicArrayBase<T>;
 } {
   let innerType: Provable<T, V> = ProvableType.get(type);
+  let NULL = ProvableType.synthesize(innerType);
 
   // assert maxLength bounds
   assert(maxLength >= 0, 'maxLength must be >= 0');
@@ -69,12 +75,9 @@ function DynamicArray<
 
     static from(input: (T | V)[] | DynamicArrayBase) {
       if (input instanceof DynamicArrayBase) return input;
-      let values = input.map((t) => innerType.fromValue(t));
-      let length = Provable.witness(Field, () => input.length);
-      // length must be within maxLength
-      assertInRange16(length, this.maxLength);
-
-      return new this(values, length);
+      let array = input.map((t) => innerType.fromValue(t));
+      let padded = pad(array, maxLength, NULL);
+      return new this(padded, Field(input.length));
     }
   }
   const provableArray = provable<T, V>(innerType, DynamicArray);
@@ -109,12 +112,9 @@ class DynamicArrayBase<T = any> {
     return provable(this.prototype.innerType, this);
   }
 
-  constructor(input: T[], length: Field) {
+  constructor(array: T[], length: Field) {
     let maxLength = this.maxLength;
-    assert(input.length <= maxLength, 'input exceeds maxLength');
-
-    let NULL = ProvableType.synthesize(this.innerType);
-    let array = pad(input, maxLength, NULL);
+    assert(array.length !== maxLength, 'input has to match maxLength');
 
     this.array = array;
     this.length = length;
@@ -185,6 +185,8 @@ class DynamicArrayBase<T = any> {
 
   /**
    * Sets a value at index i and proves that the index is in the array.
+   *
+   * Cost: 1.5(T + 1)N + 1.5
    */
   set(i: UInt32, value: T): void {
     this.assertIndexInRange(i);
@@ -193,6 +195,8 @@ class DynamicArrayBase<T = any> {
 
   /**
    * Sets a value at index i, or does nothing if the index is not in the array
+   *
+   * Cost: 1.5(T + 1)N
    */
   setOrDoNothing(i: Field, value: T): void {
     zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], i) => {
@@ -205,7 +209,7 @@ class DynamicArrayBase<T = any> {
    *
    * Warning: The callback will be passed unconstrained dummy values.
    */
-  map<S>(type: Provable<S>, f: (t: T) => S): DynamicArray<S> {
+  map<S>(type: ProvableType<S>, f: (t: T) => S): DynamicArray<S> {
     let Array = DynamicArray(type, { maxLength: this.maxLength });
     let array = this.array.map(f);
     let newArray = new Array(array, this.length);
@@ -246,25 +250,79 @@ class DynamicArrayBase<T = any> {
   }
 
   /**
+   * Push a value, without changing the maxLength.
+   *
+   * Proves that the new length is still within the maxLength, fails otherwise.
+   *
+   * To grow the maxLength along with the actual length, you can use:
+   *
+   * ```ts
+   * array = array.growMaxLengthBy(1);
+   * array.push(value);
+   * ```
+   *
+   * Cost: 1.5(T + 1)N + 2
+   */
+  push(value: T): void {
+    let oldLength = this.length;
+    this.length = oldLength.add(1).seal();
+    assertInRange16(this.length, this.maxLength);
+    this.setOrDoNothing(oldLength, value);
+  }
+
+  /**
+   * Return a version of the same array with a larger maxLength.
+   *
+   * **Warning**: Does not modify the array, but returns a new one.
+   *
+   * **Note**: this doesn't cost constraints, but currently doesn't preserve any cached constraints.
+   */
+  growMaxLengthTo(maxLength: number): DynamicArray<T> {
+    assert(
+      maxLength >= this.maxLength,
+      'new maxLength must be greater or equal'
+    );
+    let NewArray = DynamicArray(this.innerType, { maxLength });
+    let NULL = ProvableType.synthesize(this.innerType);
+    let array = pad(this.array, maxLength, NULL);
+    let length = this.length;
+    return new NewArray(array, length);
+  }
+
+  /**
+   * Return a version of the same array with a larger maxLength.
+   *
+   * **Warning**: Does not modify the array, but returns a new one.
+   *
+   * **Note**: this doesn't cost constraints, but currently doesn't preserve any cached constraints.
+   */
+  growMaxLengthBy(maxLength: number): DynamicArray<T> {
+    return this.growMaxLengthTo(this.maxLength + maxLength);
+  }
+
+  /**
    * Split into a (dynamic) number of fixed-size chunks.
    * Does not assumes that the max length or actual length are multiples of the chunk size.
    *
    * Warning: The last chunk will contain dummy values if the actual length is not a multiple of the chunk size.
    */
-  chunk(chunkSize: number): DynamicArray<T[]> {
+  chunk(chunkSize: number) {
     assert(chunkSize < 2 ** 16, 'chunkSize must be < 2^16');
     let NULL = ProvableType.synthesize(this.innerType);
     let newMaxLength = Math.ceil(this.maxLength / chunkSize);
     let padded = pad(this.array, newMaxLength * chunkSize, NULL);
     let chunked = chunk(padded, chunkSize);
     // new length = Math.ceil(this.length / chunkSize)
-    let newLength = UInt32.Unsafe.fromField(this.length.add(chunkSize - 1)).div(
-      chunkSize
-    );
+    let { quotient: newLength, rest } = UInt32.Unsafe.fromField(
+      this.length.add(chunkSize - 1)
+    ).divMod(chunkSize);
 
     const Chunk = Provable.Array(this.innerType, chunkSize);
     const Chunked = DynamicArray(Chunk, { maxLength: newMaxLength });
-    return new Chunked(chunked, newLength.value);
+    return {
+      chunks: new Chunked(chunked, newLength.value),
+      innerLength: rest.value,
+    };
   }
 
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
@@ -277,6 +335,7 @@ class DynamicArrayBase<T = any> {
    * Compute i.equals(j) for all indices j in the static-size array.
    *
    * Costs: 1.5N
+   *
    * TODO: equals() could be optimized to just 1 double generic because j is constant, o1js doesn't do that
    */
   _indexMask(i: Field) {
@@ -331,7 +390,7 @@ function provable<T, V>(
       return new Class(raw.array, raw.length);
     },
 
-    // convert to/from Uint8Array
+    // convert to/from plain array
     toValue(value) {
       return value.array.map((t) => type.toValue(t));
     },
