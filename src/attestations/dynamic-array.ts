@@ -1,17 +1,23 @@
 import {
   Bool,
   Field,
-  Gadgets,
   InferProvable,
   Option,
   Provable,
   Struct,
   UInt32,
 } from 'o1js';
-import { assert } from '../util.ts';
+import { assert, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { InferValue } from 'o1js/dist/node/bindings/lib/provable-generic.js';
 import { arrayGet } from 'o1js/dist/node/lib/provable/gadgets/basic.js';
+import {
+  assertInRange16,
+  assertLessThan16,
+  lessThan16,
+  seal,
+  unsafeIf,
+} from './gadgets.ts';
 
 export { DynamicArray };
 
@@ -126,29 +132,49 @@ class DynamicArrayBase<T = any> {
   // public methods
 
   /**
+   * Asserts that 0 <= i < this.length, using a cached check that's not duplicated when doing it on the same variable multiple times.
+   *
+   * Cost: 1.5 constraints
+   */
+  assertIndexInRange(i: UInt32) {
+    if (!this._indicesInRange.has(i.value)) {
+      assertLessThan16(i, this.length);
+      this._indicesInRange.add(i.value);
+    }
+  }
+
+  /**
    * Gets value at index i, and proves that the index is in the array.
+   *
+   * Cost: TN + 1.5
    */
   get(i: UInt32): T {
-    assertLessThan16(i, this.length);
+    this.assertIndexInRange(i);
     return this.getOrUnconstrained(i.value);
   }
 
   /**
    * Gets a value at index i, as an option that is None if the index is not in the array.
+   *
+   * Cost:
+   * - 1.5N for the index mask
+   * - TN for unsafeIf
+   * - 2.5 for less than
+   * = (1.5 + T)*N + 2.5
    */
-  getOption(i: Field): Option<T> {
+  getOption(i: UInt32): Option<T> {
     // TODO Using a 16-bit less-than + getOrUnconstrained here would be more efficient for most array sizes
     let type = this.innerType;
     let value = ProvableType.synthesize(type);
-    let equalsI = this._indexMask(i);
-    let foundI = Bool(false);
+    let equalsI = this._indexMask(i.value);
+    let iContained = lessThan16(i.value, this.length);
 
     zip(this.array, equalsI).forEach(([t, equalsIJ]) => {
       value = unsafeIf(equalsIJ, type, value, t);
-      foundI = foundI.or(equalsIJ);
     });
+    value = seal(type, value); // otherwise return value is a long AST
     const OptionT = Option(type);
-    return OptionT.fromValue({ isSome: foundI, value });
+    return OptionT.fromValue({ isSome: iContained, value });
   }
 
   /**
@@ -157,6 +183,8 @@ class DynamicArrayBase<T = any> {
    * If the index is in fact not in the array, the return value is completely unconstrained.
    *
    * **Warning**: Only use this if you already know/proved by other means that the index is within bounds.
+   *
+   * Cost: T*N
    */
   getOrUnconstrained(i: Field): T {
     let type = this.innerType;
@@ -176,15 +204,18 @@ class DynamicArrayBase<T = any> {
   /**
    * Sets a value at index i and proves that the index is in the array.
    */
-  set(i: Field, value: T): void {
-    throw Error('todo');
+  set(i: UInt32, value: T): void {
+    this.assertIndexInRange(i);
+    this.setOrDoNothing(i.value, value);
   }
 
   /**
    * Sets a value at index i, or does nothing if the index is not in the array
    */
   setOrDoNothing(i: Field, value: T): void {
-    throw Error('todo');
+    zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], i) => {
+      this.array[i] = Provable.if(equalsIJ, this.innerType, value, t);
+    });
   }
 
   map<S>(type: Provable<S>, f: (t: T) => S): DynamicArray<S> {
@@ -212,13 +243,16 @@ class DynamicArrayBase<T = any> {
     throw Error('todo');
   }
 
-  _verifyLength() {
-    // length must satsify 0 <= length <= maxLength
-    assertInRange16(this.length, this.maxLength);
-  }
-
+  // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
   _masks: Map<Field, Bool[]> = new Map();
+  _indicesInRange: Set<Field> = new Set();
 
+  /**
+   * Compute i.equals(j) for all indices j in the static-size array.
+   *
+   * Costs: 1.5N
+   * TODO: equals() could be optimized to just 1 double generic because j is constant, o1js doesn't do that
+   */
   _indexMask(i: Field) {
     let mask = this._masks.get(i);
     mask ??= this.array.map((_, j) => i.equals(j));
@@ -231,8 +265,6 @@ class DynamicArrayBase<T = any> {
  * Base class of all DynamicBytes subclasses
  */
 DynamicArray.Base = DynamicArrayBase;
-
-// TODO make this easier by exporting provableFromClass from o1js
 
 function provable<T, V>(
   type: Provable<T, V>,
@@ -266,53 +298,7 @@ function provable<T, V>(
     // check has to validate length in addition to the other checks
     check(value) {
       PlainArray.check(value);
-      value._verifyLength();
+      assertInRange16(value.length, maxLength);
     },
   };
-}
-
-// helper
-
-/**
- * Slightly more efficient version of Provable.if() which produces garbage if both t is a non-dummy and b is true.
- *
- * t + b*s
- */
-function unsafeIf<T>(b: Bool, type: Provable<T>, t: T, s: T): T {
-  let fields = add(type.toFields(t), mul(type.toFields(s), b));
-  let aux = type.toAuxiliary(t);
-  Provable.asProver(() => {
-    if (b.toBoolean()) aux = type.toAuxiliary(s);
-  });
-  return type.fromFields(fields, aux);
-}
-
-function mul(fields: Field[], mask: Bool) {
-  return fields.map((x) => x.mul(mask.toField()));
-}
-function add(t: Field[], s: Field[]) {
-  return t.map((t, i) => t.add(s[i]!));
-}
-
-function zip<T, S>(a: T[], b: S[]) {
-  assert(a.length === b.length, 'zip(): arrays of unequal length');
-  return a.map((a, i): [T, S] => [a, b[i]!]);
-}
-
-/**
- * Asserts that 0 <= i <= x without other assumptions on i,
- * assuming that 0 <= x < 2^16.
- */
-function assertInRange16(i: Field, x: Field | number) {
-  Gadgets.rangeCheck16(i);
-  Gadgets.rangeCheck16(Field(x).sub(i).seal());
-}
-
-/**
- * Asserts that i < x, assuming that i in [0,2^32) and x in [0,2^16).
- */
-function assertLessThan16(i: UInt32, x: Field | number) {
-  // assumptions on i, x imply that x - 1 - i is in [0, 2^16) - 1 - [0, 2^32) = [-1-2^32, 2^16-1) = (p-2^32, p) u [0, 2^16-1)
-  // checking 0 <= x - 1 - i < 2^16 excludes the negative part of the range
-  Gadgets.rangeCheck16(Field(x).sub(1).sub(i.value).seal());
 }

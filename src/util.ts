@@ -1,4 +1,4 @@
-export { assert, assertHasProperty, hasProperty };
+export { assert, assertHasProperty, hasProperty, zip };
 
 function assert(condition: boolean, message?: string): asserts condition {
   if (!condition) {
@@ -26,4 +26,9 @@ function hasProperty<K extends string>(
     ((typeof obj === 'object' && obj !== null) || typeof obj === 'function') &&
     key in obj
   );
+}
+
+function zip<T, S>(a: T[], b: S[]) {
+  assert(a.length === b.length, 'zip(): arrays of unequal length');
+  return a.map((a, i): [T, S] => [a, b[i]!]);
 }
