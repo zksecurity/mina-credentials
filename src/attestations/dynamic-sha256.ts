@@ -1,7 +1,7 @@
-import { Bytes, Field, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
+import { Bytes, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
-import { assert, chunk, pad } from '../util.ts';
+import { chunk, pad } from '../util.ts';
 const { SHA256 } = Gadgets;
 
 export { DynamicSHA256 };
@@ -18,6 +18,7 @@ const DynamicSHA256 = {
 };
 
 // static array types for blocks / state / result
+class UInt8x4 extends StaticArray(UInt8, 4) {}
 class UInt8x64 extends StaticArray(UInt8, 64) {}
 class Block extends StaticArray(UInt32, 16) {}
 class State extends StaticArray(UInt32, 8) {}
@@ -36,7 +37,7 @@ function hash(bytes: DynamicArray<UInt8>): Bytes {
     }
   );
 
-  let result = state.array.flatMap((x) => uint32ToBytesBE(x).array);
+  let result = state.array.flatMap((x) => x.toBytesBE());
   return Bytes32.from(result);
 }
 
@@ -81,7 +82,7 @@ function padding(
 
   // pack each block of 64 bytes into 16 uint32s (4 bytes each)
   let blocks = blocksOfBytes.map(Block, (block) =>
-    block.chunk(4).map(UInt32, uint32FromBytesBE)
+    block.chunk(4).map(UInt32, (b) => UInt32.fromBytesBE(b.array))
   );
 
   // splice the length in the same way
@@ -91,9 +92,9 @@ function padding(
   // hierarchically get byte at `length` and set to 0x80
   // we can use unsafe get/set because the indices are in bounds by design
   let block = blocks.getOrUnconstrained(l2);
-  let uint8x4 = uint32ToBytesBE(block.getOrUnconstrained(l1));
+  let uint8x4 = UInt8x4.from(block.getOrUnconstrained(l1).toBytesBE());
   uint8x4.setOrDoNothing(l0, UInt8.from(0x80)); // big-endian encoding of 1
-  block.setOrDoNothing(l1, uint32FromBytesBE(uint8x4));
+  block.setOrDoNothing(l1, UInt32.fromBytesBE(uint8x4.array));
   blocks.setOrDoNothing(l2, block);
 
   // set last 64 bits to encoded length (in bits, big-endian encoded)
@@ -110,34 +111,4 @@ function splitMultiIndex(index: UInt32) {
   let { rest: l0, quotient: l1 } = index.divMod(64);
   let { rest: l00, quotient: l01 } = l0.divMod(4);
   return [l00.value, l01.value, l1.value] as const;
-}
-
-function uint32FromBytes(bytes: UInt8[] | StaticArray<UInt8>) {
-  assert(bytes.length === 4, '4 bytes needed to create a uint32');
-
-  let word = Field(0);
-  bytes.forEach(({ value }, i) => {
-    word = word.add(value.mul(1n << BigInt(8 * i)));
-  });
-
-  return UInt32.Unsafe.fromField(word);
-}
-function uint32FromBytesBE(bytes: UInt8[] | StaticArray<UInt8>) {
-  return uint32FromBytes(bytes.toReversed());
-}
-
-function uint32ToBytes(word: UInt32) {
-  // witness the bytes
-  let bytes = Provable.witness(StaticArray(UInt8, 4), () => {
-    let value = word.value.toBigInt();
-    return [0, 1, 2, 3].map((i) =>
-      UInt8.from((value >> BigInt(8 * i)) & 0xffn)
-    );
-  });
-  // prove that bytes are correct
-  uint32FromBytes(bytes).assertEquals(word);
-  return bytes;
-}
-function uint32ToBytesBE(word: UInt32) {
-  return uint32ToBytes(word).toReversed();
 }
