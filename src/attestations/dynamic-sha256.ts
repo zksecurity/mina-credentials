@@ -57,7 +57,7 @@ function padding(
 
   Corollaries:
   - the entire L section is always contained at the end of the last block
-  - the 0x1 byte might be in the last block or the one before that
+  - the 0x80 byte might be in the last block or the one before that
   - max number of blocks = ceil((M.maxLength + 9) / 64) 
   - number of actual blocks = ceil((M.length + 9) / 64) = floor((M.length + 9 + 63) / 64) = floor((M.length + 8) / 64) + 1
   - block number of L section = floor((M.length + 8) / 64)
@@ -87,13 +87,14 @@ function padding(
 
   // splice the length in the same way
   // length = l0 + 4*l1 + 64*l2
+  // so that l2 is the block index, l1 the uint32 index in the block, and l0 the byte index in the uint32
   let [l0, l1, l2] = splitMultiIndex(UInt32.Unsafe.fromField(message.length));
 
   // hierarchically get byte at `length` and set to 0x80
   // we can use unsafe get/set because the indices are in bounds by design
   let block = blocks.getOrUnconstrained(l2);
   let uint8x4 = UInt8x4.from(block.getOrUnconstrained(l1).toBytesBE());
-  uint8x4.setOrDoNothing(l0, UInt8.from(0x80)); // big-endian encoding of 1
+  uint8x4.setOrDoNothing(l0, UInt8.from(0x80));
   block.setOrDoNothing(l1, UInt32.fromBytesBE(uint8x4.array));
   blocks.setOrDoNothing(l2, block);
 
