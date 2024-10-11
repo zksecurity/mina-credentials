@@ -1,18 +1,7 @@
+import { Proof, VerificationKey, ZkProgram } from 'o1js';
 import {
-  Proof,
-  Field,
-  PublicKey,
-  PrivateKey,
-  Signature,
-  VerificationKey,
-  ZkProgram,
-  Provable,
-} from 'o1js';
-import {
-  Attestation,
   Input,
   Node,
-  Operation,
   privateInputTypes,
   publicInputTypes,
   publicOutputType,
@@ -23,7 +12,7 @@ import {
   type PublicInputs,
   type UserInputs,
 } from './program-config.ts';
-import { NestedProvable, type NestedProvableFor } from './nested.ts';
+import { NestedProvable } from './nested.ts';
 
 export { createProgram };
 

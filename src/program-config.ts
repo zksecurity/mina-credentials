@@ -1,12 +1,10 @@
 import {
   assert,
   Bool,
-  Bytes,
   UInt8,
   UInt32,
   UInt64,
   Field,
-  PrivateKey,
   Provable,
   PublicKey,
   Signature,
@@ -14,6 +12,7 @@ import {
   Undefined,
   VerificationKey,
   type ProvablePure,
+  DynamicProof,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -186,25 +185,39 @@ const ASignature = defineAttestation({
   },
 });
 
-// TODO recursive proof
-const AProof = defineAttestation({
-  id: 'proof',
-  // TODO include hash of public inputs of the inner proof
-  // TODO maybe names could be issuer, credential
-  public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
-  private: Struct({
-    vk: VerificationKey, // the verification key
-    proof: Undefined_, // the proof, TODO: make this a `DynamicProof` when o1js supports it, or by refactoring our provable type representation
-  }),
-
-  verify(vkHash, { vk, proof }, _type, data) {
-    vk.hash.assertEquals(vkHash);
-    // proof.verify(vk);
-    // TODO we also need to somehow ensure that the proof's output type matches the data type
-    // proof.publicOutput.assertEquals(data);
-    throw Error('Proof attestation not implemented');
+// TODO include hash of public inputs of the inner proof
+// TODO maybe names could be issuer, credential
+function AProof<
+  DataType extends NestedProvablePure,
+  InputType extends ProvablePureType,
+  Data extends InferNestedProvable<DataType>,
+  Input extends InferProvableType<InputType>
+>(
+  Proof: typeof DynamicProof<Input, Data>,
+  dataType: DataType
+): Attestation<
+  'proof',
+  Field,
+  {
+    vk: VerificationKey;
+    proof: DynamicProof<Input, Data>;
   },
-});
+  InferNestedProvable<DataType>
+> {
+  let type = NestedProvable.get(dataType);
+  return {
+    type: 'attestation',
+    id: 'proof',
+    public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
+    private: Struct({ vk: VerificationKey, proof: Proof }),
+    data: type,
+    verify(vkHash, { vk, proof }, data) {
+      vk.hash.assertEquals(vkHash);
+      proof.verify(vk);
+      Provable.assertEqual(type, proof.publicOutput, data);
+    },
+  };
+}
 
 const Attestation = {
   none: ANone,
