@@ -2,6 +2,7 @@
  * Misc gadgets for attestation contracts.
  */
 import { Bool, Field, Gadgets, Provable, UInt32 } from 'o1js';
+import { assert } from '../util.ts';
 
 export { unsafeIf, seal, lessThan16, assertInRange16, assertLessThan16 };
 
@@ -50,6 +51,9 @@ function assertInRange16(i: Field, x: Field | number) {
  * Cost: 1.5
  */
 function assertLessThan16(i: UInt32, x: Field | number) {
+  if (i.isConstant() && Field(x).isConstant()) {
+    assert(i.toBigint() < Field(x).toBigInt(), 'assertLessThan16');
+  }
   // assumptions on i, x imply that x - 1 - i is in [0, 2^16) - 1 - [0, 2^32) = [-1-2^32, 2^16-1) = (p-2^32, p) u [0, 2^16-1)
   // checking 0 <= x - 1 - i < 2^16 excludes the negative part of the range
   Gadgets.rangeCheck16(Field(x).sub(1).sub(i.value).seal());

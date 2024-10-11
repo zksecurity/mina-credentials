@@ -16,7 +16,7 @@ import { assertLessThan16, lessThan16 } from './gadgets.ts';
 
 export { StaticArray };
 
-type StaticArray<T> = StaticArrayBase<T>;
+type StaticArray<T = any, V = any> = StaticArrayBase<T, V>;
 
 /**
  * Array with a fixed number of elements and several helper methods.
@@ -34,13 +34,13 @@ function StaticArray<
 >(
   type: A,
   length: number
-): typeof StaticArrayBase<T> & {
-  provable: ProvableHashable<StaticArrayBase<T>, V[]>;
+): typeof StaticArrayBase<T, V> & {
+  provable: ProvableArray<T, V>;
 
   /**
    * Create a new StaticArray from a raw array of values.
    */
-  from(v: (T | V)[] | StaticArrayBase<T>): StaticArrayBase<T>;
+  from(v: (T | V)[] | StaticArrayBase<T, V>): StaticArrayBase<T, V>;
 } {
   let innerType: Provable<T, V> = ProvableType.get(type);
 
@@ -48,7 +48,7 @@ function StaticArray<
   assert(length >= 0, 'length must be >= 0');
   assert(length < 2 ** 16, 'length must be < 2^16');
 
-  class StaticArray_ extends StaticArrayBase<T> {
+  class StaticArray_ extends StaticArrayBase<T, V> {
     get innerType() {
       return innerType;
     }
@@ -59,7 +59,7 @@ function StaticArray<
       return provableArray;
     }
 
-    static from(input: (T | V)[] | StaticArrayBase<T>) {
+    static from(input: (T | V)[] | StaticArrayBase<T, V>) {
       return provableArray.fromValue(input);
     }
   }
@@ -68,14 +68,14 @@ function StaticArray<
   return StaticArray_;
 }
 
-class StaticArrayBase<T = any> {
+class StaticArrayBase<T = any, V = any> {
   /**
    * The plain array
    */
   array: T[];
 
   // props to override
-  get innerType(): Provable<T> {
+  get innerType(): Provable<T, V> {
     throw Error('Inner type must be defined in a subclass.');
   }
   static get length(): number {
@@ -92,12 +92,19 @@ class StaticArrayBase<T = any> {
     this.array = array;
   }
 
+  *[Symbol.iterator]() {
+    for (let a of this.array) yield a;
+  }
+
   /**
    * Asserts that 0 <= i < this.length, using a cached check that's not duplicated when doing it on the same variable multiple times.
    *
+   * Handles constants without creating constraints.
+   *
    * Cost: 1.5
    */
-  assertIndexInRange(i: UInt32) {
+  assertIndexInRange(i: UInt32 | number) {
+    i = UInt32.from(i);
     if (!this._indicesInRange.has(i.value)) {
       assertLessThan16(i, this.length);
       this._indicesInRange.add(i.value);
@@ -109,7 +116,8 @@ class StaticArrayBase<T = any> {
    *
    * Cost: TN + 1.5
    */
-  get(i: UInt32): T {
+  get(i: UInt32 | number): T {
+    i = UInt32.from(i);
     this.assertIndexInRange(i);
     return this.getOrUnconstrained(i.value);
   }
@@ -121,7 +129,8 @@ class StaticArrayBase<T = any> {
    *
    * Cost: TN + 2.5
    */
-  getOption(i: UInt32): Option<T> {
+  getOption(i: UInt32 | number): Option<T> {
+    i = UInt32.from(i);
     let type = this.innerType;
     let isContained = lessThan16(i.value, this.length);
     let value = this.getOrUnconstrained(i.value);
@@ -139,8 +148,11 @@ class StaticArrayBase<T = any> {
    * Cost: T*N where T = size of the type
    */
   getOrUnconstrained(i: Field): T {
+    let NULL = ProvableType.synthesize(this.innerType);
+    if (i.isConstant()) return this.array[Number(i)] ?? NULL;
+
     let type = this.innerType;
-    let ai = Provable.witness(type, () => this.array[Number(i)]);
+    let ai = Provable.witness(type, () => this.array[Number(i)] ?? NULL);
     let aiFields = type.toFields(ai);
 
     // assert a is correct on every field column with arrayGet()
@@ -158,7 +170,8 @@ class StaticArrayBase<T = any> {
    *
    * Cost: 1.5(T + 1)N + 1.5
    */
-  set(i: UInt32, value: T): void {
+  set(i: UInt32 | number, value: T): void {
+    i = UInt32.from(i);
     this.assertIndexInRange(i);
     this.setOrDoNothing(i.value, value);
   }
@@ -169,6 +182,11 @@ class StaticArrayBase<T = any> {
    * Cost: 1.5(T + 1)N
    */
   setOrDoNothing(i: Field, value: T): void {
+    if (i.isConstant()) {
+      let i0 = i.toBigInt();
+      if (i0 < this.length) this.array[Number(i0)] = value;
+      return;
+    }
     zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], i) => {
       this.array[i] = Provable.if(equalsIJ, this.innerType, value, t);
     });
@@ -177,7 +195,7 @@ class StaticArrayBase<T = any> {
   /**
    * Map every element of the array to a new value.
    */
-  map<S>(type: ProvableType<S>, f: (t: T) => S): StaticArray<S> {
+  map<S>(type: ProvableType<S>, f: (t: T, i: number) => S): StaticArray<S> {
     let NewArray = StaticArray(type, this.length);
     let array = this.array.map(f);
     let newArray = new NewArray(array);
@@ -191,7 +209,7 @@ class StaticArrayBase<T = any> {
   /**
    * Iterate over all elements of the array.
    */
-  forEach(f: (t: T) => void) {
+  forEach(f: (t: T, i: number) => void) {
     this.array.forEach(f);
   }
 
@@ -234,6 +252,12 @@ class StaticArrayBase<T = any> {
     this._indexMasks.set(i, mask);
     return mask;
   }
+
+  toValue() {
+    return (
+      this.constructor as any as { provable: Provable<any, V[]> }
+    ).provable.toValue(this);
+  }
 }
 
 /**
@@ -241,10 +265,14 @@ class StaticArrayBase<T = any> {
  */
 StaticArray.Base = StaticArrayBase;
 
+type ProvableArray<T, V> = ProvableHashable<StaticArrayBase<T, V>, V[]> & {
+  fromValue(array: (V | T)[] | StaticArrayBase<T>): StaticArrayBase<T, V>;
+};
+
 function provable<T, V>(
   type: Provable<T, V> & { empty?: () => T },
-  Class: typeof StaticArrayBase<T>
-): ProvableHashable<StaticArrayBase<T>, V[]> {
+  Class: typeof StaticArrayBase<T, V>
+): ProvableArray<T, V> {
   let maxLength = Class.length;
   let PlainArray = struct({ array: Provable.Array(type, maxLength) });
 
@@ -263,8 +291,8 @@ function provable<T, V>(
     },
     fromValue(array) {
       if (array instanceof StaticArrayBase) return array;
-      let raw = PlainArray.fromValue({ array });
-      return new Class(raw.array);
+      let raw = array.map((t) => type.fromValue(t));
+      return new Class(raw);
     },
 
     empty() {
