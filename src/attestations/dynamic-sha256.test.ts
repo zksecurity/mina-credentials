@@ -1,6 +1,5 @@
 import { Bytes, Gadgets, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
-import { StaticArray } from './static-array.ts';
 import * as nodeAssert from 'node:assert';
 import { DynamicSHA256 } from './dynamic-sha256.ts';
 
@@ -29,9 +28,8 @@ nodeAssert.deepStrictEqual(
 function toHexBytes(uint32: bigint | UInt32) {
   return UInt32.from(uint32).toBigint().toString(16).padStart(8, '0');
 }
-function blockToHexBytes(block: (bigint | UInt32)[] | StaticArray<UInt32>) {
-  if (Array.isArray(block)) return block.map((uint32) => toHexBytes(uint32));
-  return blockToHexBytes((block as StaticArray).array);
+function blockToHexBytes(block: (bigint | UInt32)[]) {
+  return block.map(toHexBytes);
 }
 
 function longString(): string {
