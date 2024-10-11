@@ -39,6 +39,7 @@ const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
 // TODO: only export serializeSpec, deserializeSpec and hashing
 export {
   serializeProvableType,
+  serializeProvable,
   serializeNestedProvableFor,
   convertNodeToSerializable,
   convertInputToSerializable,
@@ -187,7 +188,7 @@ function isSignature(value: any): value is Signature {
 
 // TODO: there must be a simpler way
 // I did it this way because I couldn't check the type of the value using instanceof
-function serializeProvable(provable: Provable<any>): {
+function serializeProvable(provable: any): {
   type: O1jsTypeName;
   value: string;
 } {
@@ -199,7 +200,7 @@ function serializeProvable(provable: Provable<any>): {
   if (isUInt32(value)) return { type: 'UInt32', value: value.toString() };
   if (isUInt64(value)) return { type: 'UInt64', value: value.toString() };
   if (isPublicKey(value)) return { type: 'PublicKey', value: value.toBase58() };
-  if (isSignature(value)) return { type: 'Signature', value: value.toJSON() };
+  if (isSignature(value)) return { type: 'Signature', value: value.toBase58() };
   throw new Error(`Unsupported Provable: ${value.constructor.name}`);
 }
 
