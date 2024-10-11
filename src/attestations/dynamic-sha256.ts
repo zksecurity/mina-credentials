@@ -18,7 +18,8 @@ class UInt32x16 extends StaticArray(UInt32, 16) {}
 class UInt32x4 extends StaticArray(UInt32, 4) {}
 class UInt128 extends Packed.create(UInt32x4) {}
 class UInt128x4 extends StaticArray(UInt128, 4) {}
-const State = Provable.Array(UInt32, 16);
+
+class State extends StaticArray(UInt32, 8) {}
 
 let bytes = Bytes.fromString('test');
 
@@ -26,9 +27,9 @@ let blocks = createPaddedBlocks(bytes);
 
 console.dir(blocks.toValue());
 
-let state = blocks
-  .map(State, (block) => block.array)
-  .reduce(State, SHA256.initialState, hashBlock);
+let state = blocks.reduce(State, State.from(SHA256.initialState), hashBlock);
+
+console.dir(state.toValue());
 
 /**
  * Apply padding to dynamic-length input bytes and split them into sha2 blocks
@@ -122,9 +123,9 @@ function splitMultiIndexGeneral(index: UInt32, sizes: number[]) {
   return indices;
 }
 
-function hashBlock(state: UInt32[], block: UInt32[]) {
-  let W = SHA256.createMessageSchedule(block);
-  return SHA256.compression(state, W);
+function hashBlock(state: State, block: UInt32x16): State {
+  let W = SHA256.createMessageSchedule(block.array);
+  return State.from(SHA256.compression(state.array, W));
 }
 
 function bytesToState(bytes: UInt8[]) {
