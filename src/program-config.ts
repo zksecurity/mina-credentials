@@ -533,7 +533,6 @@ function verifyAttestations<S extends Spec>(
     if (input.type === 'attestation') {
       let publicInput = publicInputs[key];
       let { private: privateInput, data } = privateInputs[key];
-      console.log('verifying', key, input.id);
       input.verify(publicInput, privateInput, data);
     }
   });

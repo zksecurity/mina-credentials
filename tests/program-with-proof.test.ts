@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { describe, test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes, DynamicProof, Struct } from 'o1js';
 import { createProgram } from '../src/program.ts';
@@ -44,46 +44,48 @@ const spec = Spec(
 
 const program = createProgram(spec);
 
-await test('compile program', async () => {
-  await program.compile();
-});
+await describe('program with proof attestation', async () => {
+  await test('compile program', async () => {
+    await program.compile();
+  });
 
-await test('run program with valid input', async () => {
-  let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-  let provedData = await createProofAttestation(data);
+  await test('run program with valid inputs', async () => {
+    let data = { age: Field(18), name: Bytes32.fromString('Alice') };
+    let provedData = await createProofAttestation(data);
 
-  const proof = await program.run({ provedData, targetAge: Field(18) });
+    const proof = await program.run({ provedData, targetAge: Field(18) });
 
-  assert(proof, 'Proof should be generated');
+    assert(proof, 'Proof should be generated');
 
-  assert.deepStrictEqual(
-    proof.publicInput.targetAge,
-    Field(18),
-    'Public input should match'
-  );
-  assert.deepStrictEqual(
-    proof.publicOutput,
-    Field(18),
-    'Public output should match the age'
-  );
-});
+    assert.deepStrictEqual(
+      proof.publicInput.targetAge,
+      Field(18),
+      'Public input should match'
+    );
+    assert.deepStrictEqual(
+      proof.publicOutput,
+      Field(18),
+      'Public output should match the age'
+    );
+  });
 
-await test('run program with invalid proof', async () => {
-  const data = { age: Field(18), name: Bytes32.fromString('Alice') };
-  let provedData = await createInvalidProofAttestation(data);
+  await test('run program with invalid proof', async () => {
+    const data = { age: Field(18), name: Bytes32.fromString('Alice') };
+    let provedData = await createInvalidProofAttestation(data);
 
-  await assert.rejects(
-    async () => await program.run({ provedData, targetAge: Field(18) }),
-    (err) => {
-      assert(err instanceof Error, 'Should throw an Error');
-      assert(
-        err.message.includes('Constraint unsatisfied'),
-        'Error message should include unsatisfied constraint'
-      );
-      return true;
-    },
-    'Program should fail with invalid input'
-  );
+    await assert.rejects(
+      async () => await program.run({ provedData, targetAge: Field(18) }),
+      (err) => {
+        assert(err instanceof Error, 'Should throw an Error');
+        assert(
+          err.message.includes('Constraint unsatisfied'),
+          'Error message should include unsatisfied constraint'
+        );
+        return true;
+      },
+      'Program should fail with invalid input'
+    );
+  });
 });
 
 // helpers
