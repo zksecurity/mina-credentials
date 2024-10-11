@@ -6,7 +6,7 @@ import { zip } from '../util.ts';
 
 const { SHA256 } = Gadgets;
 
-class DynamicBytes extends DynamicArray(UInt8, { maxLength: 360 }) {
+class DynamicBytes extends DynamicArray(UInt8, { maxLength: 430 }) {
   static fromString(s: string) {
     return DynamicBytes.from(
       [...new TextEncoder().encode(s)].map((t) => UInt8.from(t))
@@ -62,8 +62,10 @@ let constraintStatic = await Provable.constraintSystem(circuitStatic);
 console.log('static', constraintStatic.summary());
 
 let ratio = constraints.rows / constraintStatic.rows;
+console.log(`static # of bytes: ${staticBytes.length}`);
 console.log(`static # of blocks: ${expectedPadding.length}`);
-console.log(`max # of dynamic blocks: ${actualPadding.maxLength}`);
+console.log(`max dynamic # of bytes: ${bytes.maxLength}`);
+console.log(`max dynamic # of blocks: ${actualPadding.maxLength}`);
 console.log(
   `constraint overhead for dynamic: ${((ratio - 1) * 100).toFixed(2)}%`
 );
@@ -82,7 +84,9 @@ function longString(): string {
   return `SHA-2 (Secure Hash Algorithm 2) is a set of cryptographic hash functions designed by the
 United States National Security Agency (NSA) and first published in 2001.[3][4]
 They are built using the Merkle–Damgård construction, from a one-way compression function itself
-built using the Davies–Meyer structure from a specialized block cipher.`;
+built using the Davies–Meyer structure from a specialized block cipher.
+
+SHA-2 includes significant changes from its predecessor, SHA-1.`;
 }
 function stringLength(s: string) {
   return new TextEncoder().encode(s).length;
