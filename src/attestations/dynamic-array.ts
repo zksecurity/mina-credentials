@@ -4,10 +4,11 @@ import {
   type InferProvable,
   Option,
   Provable,
-  Struct,
+  provable as struct,
   UInt32,
   type InferValue,
   Gadgets,
+  type ProvableHashable,
 } from 'o1js';
 import { assert, chunk, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
@@ -19,7 +20,7 @@ export { DynamicArray };
 type DynamicArray<T> = DynamicArrayBase<T>;
 
 /**
- * Dynamic-length bytes type that has a
+ * Dynamic-length array type that has a
  * - constant max length, but
  * - dynamic actual length
  *
@@ -47,7 +48,7 @@ function DynamicArray<
     maxLength: number;
   }
 ): typeof DynamicArrayBase<T> & {
-  provable: Provable<DynamicArrayBase<T>, V[]>;
+  provable: ProvableHashable<DynamicArrayBase<T>, V[]>;
 
   /**
    * Create a new DynamicArray from an array of values.
@@ -57,33 +58,29 @@ function DynamicArray<
   from(v: (T | V)[]): DynamicArrayBase<T>;
 } {
   let innerType: Provable<T, V> = ProvableType.get(type);
-  let NULL = ProvableType.synthesize(innerType);
 
   // assert maxLength bounds
   assert(maxLength >= 0, 'maxLength must be >= 0');
   assert(maxLength < 2 ** 16, 'maxLength must be < 2^16');
 
-  class DynamicArray extends DynamicArrayBase<T> {
+  class DynamicArray_ extends DynamicArrayBase<T> {
     get innerType() {
       return innerType;
     }
     static get maxLength() {
       return maxLength;
     }
-    static get provable(): Provable<DynamicArrayBase<T>, V[]> {
+    static get provable() {
       return provableArray;
     }
 
-    static from(input: (T | V)[] | DynamicArrayBase) {
-      if (input instanceof DynamicArrayBase) return input;
-      let array = input.map((t) => innerType.fromValue(t));
-      let padded = pad(array, maxLength, NULL);
-      return new this(padded, Field(input.length));
+    static from(input: (T | V)[] | DynamicArrayBase<T>) {
+      return provableArray.fromValue(input);
     }
   }
-  const provableArray = provable<T, V>(innerType, DynamicArray);
+  const provableArray = provable<T, V>(innerType, DynamicArray_);
 
-  return DynamicArray;
+  return DynamicArray_;
 }
 
 class DynamicArrayBase<T = any> {
@@ -97,15 +94,15 @@ class DynamicArrayBase<T = any> {
    */
   length: Field;
 
-  // prop to override
-  static get maxLength(): number {
-    throw Error('Max length must be defined in a subclass.');
-  }
+  // props to override
   get innerType(): Provable<T> {
     throw Error('Inner type must be defined in a subclass.');
   }
+  static get maxLength(): number {
+    throw Error('Max length must be defined in a subclass.');
+  }
 
-  // derived props
+  // derived prop
   get maxLength(): number {
     return (this.constructor as typeof DynamicArrayBase).maxLength;
   }
@@ -113,12 +110,9 @@ class DynamicArrayBase<T = any> {
   constructor(array: T[], length: Field) {
     let maxLength = this.maxLength;
     assert(array.length === maxLength, 'input has to match maxLength');
-
     this.array = array;
     this.length = length;
   }
-
-  // public methods
 
   /**
    * Asserts that 0 <= i < this.length, using a cached check that's not duplicated when doing it on the same variable multiple times.
@@ -205,7 +199,7 @@ class DynamicArrayBase<T = any> {
   /**
    * Map every element of the array to a new value.
    *
-   * Warning: The callback will be passed unconstrained dummy values.
+   * **Warning**: The callback will be passed unconstrained dummy values.
    */
   map<S>(type: ProvableType<S>, f: (t: T) => S): DynamicArray<S> {
     let Array = DynamicArray(type, { maxLength: this.maxLength });
@@ -327,7 +321,6 @@ class DynamicArrayBase<T = any> {
   _indexMasks: Map<Field, Bool[]> = new Map();
   _indicesInRange: Set<Field> = new Set();
   __dummyMask?: Bool[];
-  _isInRangeMask?: Bool[];
 
   /**
    * Compute i.equals(j) for all indices j in the static-size array.
@@ -365,17 +358,18 @@ class DynamicArrayBase<T = any> {
 }
 
 /**
- * Base class of all DynamicBytes subclasses
+ * Base class of all DynamicArray subclasses
  */
 DynamicArray.Base = DynamicArrayBase;
 
 function provable<T, V>(
   type: Provable<T, V>,
   Class: typeof DynamicArrayBase<T>
-): Provable<DynamicArrayBase<T>, V[]> {
+): ProvableHashable<DynamicArrayBase<T>, V[]> {
   let maxLength = Class.maxLength;
+  let NULL = ProvableType.synthesize(type);
 
-  let PlainArray = Struct({
+  let PlainArray = struct({
     array: Provable.Array(type, maxLength),
     length: Field,
   });
@@ -388,20 +382,27 @@ function provable<T, V>(
       return new Class(raw.array, raw.length);
     },
 
-    // convert to/from plain array
+    // convert to/from plain array that has the correct length
     toValue(value) {
-      return value.array.map((t) => type.toValue(t));
+      let length = Number(value.length);
+      return value.array.map((t) => type.toValue(t)).slice(0, length);
     },
     fromValue(value) {
       if (value instanceof DynamicArrayBase) return value;
-      let array = value.map((v) => type.fromValue(v));
-      return new Class(array, Field(array.length));
+      let array = value.map((t) => type.fromValue(t));
+      let padded = pad(array, maxLength, NULL);
+      return new Class(padded, Field(value.length));
     },
 
     // check has to validate length in addition to the other checks
     check(value) {
       PlainArray.check(value);
       assertInRange16(value.length, maxLength);
+    },
+
+    empty() {
+      let raw = PlainArray.empty();
+      return new Class(raw.array, raw.length);
     },
   };
 }

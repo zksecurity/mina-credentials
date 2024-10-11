@@ -19,21 +19,13 @@ export { StaticArray };
 type StaticArray<T> = StaticArrayBase<T>;
 
 /**
- * Dynamic-length bytes type that has a
- * - constant max length, but
- * - dynamic actual length
+ * Array with a fixed number of elements and several helper methods.
  *
  * ```ts
- * const Bytes = DynamicArray(UInt8, { maxLength: 32 });
+ * const Bytes32 = StaticArray(UInt8, 32);
  * ```
  *
- * `maxLength` can be any number from 0 to 2^16-1.
- *
- * **Details**: Internally, this is represented as a static-sized array, plus a Field element
- * that represents the length.
- * The _only_ requirement on these is that the length is less or equal maxLength.
- * In particular, there are no provable guarantees maintained on the content of the static-sized array beyond the actual length.
- * Instead, our methods ensure integrity of array operations _within_ the actual length.
+ * The second parameter is the `length`. It can be any number from 0 to 2^16-1.
  */
 function StaticArray<
   A extends ProvableType,
@@ -46,15 +38,13 @@ function StaticArray<
   provable: ProvableHashable<StaticArrayBase<T>, V[]>;
 
   /**
-   * Create a new DynamicArray from an array of values.
-   *
-   * Note: Both the actual length and the values beyond the original ones will be constant.
+   * Create a new StaticArray from a raw array of values.
    */
   from(v: (T | V)[] | StaticArrayBase<T>): StaticArrayBase<T>;
 } {
-  let innerType: ProvableHashable<T, V> = ProvableType.get(type) as any;
+  let innerType: Provable<T, V> = ProvableType.get(type);
 
-  // assert maxLength bounds
+  // assert length bounds
   assert(length >= 0, 'length must be >= 0');
   assert(length < 2 ** 16, 'length must be < 2^16');
 
@@ -65,14 +55,12 @@ function StaticArray<
     static get length() {
       return length;
     }
-    static get provable(): ProvableHashable<StaticArrayBase<T>, V[]> {
+    static get provable() {
       return provableArray;
     }
 
-    static from(input: (T | V)[] | StaticArrayBase) {
-      if (input instanceof StaticArrayBase) return input;
-      let array = input.map((t) => innerType.fromValue(t));
-      return new StaticArray_(array);
+    static from(input: (T | V)[] | StaticArrayBase<T>) {
+      return provableArray.fromValue(input);
     }
   }
   const provableArray = provable<T, V>(innerType, StaticArray_);
@@ -86,15 +74,15 @@ class StaticArrayBase<T = any> {
    */
   array: T[];
 
-  // prop to override
-  static get length(): number {
-    throw Error('Max length must be defined in a subclass.');
-  }
+  // props to override
   get innerType(): Provable<T> {
     throw Error('Inner type must be defined in a subclass.');
   }
+  static get length(): number {
+    throw Error('Length must be defined in a subclass.');
+  }
 
-  // derived props
+  // derived prop
   get length(): number {
     return (this.constructor as typeof StaticArrayBase).length;
   }
@@ -103,8 +91,6 @@ class StaticArrayBase<T = any> {
     assert(array.length === this.length, 'input has to match length');
     this.array = array;
   }
-
-  // public methods
 
   /**
    * Asserts that 0 <= i < this.length, using a cached check that's not duplicated when doing it on the same variable multiple times.
@@ -196,7 +182,7 @@ class StaticArrayBase<T = any> {
     let array = this.array.map(f);
     let newArray = new NewArray(array);
 
-    // new array has same length/maxLength, so it can use the same cached masks
+    // new array has same length, so it can use the same cached masks
     newArray._indexMasks = this._indexMasks;
     newArray._indicesInRange = this._indicesInRange;
     return newArray;
@@ -234,7 +220,6 @@ class StaticArrayBase<T = any> {
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
   _indexMasks: Map<Field, Bool[]> = new Map();
   _indicesInRange: Set<Field> = new Set();
-  _isInRangeMask?: Bool[];
 
   /**
    * Compute i.equals(j) for all indices j in the static-size array.
@@ -252,18 +237,10 @@ class StaticArrayBase<T = any> {
 }
 
 /**
- * Base class of all DynamicBytes subclasses
+ * Base class of all StaticArray subclasses
  */
 StaticArray.Base = StaticArrayBase;
 
-function provable<T, V>(
-  type: ProvableHashable<T, V>,
-  Class: typeof StaticArrayBase<T>
-): ProvableHashable<StaticArrayBase<T>, V[]>;
-function provable<T, V>(
-  type: Provable<T, V>,
-  Class: typeof StaticArrayBase<T>
-): Provable<StaticArrayBase<T>, V[]>;
 function provable<T, V>(
   type: Provable<T, V> & { empty?: () => T },
   Class: typeof StaticArrayBase<T>
@@ -286,14 +263,13 @@ function provable<T, V>(
     },
     fromValue(array) {
       if (array instanceof StaticArrayBase) return array;
-      return new Class(PlainArray.fromValue({ array }).array);
+      let raw = PlainArray.fromValue({ array });
+      return new Class(raw.array);
     },
 
-    // empty
     empty() {
-      let EMPTY = type.empty?.();
-      assert(EMPTY !== undefined, 'empty() not defined');
-      return new Class(Array.from({ length: maxLength }, () => EMPTY));
+      let raw = PlainArray.empty();
+      return new Class(raw.array);
     },
   };
 }
