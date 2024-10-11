@@ -2,17 +2,16 @@ import { Bytes, Field, Gadgets, Packed, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { assert, chunk, pad } from '../util.ts';
-import * as nodeAssert from 'node:assert';
+
+export { DynamicSHA256 };
 
 const { SHA256 } = Gadgets;
 
-class DynamicBytes extends DynamicArray(UInt8, { maxLength: 500 }) {
-  static fromString(s: string) {
-    return DynamicBytes.from(
-      [...new TextEncoder().encode(s)].map((t) => UInt8.from(t))
-    );
-  }
-}
+const DynamicSHA256 = {
+  hash,
+  padding,
+};
+
 // hierarchy of packed types to do make array ops more efficient
 class UInt8x64 extends StaticArray(UInt8, 64) {}
 class Block extends StaticArray(UInt32, 16) {}
@@ -22,29 +21,20 @@ class UInt128x4 extends StaticArray(UInt128, 4) {}
 
 class State extends StaticArray(UInt32, 8) {}
 
-let bytes = DynamicBytes.fromString(longString());
-let blocks = padding(bytes);
-let state = blocks.reduce(State, State.from(SHA256.initialState), hashBlock);
+const Bytes32 = Bytes(32);
 
-const StateBytes = Bytes(32);
-let result = StateBytes.from(
-  state.array.flatMap((x) => uint32ToBytesBE(x).array)
-);
-
-let staticBytes = Bytes.fromString(longString());
-nodeAssert.deepStrictEqual(
-  blocks.toValue().map(blockToHexBytes),
-  SHA256.padding(staticBytes).map(blockToHexBytes)
-);
-nodeAssert.deepStrictEqual(
-  result.toBytes(),
-  SHA256.hash(staticBytes).toBytes()
-);
+function hash(bytes: DynamicArray<UInt8>): Bytes {
+  let blocks = padding(bytes);
+  let state = blocks.reduce(State, State.from(SHA256.initialState), hashBlock);
+  return Bytes32.from(state.array.flatMap((x) => uint32ToBytesBE(x).array));
+}
 
 /**
  * Apply padding to dynamic-length input bytes and convert them to 64-byte blocks
  */
-function padding(message: DynamicArray<UInt8>) {
+function padding(
+  message: DynamicArray<UInt8>
+): DynamicArray<StaticArray<UInt32>> {
   /* padded message looks like this:
   
   M ... M 0x1 0x0 ... 0x0 L L L L L L L L
@@ -163,20 +153,4 @@ function uint32ToBytesBE(word: UInt32) {
 
 function encodeLength(lengthInBytes: Field): UInt32 {
   return UInt32.Unsafe.fromField(lengthInBytes.mul(8));
-}
-
-function toHexBytes(uint32: bigint | UInt32) {
-  return UInt32.from(uint32).toBigint().toString(16).padStart(8, '0');
-}
-function blockToHexBytes(block: (bigint | UInt32)[] | StaticArray<UInt32>) {
-  if (Array.isArray(block)) return block.map((uint32) => toHexBytes(uint32));
-  return blockToHexBytes((block as StaticArray).array);
-}
-
-function longString(): string {
-  return `
-Symbol.iterator
-
-The Symbol.iterator static data property represents the well-known symbol Symbol.iterator. The iterable protocol looks up this symbol for the method that returns the iterator for an object. In order for an object to be iterable, it must have an [Symbol.iterator] key.  
-`;
 }
