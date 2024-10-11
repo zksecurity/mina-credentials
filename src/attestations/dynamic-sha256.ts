@@ -2,29 +2,44 @@ import { Bytes, Field, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { assert, chunk, pad } from '../util.ts';
+const { SHA256 } = Gadgets;
 
 export { DynamicSHA256 };
 
-const { SHA256 } = Gadgets;
+const DynamicSHA256 = {
+  /**
+   * Hash a dynamic-length byte array.
+   */
+  hash,
+  /**
+   * Apply padding to dynamic-length input bytes and convert them to (a dynamic number of) blocks of 16 uint32s.
+   */
+  padding,
+};
 
-const DynamicSHA256 = { hash, padding };
-
-// hierarchy of array types to make array ops more efficient
+// static array types for blocks / state / result
 class UInt8x64 extends StaticArray(UInt8, 64) {}
 class Block extends StaticArray(UInt32, 16) {}
 class State extends StaticArray(UInt32, 8) {}
-
 const Bytes32 = Bytes(32);
 
 function hash(bytes: DynamicArray<UInt8>): Bytes {
   let blocks = padding(bytes);
-  let state = blocks.reduce(State, State.from(SHA256.initialState), hashBlock);
-  return Bytes32.from(state.array.flatMap((x) => uint32ToBytesBE(x).array));
+
+  // hash a dynamic number of blocks using DynamicArray.reduce()
+  let state = blocks.reduce(
+    State,
+    State.from(SHA256.initialState),
+    (state: State, block: Block) => {
+      let W = SHA256.createMessageSchedule(block.array);
+      return State.from(SHA256.compression(state.array, W));
+    }
+  );
+
+  let result = state.array.flatMap((x) => uint32ToBytesBE(x).array);
+  return Bytes32.from(result);
 }
 
-/**
- * Apply padding to dynamic-length input bytes and convert them to 64-byte blocks
- */
 function padding(
   message: DynamicArray<UInt8>
 ): DynamicArray<StaticArray<UInt32>> {
@@ -47,6 +62,7 @@ function padding(
   - block number of L section = floor((M.length + 8) / 64)
   - block number of 0x1 byte index = floor(M.length / 64)
   */
+
   // check that all message bytes beyond the actual length are 0, so that we get valid padding just by adding the 0x80 and L bytes
   // this step creates most of the constraint overhead of dynamic sha2, but seems unavoidable :/
   message.forEach((byte, isPadding) => {
@@ -94,13 +110,6 @@ function splitMultiIndex(index: UInt32) {
   let { rest: l0, quotient: l1 } = index.divMod(64);
   let { rest: l00, quotient: l01 } = l0.divMod(4);
   return [l00.value, l01.value, l1.value] as const;
-}
-
-function hashBlock(state: State, block: Block): State {
-  // console.log('actual: before hashing block', blockToHexBytes(state));
-  let W = SHA256.createMessageSchedule(block.array);
-  state = State.from(SHA256.compression(state.array, W));
-  return state;
 }
 
 function uint32FromBytes(bytes: UInt8[] | StaticArray<UInt8>) {
