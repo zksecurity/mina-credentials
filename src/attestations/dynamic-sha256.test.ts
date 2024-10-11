@@ -63,8 +63,8 @@ console.log('static', constraintStatic.summary());
 
 let ratio = constraints.rows / constraintStatic.rows;
 console.log(`static # of bytes: ${staticBytes.length}`);
-console.log(`static # of blocks: ${expectedPadding.length}`);
 console.log(`max dynamic # of bytes: ${bytes.maxLength}`);
+console.log(`static # of blocks: ${expectedPadding.length}`);
 console.log(`max dynamic # of blocks: ${actualPadding.maxLength}`);
 console.log(
   `constraint overhead for dynamic: ${((ratio - 1) * 100).toFixed(2)}%`
