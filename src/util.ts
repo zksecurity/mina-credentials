@@ -44,6 +44,9 @@ function chunk<T>(array: T[], size: number): T[][] {
 }
 
 function pad<T>(array: T[], size: number, value: T): T[] {
-  assert(array.length <= size, 'padding array larger than target size');
+  assert(
+    array.length <= size,
+    `padding array of size ${array.length} larger than target size ${size}`
+  );
   return array.concat(Array.from({ length: size - array.length }, () => value));
 }

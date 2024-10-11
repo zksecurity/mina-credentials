@@ -1,40 +1,50 @@
-import { Field, Gadgets, Packed, Provable, UInt32, UInt8 } from 'o1js';
+import { Bytes, Field, Gadgets, Packed, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { assert, chunk, pad } from '../util.ts';
+import * as nodeAssert from 'node:assert';
 
 const { SHA256 } = Gadgets;
 
-class Bytes extends DynamicArray(UInt8, { maxLength: 80 }) {
+class DynamicBytes extends DynamicArray(UInt8, { maxLength: 500 }) {
   static fromString(s: string) {
-    return Bytes.from(
+    return DynamicBytes.from(
       [...new TextEncoder().encode(s)].map((t) => UInt8.from(t))
     );
   }
 }
 // hierarchy of packed types to do make array ops more efficient
 class UInt8x64 extends StaticArray(UInt8, 64) {}
-class UInt32x16 extends StaticArray(UInt32, 16) {}
+class Block extends StaticArray(UInt32, 16) {}
 class UInt32x4 extends StaticArray(UInt32, 4) {}
 class UInt128 extends Packed.create(UInt32x4) {}
 class UInt128x4 extends StaticArray(UInt128, 4) {}
 
 class State extends StaticArray(UInt32, 8) {}
 
-let bytes = Bytes.fromString('test');
-
-let blocks = createPaddedBlocks(bytes);
-
-console.dir(blocks.toValue());
-
+let bytes = DynamicBytes.fromString(longString());
+let blocks = padding(bytes);
 let state = blocks.reduce(State, State.from(SHA256.initialState), hashBlock);
 
-console.dir(state.toValue());
+const StateBytes = Bytes(32);
+let result = StateBytes.from(
+  state.array.flatMap((x) => uint32ToBytesBE(x).array)
+);
+
+let staticBytes = Bytes.fromString(longString());
+nodeAssert.deepStrictEqual(
+  blocks.toValue().map(blockToHexBytes),
+  SHA256.padding(staticBytes).map(blockToHexBytes)
+);
+nodeAssert.deepStrictEqual(
+  result.toBytes(),
+  SHA256.hash(staticBytes).toBytes()
+);
 
 /**
- * Apply padding to dynamic-length input bytes and split them into sha2 blocks
+ * Apply padding to dynamic-length input bytes and convert them to 64-byte blocks
  */
-function createPaddedBlocks(message: DynamicArray<UInt8>) {
+function padding(message: DynamicArray<UInt8>) {
   /* padded message looks like this:
   
   M ... M 0x1 0x0 ... 0x0 L L L L L L L L
@@ -66,8 +76,8 @@ function createPaddedBlocks(message: DynamicArray<UInt8>) {
   let blocksOfBytes = new BlocksOfBytes(chunked, numberOfBlocks);
 
   // pack each block of 64 bytes into 16 uint32s (4 bytes each)
-  let blocksOfUInt32 = blocksOfBytes.map(UInt32x16, (block) =>
-    block.chunk(4).map(UInt32, uint32FromBytes)
+  let blocksOfUInt32 = blocksOfBytes.map(Block, (block) =>
+    block.chunk(4).map(UInt32, uint32FromBytesBE)
   );
 
   // pack each block of 16 uint32s into 4 uint128s (4 uint32s each)
@@ -84,10 +94,11 @@ function createPaddedBlocks(message: DynamicArray<UInt8>) {
   // hierarchically get blocks at `length` and set to 0x1 byte
   let block = blocksOfUInt128.getOrUnconstrained(l3);
   let uint32x4 = block.getOrUnconstrained(l2).unpack();
-  let uint8x4 = uint32ToBytes(uint32x4.getOrUnconstrained(l1));
-  uint8x4.setOrDoNothing(l0, UInt8.from(0x1));
-  uint32x4.setOrDoNothing(l1, uint32FromBytes(uint8x4));
+  let uint8x4 = uint32ToBytesBE(uint32x4.getOrUnconstrained(l1));
+  uint8x4.setOrDoNothing(l0, UInt8.from(0x80)); // big-endian encoding of 1
+  uint32x4.setOrDoNothing(l1, uint32FromBytesBE(uint8x4));
   block.setOrDoNothing(l2, UInt128.pack(uint32x4));
+  blocksOfUInt128.setOrDoNothing(l3, block);
 
   // set last 64 bits to encoded length (in bits, big-endian encoded)
   // in fact, since we assume the length (in bytes) fits in 16 bits, we only need to set the last uint32
@@ -99,7 +110,7 @@ function createPaddedBlocks(message: DynamicArray<UInt8>) {
   blocksOfUInt128.setOrDoNothing(lastBlockIndex.value, lastBlock);
 
   // unpack all blocks to UInt32[]
-  return blocksOfUInt128.map(UInt32x16, (block) =>
+  return blocksOfUInt128.map(Block, (block) =>
     block.array.flatMap((uint128) => uint128.unpack().array)
   );
 }
@@ -111,26 +122,11 @@ function splitMultiIndex(index: UInt32) {
   return [l000.value, l001.value, l01.value, l1.value] as const;
 }
 
-function splitMultiIndexGeneral(index: UInt32, sizes: number[]) {
-  let indices: UInt32[] = Array(sizes.length + 1);
-
-  for (let i = sizes.length - 1; i >= 0; i--) {
-    let { rest, quotient } = index.divMod(sizes[i]!);
-    indices[i + 1] = quotient;
-    index = rest;
-  }
-  indices[0] = index;
-  return indices;
-}
-
-function hashBlock(state: State, block: UInt32x16): State {
+function hashBlock(state: State, block: Block): State {
+  // console.log('actual: before hashing block', blockToHexBytes(state));
   let W = SHA256.createMessageSchedule(block.array);
-  return State.from(SHA256.compression(state.array, W));
-}
-
-function bytesToState(bytes: UInt8[]) {
-  assert(bytes.length === 64, '64 bytes needed to create 16 uint32s');
-  return chunk(bytes, 4).map(uint32FromBytes);
+  state = State.from(SHA256.compression(state.array, W));
+  return state;
 }
 
 function uint32FromBytes(bytes: UInt8[] | StaticArray<UInt8>) {
@@ -142,6 +138,9 @@ function uint32FromBytes(bytes: UInt8[] | StaticArray<UInt8>) {
   });
 
   return UInt32.Unsafe.fromField(word);
+}
+function uint32FromBytesBE(bytes: UInt8[] | StaticArray<UInt8>) {
+  return uint32FromBytes(bytes.toReversed());
 }
 
 function uint32ToBytes(word: UInt32) {
@@ -158,7 +157,26 @@ function uint32ToBytes(word: UInt32) {
 
   return bytes;
 }
+function uint32ToBytesBE(word: UInt32) {
+  return uint32ToBytes(word).toReversed();
+}
 
 function encodeLength(lengthInBytes: Field): UInt32 {
   return UInt32.Unsafe.fromField(lengthInBytes.mul(8));
+}
+
+function toHexBytes(uint32: bigint | UInt32) {
+  return UInt32.from(uint32).toBigint().toString(16).padStart(8, '0');
+}
+function blockToHexBytes(block: (bigint | UInt32)[] | StaticArray<UInt32>) {
+  if (Array.isArray(block)) return block.map((uint32) => toHexBytes(uint32));
+  return blockToHexBytes((block as StaticArray).array);
+}
+
+function longString(): string {
+  return `
+Symbol.iterator
+
+The Symbol.iterator static data property represents the well-known symbol Symbol.iterator. The iterable protocol looks up this symbol for the method that returns the iterator for an object. In order for an object to be iterable, it must have an [Symbol.iterator] key.  
+`;
 }

@@ -235,6 +235,17 @@ class StaticArrayBase<T = any, V = any> {
     return new Chunked(chunked.map(Chunk.from));
   }
 
+  /**
+   * Reverse the array.
+   *
+   * Returns a copy and does not modify the original array.
+   */
+  toReversed() {
+    return new (this.constructor as typeof StaticArrayBase<T, V>)(
+      this.array.toReversed()
+    );
+  }
+
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
   _indexMasks: Map<Field, Bool[]> = new Map();
   _indicesInRange: Set<Field> = new Set();
