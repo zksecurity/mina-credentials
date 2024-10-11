@@ -17,9 +17,9 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "format": "prettier --write --ignore-unknown **/*",
+    "test": "node --test --experimental-strip-types --no-warnings {tests,src}/**/*.test.ts",
     "extension:dev": "vite build --config browser-extension/vite.config.js --watch",
-    "extension:build": "vite build --config browser-extension/vite.config.js",
-    "test:program": "node --test --experimental-strip-types tests/program-config.test.ts tests/program.test.ts"
+    "extension:build": "vite build --config browser-extension/vite.config.js"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.272",
