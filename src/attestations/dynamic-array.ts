@@ -11,10 +11,9 @@ import {
   type ProvableHashable,
   type From,
 } from 'o1js';
-import { assert, chunk, pad, zip } from '../util.ts';
+import { assert, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
-import { StaticArray } from './static-array.ts';
 
 export { DynamicArray };
 
@@ -296,31 +295,6 @@ class DynamicArrayBase<T = any, V = any> {
    */
   growMaxLengthBy(maxLength: number): DynamicArray<T> {
     return this.growMaxLengthTo(this.maxLength + maxLength);
-  }
-
-  /**
-   * Split into a (dynamic) number of fixed-size chunks.
-   * Does not assume that the max length or actual length are multiples of the chunk size.
-   *
-   * Warning: The last chunk will contain dummy values if the actual length is not a multiple of the chunk size.
-   */
-  chunk(chunkSize: number) {
-    assert(chunkSize < 2 ** 16, 'chunkSize must be < 2^16');
-    let NULL = ProvableType.synthesize(this.innerType);
-    let newMaxLength = Math.ceil(this.maxLength / chunkSize);
-    let padded = pad(this.array, newMaxLength * chunkSize, NULL);
-    let chunked = chunk(padded, chunkSize);
-    // new length = Math.ceil(this.length / chunkSize)
-    let { quotient: newLength, rest } = UInt32.Unsafe.fromField(
-      this.length.add(chunkSize - 1)
-    ).divMod(chunkSize);
-
-    const Chunk = StaticArray(this.innerType, chunkSize);
-    const Chunked = DynamicArray(Chunk, { maxLength: newMaxLength });
-    return {
-      chunks: new Chunked(chunked.map(Chunk.from), newLength.value),
-      innerLength: rest.value,
-    };
   }
 
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
