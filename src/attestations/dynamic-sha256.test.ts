@@ -1,22 +1,15 @@
-import { Bytes, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
-import { DynamicArray } from './dynamic-array.ts';
+import { Bytes, Gadgets, Provable, UInt32 } from 'o1js';
 import * as nodeAssert from 'node:assert';
 import { DynamicSHA256 } from './dynamic-sha256.ts';
 import { zip } from '../util.ts';
+import { DynamicBytes } from './dynamic-bytes.ts';
 
 const { SHA256 } = Gadgets;
 
-class DynamicBytes extends DynamicArray(UInt8, { maxLength: 430 }) {
-  static fromString(s: string) {
-    return DynamicBytes.from(
-      [...new TextEncoder().encode(s)].map((t) => UInt8.from(t))
-    );
-  }
-}
-
-let bytes = DynamicBytes.fromString(longString());
-
+const DynBytes = DynamicBytes({ maxLength: 430 });
 const StaticBytes = Bytes(stringLength(longString()));
+
+let bytes = DynBytes.fromString(longString());
 let staticBytes = StaticBytes.fromString(longString());
 
 let actualPadding = DynamicSHA256.padding(bytes);
@@ -33,7 +26,7 @@ nodeAssert.deepStrictEqual(actualHash.toBytes(), expectedHash.toBytes());
 // in-circuit test
 
 async function circuit() {
-  let bytesVar = Provable.witness(DynamicBytes, () => bytes);
+  let bytesVar = Provable.witness(DynBytes, () => bytes);
   let hash = DynamicSHA256.hash(bytesVar);
 
   zip(hash.bytes, expectedHash.bytes).forEach(([a, b], i) => {
@@ -79,7 +72,7 @@ function blockToHexBytes(block: (bigint | UInt32)[]) {
   return block.map(toHexBytes);
 }
 
-// 342 bytes, needs 6 blocks, also contains unicode
+// ~400 bytes, needs 7 blocks, also contains unicode
 function longString(): string {
   return `SHA-2 (Secure Hash Algorithm 2) is a set of cryptographic hash functions designed by the
 United States National Security Agency (NSA) and first published in 2001.[3][4]
