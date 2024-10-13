@@ -63,6 +63,34 @@ but is unable to use the credential to sign transactions or otherwise impersonat
 **Compromised Credentials:** We use the flexibility afforded by the Kimchi proof
 system to reduce the practical impact of a compromised credential.
 
+
+## Protocols
+
+### Credential Types
+
+At a high level, a credential is a collection of *attributes* along a proof and corresponding verification procedure:
+checking the validity of the credential.
+
+#### Native Credentials
+
+A native credential is simply a native Mina signature on the set of attributes.
+This type of credential is supported to allow Mina-native application to have very efficient credentials.
+
+#### Recursive Credentials
+
+A recursive credential is Kimchi proof taking the set of attributes as public input.
+This type of credential is supported to accomodate any possible credential
+and the ability to integrate existing credential systems (such as ePassport) into the Mina ecosystem
+in a modular way.
+
+- ECDSA signatures over foreign fields on JSON document (e.g. JSON Web Tokens),
+- RSA signatures.
+- Merkle tree inclusion/exclusion proofs.
+
+
+### Issuance
+
+
 ## Motivation
 
 The motivation behind extending the Mina wallet provider API stems from the evolving needs of the Mina ecosystem's zkApp landscape. Currently, there exists no standard for Mina wallets to interact with zkApps and attest to known private data. This limitation hinders the full potential of Mina's composable privacy feature, which is vital for user autonomy and data security.
