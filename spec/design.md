@@ -146,8 +146,3 @@ We obtain a design in which the SNARK serves only to hide the
 We show that if even if the SNARK prover is malicious, the credential remains unforgeable:
 this is useful in applications such as zkLogin, where for practicality reasons, the proving is outsourced to a third party in practice.
 We want to allow the Mina ecosystem this option should it be relevant to particular applications.
-
-We note that for some applications, most notably zkPassport, secure outsourcing is inherently not possible when *creating the credential*:
-since knowledge of the witness (the digitial signature on the ePassport) identifies the owner.
-In such applications we must rely on the security of the SNARK prover during the creation of the credential,
-however, the presentation proof remains secure (unforgeable) even if the SNARK prover is malicious.
