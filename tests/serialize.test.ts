@@ -15,6 +15,7 @@ import {
   convertInputToSerializable,
   convertSpecToSerializable,
   serializeSpec,
+  validateSpecHash,
 } from '../src/serialize-spec.ts';
 import {
   Bool,
@@ -29,6 +30,7 @@ import {
   UInt8,
   VerificationKey,
 } from 'o1js';
+import { deserializeSpec } from '../src/deserialize-spec.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
@@ -714,4 +716,63 @@ test('convertSpecToSerializable', async (t) => {
     };
     assert.deepStrictEqual(serialized, expected);
   });
+});
+
+test('Serialize and deserialize spec with hash', async (t) => {
+  const spec = Spec(
+    {
+      age: Input.private(Field),
+      isAdmin: Input.public(Bool),
+      ageLimit: Input.constant(Field, Field(100)),
+    },
+    ({ age, isAdmin, ageLimit }) => ({
+      assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
+      data: age,
+    })
+  );
+
+  const serialized = serializeSpec(spec);
+
+  await t.test('should include a hash in serialized output', () => {
+    const parsed = JSON.parse(serialized);
+    assert('hash' in parsed, 'Serialized spec should include a hash');
+    assert('spec' in parsed, 'Serialized spec should include the spec string');
+    assert(typeof parsed.spec === 'string', 'Spec should be a string');
+  });
+
+  await t.test('should validate hash correctly', () => {
+    assert(validateSpecHash(serialized), 'Hash should be valid');
+  });
+
+  await t.test('should detect tampering', () => {
+    const tampered = JSON.parse(serialized);
+    const tamperedSpec = JSON.parse(tampered.spec);
+    tamperedSpec.inputs.age.type = 'public';
+    tampered.spec = JSON.stringify(tamperedSpec);
+    const tamperedString = JSON.stringify(tampered);
+    assert(!validateSpecHash(tamperedString), 'Should detect tampered spec');
+  });
+
+  await t.test(
+    'should throw error on deserialization of tampered spec',
+    async () => {
+      const tampered = JSON.parse(serialized);
+      const tamperedSpec = JSON.parse(tampered.spec);
+      tamperedSpec.inputs.age.type = 'public';
+      tampered.spec = JSON.stringify(tamperedSpec);
+      const tamperedString = JSON.stringify(tampered);
+
+      try {
+        deserializeSpec(tamperedString);
+        assert.fail('Expected an error to be thrown');
+      } catch (error) {
+        assert(error instanceof Error, 'Should throw an Error object');
+        assert.strictEqual(
+          error.message,
+          'Invalid spec hash',
+          'Error message should match expected message'
+        );
+      }
+    }
+  );
 });

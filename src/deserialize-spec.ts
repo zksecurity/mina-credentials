@@ -15,6 +15,7 @@ import type {
   NestedProvableFor,
   NestedProvablePureFor,
 } from './nested.ts';
+import { validateSpecHash } from './serialize-spec.ts';
 
 export {
   deserializeSpec,
@@ -26,7 +27,12 @@ export {
   deserializeNestedProvableFor,
 };
 
-function deserializeSpec(serializedSpec: string): Spec {
+function deserializeSpec(serializedSpecWithHash: string): Spec {
+  if (!validateSpecHash(serializedSpecWithHash)) {
+    throw new Error('Invalid spec hash');
+  }
+
+  const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);
   const parsedSpec = JSON.parse(serializedSpec);
   return {
     inputs: deserializeInputs(parsedSpec.inputs),

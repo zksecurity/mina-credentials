@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { type NestedProvableFor } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { Spec, Input, Node } from './program-config.ts';
@@ -45,13 +46,16 @@ export {
   convertInputToSerializable,
   convertSpecToSerializable,
   serializeSpec,
+  validateSpecHash,
 };
 
 // TODO: simplify and unify serialization
 // like maybe instead of data: {type: 'Field'} it can be data: 'Field' idk, will figure out
 // TODO: Bytes?
 function serializeSpec(spec: Spec): string {
-  return JSON.stringify(convertSpecToSerializable(spec), null, 2);
+  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
+  const hash = hashSpec(serializedSpec);
+  return JSON.stringify({ spec: serializedSpec, hash });
 }
 
 // TODO: test
@@ -224,4 +228,14 @@ function serializeNestedProvableFor(
   }
 
   throw new Error(`Unsupported type in NestedProvableFor: ${type}`);
+}
+
+function hashSpec(serializedSpec: string): string {
+  return createHash('sha256').update(serializedSpec).digest('hex');
+}
+
+function validateSpecHash(serializedSpecWithHash: string): boolean {
+  const { spec, hash } = JSON.parse(serializedSpecWithHash);
+  const recomputedHash = hashSpec(spec);
+  return hash === recomputedHash;
 }
