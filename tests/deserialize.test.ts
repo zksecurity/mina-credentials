@@ -318,7 +318,6 @@ test('deserializeInputs', async (t) => {
 
     const deserialized = deserializeInputs(serialized);
 
-    // Reserialize and compare
     const reserialized = Object.fromEntries(
       Object.entries(deserialized).map(([key, value]) => [
         key,
@@ -346,7 +345,6 @@ test('deserializeInputs', async (t) => {
 
     const deserialized = deserializeInputs(serialized);
 
-    // Reserialize and compare
     const reserialized = Object.fromEntries(
       Object.entries(deserialized).map(([key, value]) => [
         key,
