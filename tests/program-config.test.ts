@@ -198,7 +198,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        signedData: Attestation.signature(InputData),
+        signedData: Attestation.signatureNative(InputData),
         targetAge: Input.public(Field),
         targetName: Input.public(Bytes32),
       },

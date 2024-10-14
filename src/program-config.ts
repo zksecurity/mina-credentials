@@ -172,7 +172,7 @@ const ANone = defineAttestation({
 
 // native signature
 const ASignature = defineAttestation({
-  id: 'native-signature',
+  id: 'signatureNative',
   public: PublicKey, // issuer public key
   private: Signature,
 
@@ -209,7 +209,7 @@ const AProof = defineAttestation({
 const Attestation = {
   none: ANone,
   proof: AProof,
-  signature: ASignature,
+  signatureNative: ASignature,
 };
 
 const Input = {

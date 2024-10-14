@@ -23,7 +23,6 @@ jobs:
         run: |
           npm ci
           npm run build --if-present
-          npm run test:program
-          npm run test:serialize
+          npm run test:all
         env:
           CI: true

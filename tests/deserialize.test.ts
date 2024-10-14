@@ -36,6 +36,8 @@ import {
   deserializeNestedProvableFor,
 } from '../src/deserialize-spec.ts';
 
+import { createAttestation } from './test-utils.ts';
+
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
     await t.test('Field', () => {
@@ -200,6 +202,77 @@ test('deserializeProvableType', async (t) => {
         error.message,
         'Unsupported provable type: UnsupportedType'
       );
+    }
+  });
+});
+
+test('deserializeInput', async (t) => {
+  await t.test('should deserialize constant input', () => {
+    const input = Input.constant(Field, Field(42));
+    const serialized = convertInputToSerializable(input);
+    const deserialized = deserializeInput(serialized);
+
+    assert.deepStrictEqual(deserialized, input);
+  });
+
+  await t.test('should deserialize public input', () => {
+    const input = Input.public(Field);
+    const serialized = convertInputToSerializable(input);
+    const deserialized = deserializeInput(serialized);
+
+    assert.deepStrictEqual(deserialized, input);
+  });
+
+  await t.test('should deserialize private input', () => {
+    const input = Input.private(Signature);
+    const serialized = convertInputToSerializable(input);
+    const deserialized = deserializeInput(serialized);
+
+    assert.deepStrictEqual(deserialized, input);
+  });
+
+  await t.test('should deserialize attestation input', () => {
+    const InputData = { age: Field, isAdmin: Bool };
+
+    const input = Attestation.signatureNative(InputData);
+
+    const serialized = convertInputToSerializable(input);
+
+    const deserialized = deserializeInput(serialized);
+
+    const reserialized = convertInputToSerializable(deserialized);
+
+    assert.deepStrictEqual(serialized, reserialized);
+
+    // TODO: when I did
+    // assert.deepStrictEqual(deserialized, input);
+    // I got
+    // Values have same structure but are not reference-equal
+  });
+
+  await t.test('should deserialize nested input', () => {
+    const input = Input.private({
+      personal: {
+        age: Field,
+        id: UInt64,
+      },
+      score: UInt32,
+    });
+    const serialized = convertInputToSerializable(input);
+    const deserialized = deserializeInput(serialized);
+
+    assert.deepStrictEqual(deserialized, input);
+  });
+
+  await t.test('should throw error for unsupported input type', async (t) => {
+    const invalidInput = { type: 'invalid' };
+
+    try {
+      deserializeInput(invalidInput);
+      assert.fail('Expected an error to be thrown');
+    } catch (error) {
+      assert(error instanceof Error);
+      assert.strictEqual(error.message, 'Invalid input type: invalid');
     }
   });
 });

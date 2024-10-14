@@ -6,12 +6,15 @@ import {
   UInt64,
   PublicKey,
   Signature,
-  Struct,
-  Poseidon,
   Provable,
+  type ProvablePure,
 } from 'o1js';
-import { Input, Node, Spec, Attestation } from './program-config.ts';
-import { NestedProvable } from './nested.ts';
+import { Attestation, Input, Node, Spec } from './program-config.ts';
+import type {
+  NestedProvable,
+  NestedProvableFor,
+  NestedProvablePureFor,
+} from './nested.ts';
 
 export {
   deserializeSpec,
@@ -34,11 +37,33 @@ function deserializeSpec(serializedSpec: string): Spec {
   };
 }
 
-function deserializeInputs(
-  inputs: Record<string, any>
-): Record<string, Input> {}
+function deserializeInputs(inputs: Record<string, any>): Record<string, Input> {
+  const result: Record<string, Input> = {};
+  for (const [key, value] of Object.entries(inputs)) {
+    result[key] = deserializeInput(value);
+  }
+  return result;
+}
 
-function deserializeInput(input: any): Input {}
+function deserializeInput(input: any): Input {
+  switch (input.type) {
+    case 'constant':
+      return Input.constant(
+        deserializeProvableType(input.data),
+        deserializeProvable(input.data.type, input.value)
+      );
+    case 'public':
+      return Input.public(deserializeNestedProvablePureFor(input.data));
+    case 'private':
+      return Input.private(deserializeNestedProvableFor(input.data));
+    case 'attestation':
+      return Attestation[input.id as keyof typeof Attestation](
+        deserializeNestedProvablePureFor(input.data)
+      );
+    default:
+      throw new Error(`Invalid input type: ${input.type}`);
+  }
+}
 
 function deserializeNode(node: any): Node {}
 
@@ -84,4 +109,48 @@ function deserializeProvable(type: string, value: string): any {
   }
 }
 
-function deserializeNestedProvableFor(type: any): NestedProvable {}
+function deserializeProvablePureType(type: {
+  type: string;
+}): ProvablePure<any> {
+  const provableType = deserializeProvableType(type);
+  if (provableType === Signature) {
+    throw new Error('Signature is not a ProvablePure type');
+  }
+  return provableType as ProvablePure<any>;
+}
+
+function deserializeNestedProvableFor(type: any): NestedProvableFor<any> {
+  if (typeof type === 'object' && type !== null) {
+    if ('type' in type) {
+      // basic provable type
+      return deserializeProvableType(type);
+    } else {
+      // nested object
+      const result: Record<string, any> = {};
+      for (const [key, value] of Object.entries(type)) {
+        result[key] = deserializeNestedProvableFor(value);
+      }
+      return result as NestedProvableFor<any>;
+    }
+  }
+  throw new Error(`Invalid type in NestedProvableFor: ${type}`);
+}
+
+function deserializeNestedProvablePureFor(
+  type: any
+): NestedProvablePureFor<any> {
+  if (typeof type === 'object' && type !== null) {
+    if ('type' in type) {
+      // basic provable pure type
+      return deserializeProvablePureType(type);
+    } else {
+      // nested object
+      const result: Record<string, any> = {};
+      for (const [key, value] of Object.entries(type)) {
+        result[key] = deserializeNestedProvablePureFor(value);
+      }
+      return result as NestedProvablePureFor<any>;
+    }
+  }
+  throw new Error(`Invalid type in NestedProvablePureFor: ${type}`);
+}

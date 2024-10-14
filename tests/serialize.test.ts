@@ -334,13 +334,13 @@ test('convertInputToSerializable', async (t) => {
 
   await t.test('should serialize attestation input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Attestation.signature(InputData);
+    const input = Attestation.signatureNative(InputData);
 
     const serialized = convertInputToSerializable(input);
 
     const expected = {
       type: 'attestation',
-      id: 'native-signature',
+      id: 'signatureNative',
       public: { type: 'PublicKey' },
       private: { type: 'Signature' },
       data: {
@@ -489,7 +489,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with an attestation', () => {
     const spec = Spec(
       {
-        signedData: Attestation.signature({ field: Field }),
+        signedData: Attestation.signatureNative({ field: Field }),
         zeroField: Input.constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
@@ -506,7 +506,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'attestation',
-          id: 'native-signature',
+          id: 'signatureNative',
           public: { type: 'PublicKey' },
           private: { type: 'Signature' },
           data: {
@@ -529,7 +529,7 @@ test('convertSpecToSerializable', async (t) => {
                 input: {
                   signedData: {
                     type: 'attestation',
-                    id: 'native-signature',
+                    id: 'signatureNative',
                     public: { type: 'PublicKey' },
                     private: { type: 'Signature' },
                     data: {
@@ -553,7 +553,7 @@ test('convertSpecToSerializable', async (t) => {
               input: {
                 signedData: {
                   type: 'attestation',
-                  id: 'native-signature',
+                  id: 'signatureNative',
                   public: { type: 'PublicKey' },
                   private: { type: 'Signature' },
                   data: {
@@ -577,7 +577,7 @@ test('convertSpecToSerializable', async (t) => {
             input: {
               signedData: {
                 type: 'attestation',
-                id: 'native-signature',
+                id: 'signatureNative',
                 public: { type: 'PublicKey' },
                 private: { type: 'Signature' },
                 data: {
