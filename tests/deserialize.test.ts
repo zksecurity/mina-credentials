@@ -244,10 +244,12 @@ test('deserializeInput', async (t) => {
 
     assert.deepStrictEqual(serialized, reserialized);
 
-    // TODO: when I did
-    // assert.deepStrictEqual(deserialized, input);
-    // I got
-    // Values have same structure but are not reference-equal
+    // can't compare them directly because of the verify function
+    Object.entries(input).forEach(([key, value]) => {
+      if (key !== 'verify') {
+        assert.deepStrictEqual(deserialized[key], value);
+      }
+    });
   });
 
   await t.test('should deserialize nested input', () => {
@@ -493,4 +495,81 @@ test('deserilaizeSpec', async (t) => {
     assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
     assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
   });
+
+  // it is not possible to directly compare attestations because of the verify function
+  await t.test('should correctly deserialize a Spec with attestation', () => {
+    const originalSpec = Spec(
+      {
+        signedData: Attestation.signatureNative({ field: Field }),
+        zeroField: Input.constant(Field, Field(0)),
+      },
+      ({ signedData, zeroField }) => ({
+        assert: Operation.equals(
+          Operation.property(signedData, 'field'),
+          zeroField
+        ),
+        data: signedData,
+      })
+    );
+
+    const serialized = serializeSpec(originalSpec);
+    const deserialized = deserializeSpec(serialized);
+
+    const reserialized = serializeSpec(deserialized);
+
+    assert.deepStrictEqual(serialized, reserialized);
+
+    assert.deepStrictEqual(
+      deserialized.inputs.zeroField,
+      originalSpec.inputs.zeroField
+    );
+
+    assert.deepStrictEqual(
+      deserialized.inputs.signedData.type,
+      originalSpec.inputs.signedData.type
+    );
+
+    assert.deepStrictEqual(
+      deserialized.inputs.signedData.private,
+      originalSpec.inputs.signedData.private
+    );
+    assert.deepStrictEqual(
+      deserialized.inputs.signedData.public,
+      originalSpec.inputs.signedData.public
+    );
+    assert.deepStrictEqual(
+      deserialized.inputs.signedData.data,
+      originalSpec.inputs.signedData.data
+    );
+  });
+
+  await t.test(
+    'should correctly deserialize a Spec with nested operations',
+    () => {
+      const originalSpec = Spec(
+        {
+          field1: Input.private(Field),
+          field2: Input.private(Field),
+          threshold: Input.public(UInt64),
+        },
+        ({ field1, field2, threshold }) => ({
+          assert: Operation.and(
+            Operation.lessThan(field1, field2),
+            Operation.lessThanEq(field2, threshold)
+          ),
+          data: Operation.equals(field1, field2),
+        })
+      );
+
+      const serialized = serializeSpec(originalSpec);
+      const deserialized = deserializeSpec(serialized);
+
+      const reserialized = serializeSpec(deserialized);
+
+      assert.deepStrictEqual(serialized, reserialized);
+
+      assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
+      assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
+    }
+  );
 });
