@@ -472,3 +472,25 @@ test('deserializeNode', async (t) => {
     }
   });
 });
+
+test('deserilaizeSpec', async (t) => {
+  await t.test('should correctly deserialize a simple Spec', () => {
+    const originalSpec = Spec(
+      {
+        age: Input.private(Field),
+        isAdmin: Input.public(Bool),
+        maxAge: Input.constant(Field, Field(100)),
+      },
+      ({ age, isAdmin, maxAge }) => ({
+        assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
+        data: age,
+      })
+    );
+
+    const serialized = serializeSpec(originalSpec);
+    const deserialized = deserializeSpec(serialized);
+
+    assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
+    assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
+  });
+});
