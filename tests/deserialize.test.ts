@@ -475,7 +475,7 @@ test('deserializeNode', async (t) => {
   });
 });
 
-test('deserilaizeSpec', async (t) => {
+test('deserializeSpec', async (t) => {
   await t.test('should correctly deserialize a simple Spec', () => {
     const originalSpec = Spec(
       {
