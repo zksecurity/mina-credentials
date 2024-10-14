@@ -276,3 +276,90 @@ test('deserializeInput', async (t) => {
     }
   });
 });
+
+test('deserializeInputs', async (t) => {
+  await t.test('should deserialize inputs with various type', () => {
+    const inputs = {
+      field: Input.private(Field),
+      bool: Input.public(Bool),
+      uint: Input.constant(UInt64, UInt64.from(42)),
+      nested: Input.private({
+        inner: Field,
+        deep: {
+          value: Bool,
+        },
+      }),
+    };
+
+    const serialized = Object.fromEntries(
+      Object.entries(inputs).map(([key, value]) => [
+        key,
+        convertInputToSerializable(value),
+      ])
+    );
+
+    const deserialized = deserializeInputs(serialized);
+
+    assert.deepStrictEqual(deserialized, inputs);
+  });
+
+  await t.test('should deserialize attestation input', () => {
+    const InputData = { age: Field, isAdmin: Bool };
+    const inputs = {
+      attestation: Attestation.signatureNative(InputData),
+    };
+
+    const serialized = Object.fromEntries(
+      Object.entries(inputs).map(([key, value]) => [
+        key,
+        convertInputToSerializable(value),
+      ])
+    );
+
+    const deserialized = deserializeInputs(serialized);
+
+    // Reserialize and compare
+    const reserialized = Object.fromEntries(
+      Object.entries(deserialized).map(([key, value]) => [
+        key,
+        convertInputToSerializable(value),
+      ])
+    );
+
+    assert.deepStrictEqual(serialized, reserialized);
+  });
+
+  await t.test('should handle mixed input types', () => {
+    const inputs = {
+      privateField: Input.private(Field),
+      publicBool: Input.public(Bool),
+      constantUint: Input.constant(UInt32, UInt32.from(42)),
+      attestation: Attestation.signatureNative({ score: UInt64 }),
+    };
+
+    const serialized = Object.fromEntries(
+      Object.entries(inputs).map(([key, value]) => [
+        key,
+        convertInputToSerializable(value),
+      ])
+    );
+
+    const deserialized = deserializeInputs(serialized);
+
+    // Reserialize and compare
+    const reserialized = Object.fromEntries(
+      Object.entries(deserialized).map(([key, value]) => [
+        key,
+        convertInputToSerializable(value),
+      ])
+    );
+
+    assert.deepStrictEqual(serialized, reserialized);
+  });
+
+  await t.test('should handle empty input object', () => {
+    const emptyInputs = {};
+    const deserialized = deserializeInputs(emptyInputs);
+    assert.deepStrictEqual(deserialized, {});
+  });
+});
