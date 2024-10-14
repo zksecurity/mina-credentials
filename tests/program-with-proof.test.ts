@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, DynamicProof, Struct } from 'o1js';
+import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
   Attestation,
@@ -18,18 +18,13 @@ const inputProofSpec = Spec({ data: Input.private(InputData) }, ({ data }) => ({
   data,
 }));
 const inputProgram = createProgram(inputProofSpec);
-
-// TODO simplify this
-class InputProof extends DynamicProof<{}, { age: Field; name: Bytes }> {
-  static publicInputType = Struct({});
-  static publicOutputType = Struct({ age: Field, name: Bytes32 });
-  static maxProofsVerified: 0 = 0;
-}
 let inputVk = await inputProgram.compile();
+
+const ProvedData = await Attestation.proofFromProgram(inputProgram);
 
 const spec = Spec(
   {
-    provedData: Attestation.proof(InputProof, InputData),
+    provedData: ProvedData,
     targetAge: Input.public(Field),
     targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
   },
@@ -95,7 +90,7 @@ async function createProofAttestation(data: {
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
   let inputProof = await inputProgram.run({ data });
-  let proof = InputProof.fromProof(inputProof);
+  let proof = ProvedData.fromProof(inputProof);
   return {
     public: inputVk.hash,
     private: { vk: inputVk, proof },
@@ -107,7 +102,7 @@ async function createInvalidProofAttestation(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let proof = await InputProof.dummy({}, data, 0);
+  let proof = await ProvedData.dummyProof({}, data);
   return {
     public: inputVk.hash,
     private: { vk: inputVk, proof },

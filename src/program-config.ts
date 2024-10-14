@@ -13,6 +13,9 @@ import {
   VerificationKey,
   type ProvablePure,
   DynamicProof,
+  type InferProvable,
+  FeatureFlags,
+  Proof,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -191,7 +194,7 @@ function AProof<
   DataType extends NestedProvablePure,
   InputType extends ProvablePureType,
   Data extends InferNestedProvable<DataType>,
-  Input extends InferProvableType<InputType>
+  Input extends InferProvable<InputType>
 >(
   Proof: typeof DynamicProof<Input, Data>,
   dataType: DataType
@@ -219,9 +222,62 @@ function AProof<
   };
 }
 
+async function AProofFromProgram<
+  DataType extends ProvablePure<any>,
+  InputType extends ProvablePure<any>,
+  Data extends InferNestedProvable<DataType>,
+  Input extends InferProvable<InputType>
+>(
+  {
+    program,
+  }: {
+    program: {
+      publicInputType: InputType;
+      publicOutputType: DataType;
+      analyzeMethods: () => Promise<{
+        [I in keyof any]: any;
+      }>;
+    };
+  },
+  // TODO this needs to be exposed on the program!!
+  maxProofsVerified: 0 | 1 | 2 = 0
+) {
+  const featureFlags = await FeatureFlags.fromZkProgram(program);
+
+  class InputProof extends DynamicProof<Input, Data> {
+    static publicInputType = program.publicInputType;
+    static publicOutputType = program.publicOutputType;
+    static maxProofsVerified = maxProofsVerified;
+    static featureFlags = featureFlags;
+  }
+
+  return Object.assign(
+    AProof<DataType, InputType, Data, Input>(
+      InputProof,
+      program.publicOutputType
+    ),
+    {
+      fromProof(proof: Proof<Input, Data>): DynamicProof<Input, Data> {
+        return InputProof.fromProof(proof as any);
+      },
+      dummyProof(
+        publicInput: Input,
+        publicOutput: Data
+      ): Promise<DynamicProof<Input, Data>> {
+        return InputProof.dummy(
+          publicInput,
+          publicOutput as any,
+          maxProofsVerified
+        );
+      },
+    }
+  );
+}
+
 const Attestation = {
   none: ANone,
   proof: AProof,
+  proofFromProgram: AProofFromProgram,
   signature: ASignature,
 };
 
