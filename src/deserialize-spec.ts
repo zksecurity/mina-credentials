@@ -9,7 +9,7 @@ import {
   Provable,
   type ProvablePure,
 } from 'o1js';
-import { Attestation, Input, Node, Spec } from './program-config.ts';
+import { Attestation, Input, Node, Operation, Spec } from './program-config.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
@@ -65,7 +65,48 @@ function deserializeInput(input: any): Input {
   }
 }
 
-function deserializeNode(node: any): Node {}
+function deserializeNode(node: any): Node {
+  switch (node.type) {
+    case 'constant':
+      return {
+        type: 'constant',
+        data: deserializeProvable(node.data.type, node.data.value),
+      };
+    case 'root':
+      return {
+        type: 'root',
+        input: deserializeInputs(node.input),
+      };
+    case 'property':
+      return {
+        type: 'property',
+        key: node.key,
+        inner: deserializeNode(node.inner),
+      };
+    case 'equals':
+      return Operation.equals(
+        deserializeNode(node.left),
+        deserializeNode(node.right)
+      );
+    case 'lessThan':
+      return Operation.lessThan(
+        deserializeNode(node.left),
+        deserializeNode(node.right)
+      );
+    case 'lessThanEq':
+      return Operation.lessThanEq(
+        deserializeNode(node.left),
+        deserializeNode(node.right)
+      );
+    case 'and':
+      return Operation.and(
+        deserializeNode(node.left),
+        deserializeNode(node.right)
+      );
+    default:
+      throw new Error(`Invalid node type: ${node.type}`);
+  }
+}
 
 function deserializeProvableType(type: { type: string }): Provable<any> {
   switch (type.type) {

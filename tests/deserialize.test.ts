@@ -361,3 +361,114 @@ test('deserializeInputs', async (t) => {
     assert.deepStrictEqual(deserialized, {});
   });
 });
+
+test('deserializeNode', async (t) => {
+  await t.test('should deserialize constant node', () => {
+    const node: Node<Field> = { type: 'constant', data: Field(123) };
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize root node', () => {
+    const node: Node = {
+      type: 'root',
+      input: {
+        age: Input.private(Field),
+        isAdmin: Input.public(Bool),
+      },
+    };
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize property node', () => {
+    const node: Node = {
+      type: 'property',
+      key: 'age',
+      inner: {
+        type: 'root',
+        input: {
+          age: Input.private(Field),
+          isAdmin: Input.public(Bool),
+        },
+      },
+    };
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize equals node', () => {
+    const node: Node<Bool> = Operation.equals(
+      { type: 'constant', data: Field(10) },
+      { type: 'constant', data: Field(10) }
+    );
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize lessThan node', () => {
+    const node: Node<Bool> = Operation.lessThan(
+      { type: 'constant', data: UInt32.from(5) },
+      { type: 'constant', data: UInt32.from(10) }
+    );
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize lessThanEq node', () => {
+    const node: Node<Bool> = Operation.lessThanEq(
+      { type: 'constant', data: UInt64.from(15) },
+      { type: 'constant', data: UInt64.from(15) }
+    );
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize and node', () => {
+    const node: Node<Bool> = Operation.and(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Bool(false) }
+    );
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should deserialize nested nodes', () => {
+    const node: Node<Bool> = Operation.and(
+      Operation.lessThan(
+        { type: 'constant', data: Field(5) },
+        { type: 'constant', data: Field(10) }
+      ),
+      Operation.equals(
+        { type: 'constant', data: Bool(true) },
+        { type: 'constant', data: Bool(true) }
+      )
+    );
+    const serialized = convertNodeToSerializable(node);
+    const deserialized = deserializeNode(serialized);
+    assert.deepStrictEqual(deserialized, node);
+  });
+
+  await t.test('should throw error for invalid node type', async () => {
+    const invalidNode = { type: 'invalid' };
+
+    try {
+      deserializeNode(invalidNode);
+      assert.fail('Expected an error to be thrown');
+    } catch (error) {
+      assert(error instanceof Error, 'Error should be an instance of Error');
+      assert.strictEqual(
+        error.message,
+        'Invalid node type: invalid',
+        'Error message should match expected message'
+      );
+    }
+  });
+});
