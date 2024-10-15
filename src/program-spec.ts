@@ -208,10 +208,7 @@ function compareNodes(
     : leftConverted.lessThan(rightConverted);
 }
 
-function evalNodeType<Data>(
-  rootType: NestedProvable,
-  node: Node<Data>
-): NestedProvable {
+function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
   switch (node.type) {
     case 'constant':
       return ProvableType.fromValue(node.data);
@@ -219,29 +216,29 @@ function evalNodeType<Data>(
       return rootType;
     case 'property': {
       // TODO would be nice to get inner types of structs more easily
-      let inner = evalNodeType<unknown>(rootType, node.inner);
+      let inner = evalNodeType(rootType, node.inner);
 
       // case 1: inner is a provable type
       if (ProvableType.isProvableType(inner)) {
         let innerValue = ProvableType.synthesize(inner);
         assertHasProperty(innerValue, node.key);
-        let value: Data = innerValue[node.key] as any;
+        let value = innerValue[node.key];
         return ProvableType.fromValue(value);
       }
       // case 2: inner is a record of provable types
       return inner[node.key] as any;
     }
     case 'equals': {
-      return Bool as any;
+      return Bool;
     }
     case 'lessThan': {
-      return Bool as any;
+      return Bool;
     }
     case 'lessThanEq': {
-      return Bool as any;
+      return Bool;
     }
     case 'and': {
-      return Bool as any;
+      return Bool;
     }
   }
 }
