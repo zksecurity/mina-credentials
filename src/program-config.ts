@@ -38,7 +38,7 @@ import {
  * - can be done by defining an enum of supported base types
  */
 
-export type { PublicInputs, UserInputs };
+export type { PublicInputs, UserInputs, AttestationId };
 export {
   Spec,
   Node,
@@ -107,6 +107,8 @@ function Spec<Data, Inputs extends Record<string, Input>>(
 
 const Undefined_: ProvablePure<undefined> = Undefined;
 
+type AttestationId = 'none' | 'signatureNative' | 'proof';
+
 /**
  * An attestation is:
  * - a string fully identifying the attestation type
@@ -115,7 +117,7 @@ const Undefined_: ProvablePure<undefined> = Undefined;
  * - a type for data (which is left generic when defining attestation types)
  * - a function `verify(publicInput: Public, privateInput: Private, data: Data)` that asserts the attestation is valid
  */
-type Attestation<Id extends string, Public, Private, Data> = {
+type Attestation<Id extends AttestationId, Public, Private, Data> = {
   type: 'attestation';
   id: Id;
   public: ProvablePureType<Public>;
@@ -126,7 +128,7 @@ type Attestation<Id extends string, Public, Private, Data> = {
 };
 
 function defineAttestation<
-  Id extends string,
+  Id extends AttestationId,
   PublicType extends ProvablePureType,
   PrivateType extends ProvableType
 >(config: {
@@ -304,7 +306,7 @@ type Public<Data> = { type: 'public'; data: NestedProvablePureFor<Data> };
 type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
-  | Attestation<string, any, any, Data>
+  | Attestation<AttestationId, any, any, Data>
   | Constant<Data>
   | Public<Data>
   | Private<Data>;
@@ -660,7 +662,7 @@ type MapToDataInput<T extends Record<string, Input>> = {
 };
 
 type ToPublic<T extends Input> = T extends Attestation<
-  string,
+  AttestationId,
   infer Public,
   any,
   any
@@ -671,7 +673,7 @@ type ToPublic<T extends Input> = T extends Attestation<
   : never;
 
 type ToPrivate<T extends Input> = T extends Attestation<
-  string,
+  AttestationId,
   any,
   infer Private,
   infer Data
@@ -682,7 +684,7 @@ type ToPrivate<T extends Input> = T extends Attestation<
   : never;
 
 type ToUserInput<T extends Input> = T extends Attestation<
-  string,
+  AttestationId,
   infer Public,
   infer Private,
   infer Data

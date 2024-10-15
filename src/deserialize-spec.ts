@@ -10,12 +10,18 @@ import {
   type ProvablePure,
   assert,
 } from 'o1js';
-import { Attestation, Input, Node, Operation, Spec } from './program-config.ts';
+import {
+  Attestation,
+  AttestationId,
+  Input,
+  Node,
+  Operation,
+  Spec,
+} from './program-config.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
   NestedProvablePure,
-  NestedProvablePureFor,
 } from './nested.ts';
 import {
   validateSpecHash,
@@ -68,10 +74,20 @@ function deserializeInput(input: any): Input {
       return Input.public(deserializeNestedProvablePure(input.data));
     case 'private':
       return Input.private(deserializeNestedProvable(input.data));
-    case 'attestation':
-      return Attestation[input.id as keyof typeof Attestation](
-        deserializeNestedProvablePure(input.data)
-      );
+    case 'attestation': {
+      let id: AttestationId = input.id;
+      let data = deserializeNestedProvablePure(input.data);
+      switch (id) {
+        case 'signatureNative':
+          return Attestation.signatureNative(data);
+        case 'none':
+          return Attestation.none(data);
+        case 'proof':
+          throw new Error('Serializing proof attestation is not supported yet');
+        default:
+          throw new Error(`Unsupported attestation id: ${id}`);
+      }
+    }
     default:
       throw new Error(`Invalid input type: ${input.type}`);
   }
