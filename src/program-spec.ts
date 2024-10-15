@@ -102,6 +102,7 @@ const Operation = {
   lessThanEq,
   and,
   or,
+  not,
 };
 
 type Constant<Data> = {
@@ -126,7 +127,8 @@ type Node<Data = any> =
   | { type: 'lessThan'; left: Node; right: Node }
   | { type: 'lessThanEq'; left: Node; right: Node }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
-  | { type: 'or'; left: Node<Bool>; right: Node<Bool> };
+  | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
+  | { type: 'not'; inner: Node<Bool> };
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
@@ -171,6 +173,10 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
       return left.or(right) as Data;
+    }
+    case 'not': {
+      let inner = evalNode(root, node.inner);
+      return inner.not() as Data;
     }
   }
 }
@@ -253,6 +259,9 @@ function evalNodeType<Data>(
     case 'or': {
       return Bool as any;
     }
+    case 'not': {
+      return Bool as any;
+    }
   }
 }
 
@@ -317,6 +326,10 @@ function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
 
 function or(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
   return { type: 'or', left, right };
+}
+
+function not(inner: Node<Bool>): Node<Bool> {
+  return { type: 'not', inner };
 }
 
 function publicInputTypes<S extends Spec>({
