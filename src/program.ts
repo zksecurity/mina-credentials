@@ -8,10 +8,10 @@ import {
   recombineDataInputs,
   Spec,
   splitUserInputs,
-  verifyAttestations,
+  verifyCredentials,
   type PublicInputs,
   type UserInputs,
-} from './program-config.ts';
+} from './program-spec.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 
@@ -47,7 +47,7 @@ function createProgram<S extends Spec>(
       run: {
         privateInputs: [PrivateInput],
         method(publicInput, privateInput) {
-          verifyAttestations(spec, publicInput, privateInput);
+          verifyCredentials(spec, publicInput, privateInput);
 
           let root = recombineDataInputs(spec, publicInput, privateInput);
           let assertion = Node.eval(root, spec.logic.assert);

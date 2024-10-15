@@ -6,12 +6,12 @@ import {
   Input,
   Operation,
   Node,
-  Attestation,
   type UserInputs,
   splitUserInputs,
   recombineDataInputs,
-} from '../src/program-config.ts';
-import { createAttestation } from './test-utils.ts';
+} from '../src/program-spec.ts';
+import { createSignatureCredential } from './test-utils.ts';
+import { Credential } from '../src/credentials.ts';
 
 test(' Spec and Node operations', async (t) => {
   const Bytes32 = Bytes(32);
@@ -194,11 +194,11 @@ test(' Spec and Node operations', async (t) => {
     assert.deepStrictEqual(dataResult, Bytes32.fromString('Charlie'));
   });
 
-  await t.test('Spec with attestation', () => {
+  await t.test('Spec with credential', () => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        signedData: Attestation.signatureNative(InputData),
+        signedData: Credential.signatureNative(InputData),
         targetAge: Input.public(Field),
         targetName: Input.public(Bytes32),
       },
@@ -212,7 +212,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const data = { age: Field(30), name: Bytes32.fromString('David') };
-    const signedData = createAttestation(InputData, data);
+    const signedData = createSignatureCredential(InputData, data);
 
     let userInputs: UserInputs<typeof spec.inputs> = {
       signedData,

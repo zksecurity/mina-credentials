@@ -1,9 +1,9 @@
 import { PrivateKey, Signature } from 'o1js';
 import { NestedProvable } from '../src/nested.ts';
 
-export { createAttestation };
+export { createSignatureCredential };
 
-function createAttestation<Data>(type: NestedProvable, data: Data) {
+function createSignatureCredential<Data>(type: NestedProvable, data: Data) {
   let issuer = PrivateKey.randomKeypair();
   let signature = Signature.create(
     issuer.privateKey,

@@ -10,14 +10,7 @@ import {
   type ProvablePure,
   assert,
 } from 'o1js';
-import {
-  Attestation,
-  type AttestationId,
-  Input,
-  Node,
-  Operation,
-  Spec,
-} from './program-config.ts';
+import { Input, Node, Operation, Spec } from './program-spec.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
@@ -28,6 +21,7 @@ import {
   supportedTypes,
   type O1jsTypeName,
 } from './serialize-spec.ts';
+import { Credential, type CredentialId } from './credentials.ts';
 
 export {
   deserializeSpec,
@@ -74,18 +68,18 @@ function deserializeInput(input: any): Input {
       return Input.public(deserializeNestedProvablePure(input.data));
     case 'private':
       return Input.private(deserializeNestedProvable(input.data));
-    case 'attestation': {
-      let id: AttestationId = input.id;
+    case 'credential': {
+      let id: CredentialId = input.id;
       let data = deserializeNestedProvablePure(input.data);
       switch (id) {
         case 'signatureNative':
-          return Attestation.signatureNative(data);
+          return Credential.signatureNative(data);
         case 'none':
-          return Attestation.none(data);
+          return Credential.none(data);
         case 'proof':
-          throw new Error('Serializing proof attestation is not supported yet');
+          throw new Error('Serializing proof credential is not supported yet');
         default:
-          throw new Error(`Unsupported attestation id: ${id}`);
+          throw new Error(`Unsupported credential id: ${id}`);
       }
     }
     default:
