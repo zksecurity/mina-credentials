@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { Input, Operation, Spec, Node } from '../src/program-spec.ts';
-
 import {
   serializeProvableType,
   serializeNestedProvable,
@@ -11,19 +10,7 @@ import {
   serializeSpec,
   validateSpecHash,
 } from '../src/serialize-spec.ts';
-import {
-  Bool,
-  Bytes,
-  Field,
-  Provable,
-  PublicKey,
-  Signature,
-  Struct,
-  UInt32,
-  UInt64,
-  UInt8,
-  VerificationKey,
-} from 'o1js';
+import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
 import { deserializeSpec } from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credentials.ts';
 
