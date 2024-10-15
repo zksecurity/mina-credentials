@@ -11,7 +11,7 @@ test('createProgram with simple spec', async (t) => {
 
   const spec = Spec(
     {
-      signedData: Attestation.signature(InputData),
+      signedData: Attestation.signatureNative(InputData),
       targetAge: Input.public(Field),
       targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
     },
