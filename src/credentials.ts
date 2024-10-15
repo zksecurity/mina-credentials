@@ -87,7 +87,7 @@ function defineCredential<
 }
 
 // dummy credential with no proof attached
-const ANone = defineCredential({
+const None = defineCredential({
   id: 'none',
   public: Undefined_,
   private: Undefined_,
@@ -97,7 +97,7 @@ const ANone = defineCredential({
 });
 
 // native signature
-const ASignature = defineCredential({
+const Signed = defineCredential({
   id: 'signatureNative',
   public: PublicKey, // issuer public key
   private: Signature,
@@ -114,7 +114,7 @@ const ASignature = defineCredential({
 
 // TODO include hash of public inputs of the inner proof
 // TODO maybe names could be issuer, credential
-function AProof<
+function Proved<
   DataType extends NestedProvablePure,
   InputType extends ProvablePureType,
   Data extends InferNestedProvable<DataType>,
@@ -146,7 +146,7 @@ function AProof<
   };
 }
 
-async function AProofFromProgram<
+async function ProvedFromProgram<
   DataType extends ProvablePure<any>,
   InputType extends ProvablePure<any>,
   Data extends InferNestedProvable<DataType>,
@@ -176,7 +176,7 @@ async function AProofFromProgram<
   }
 
   return Object.assign(
-    AProof<DataType, InputType, Data, Input>(
+    Proved<DataType, InputType, Data, Input>(
       InputProof,
       program.publicOutputType
     ),
@@ -199,8 +199,8 @@ async function AProofFromProgram<
 }
 
 const Credential = {
-  none: ANone,
-  proof: AProof,
-  proofFromProgram: AProofFromProgram,
-  signatureNative: ASignature,
+  none: None,
+  proof: Proved,
+  proofFromProgram: ProvedFromProgram,
+  signatureNative: Signed,
 };
