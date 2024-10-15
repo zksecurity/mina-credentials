@@ -1,4 +1,4 @@
-export type { Credential };
+export type { Credential as UnusedCredential };
 
 // ****** EXAMPLE WALLET PROVIDER ATTESTATION API ******
 
