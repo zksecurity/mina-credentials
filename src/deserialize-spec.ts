@@ -10,14 +10,7 @@ import {
   type ProvablePure,
   assert,
 } from 'o1js';
-import {
-  Credential,
-  type CredentialId,
-  Input,
-  Node,
-  Operation,
-  Spec,
-} from './program-config.ts';
+import { Input, Node, Operation, Spec } from './program-config.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
@@ -28,6 +21,7 @@ import {
   supportedTypes,
   type O1jsTypeName,
 } from './serialize-spec.ts';
+import { Credential, type CredentialId } from './credentials.ts';
 
 export {
   deserializeSpec,
