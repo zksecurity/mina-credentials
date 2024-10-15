@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Input, Operation, Spec } from '../src/program-spec.ts';
-import { createSignatureCredential as createSignatureCredential } from './test-utils.ts';
+import { createSignatureCredential } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
 
 test('program with simple spec and signature credential', async (t) => {

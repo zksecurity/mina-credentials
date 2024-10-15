@@ -2,7 +2,7 @@
  * Allows us to represent nested Provable types, to save us from always having to
  * wrap types in `Struct` and similar.
  */
-import { Provable, type ProvablePure, Struct } from 'o1js';
+import { type InferProvable, Provable, type ProvablePure, Struct } from 'o1js';
 import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
 
 export { NestedProvable };
@@ -40,9 +40,9 @@ type NestedProvablePureFor<T> =
   | ProvablePureType<T>
   | { [K in keyof T & string]: NestedProvablePureFor<T[K]> };
 
-type InferNestedProvable<A> = A extends NestedProvableFor<infer T>
-  ? T
-  : A extends ProvableType<infer T>
+type InferNestedProvable<A> = A extends ProvableType
+  ? InferProvable<A>
+  : A extends NestedProvableFor<infer T>
   ? T
   : A extends Record<string, NestedProvable>
   ? {

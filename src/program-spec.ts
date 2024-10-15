@@ -21,7 +21,11 @@ import {
   type NestedProvablePure,
   type NestedProvablePureFor,
 } from './nested.ts';
-import { Credential, type CredentialId } from './credentials.ts';
+import {
+  type CredentialType,
+  type CredentialId,
+  Credential,
+} from './credentials.ts';
 
 export type { PublicInputs, UserInputs };
 export {
@@ -97,6 +101,7 @@ const Input = {
 
 const Operation = {
   property,
+  record,
   equals,
   lessThan,
   lessThanEq,
@@ -112,7 +117,7 @@ type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
 type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
-  | Credential<CredentialId, any, Data>
+  | CredentialType<CredentialId, any, Data>
   | Constant<Data>
   | Claim<Data>
   | Private<Data>;
@@ -121,6 +126,7 @@ type Node<Data = any> =
   | { type: 'constant'; data: Data }
   | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
+  | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
   | { type: 'lessThan'; left: Node; right: Node }
   | { type: 'lessThanEq'; left: Node; right: Node }
@@ -150,6 +156,13 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let inner = evalNode<unknown>(root, node.inner);
       assertHasProperty(inner, node.key);
       return inner[node.key] as Data;
+    }
+    case 'record': {
+      let result: Record<string, any> = {};
+      for (let key in node.data) {
+        result[key] = evalNode(root, node.data[key]!);
+      }
+      return result as any;
     }
     case 'equals': {
       let left = evalNode(root, node.left);
@@ -228,6 +241,13 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
       // case 2: inner is a record of provable types
       return inner[node.key] as any;
     }
+    case 'record': {
+      let result: Record<string, NestedProvable> = {};
+      for (let key in node.data) {
+        result[key] = evalNodeType(rootType, node.data[key]!);
+      }
+      return result;
+    }
     case 'equals': {
       return Bool;
     }
@@ -279,21 +299,30 @@ function property<K extends string, Data extends { [key in K]: any }>(
   return { type: 'property', key, inner: node as Node<any> };
 }
 
+function record<Nodes extends Record<string, Node>>(
+  nodes: Nodes
+): Node<{
+  [K in keyof Nodes]: Nodes[K] extends Node<infer Data> ? Data : never;
+}> {
+  return { type: 'record', data: nodes };
+}
+
 function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
   return { type: 'equals', left, right };
 }
 
 type NumericType = Field | UInt64 | UInt32 | UInt8;
-function lessThan<Data extends NumericType>(
-  left: Node<Data>,
-  right: Node<Data>
+
+function lessThan<Left extends NumericType, Right extends NumericType>(
+  left: Node<Left>,
+  right: Node<Right>
 ): Node<Bool> {
   return { type: 'lessThan', left, right };
 }
 
-function lessThanEq<Data extends NumericType>(
-  left: Node<Data>,
-  right: Node<Data>
+function lessThanEq<Left extends NumericType, Right extends NumericType>(
+  left: Node<Left>,
+  right: Node<Right>
 ): Node<Bool> {
   return { type: 'lessThanEq', left, right };
 }
@@ -301,6 +330,8 @@ function lessThanEq<Data extends NumericType>(
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
   return { type: 'and', left, right };
 }
+
+// helpers to extract portions of the spec
 
 function publicInputTypes<S extends Spec>({
   inputs,
@@ -466,26 +497,34 @@ type MapToDataInput<T extends Record<string, Input>> = {
 
 type ToPublic<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
-type ToPrivate<T extends Input> = T extends Credential<
+type ToPrivate<T extends Input> = T extends CredentialType<
   CredentialId,
   infer Private,
   infer Data
 >
-  ? { private: Private; data: Data }
+  ? { credential: Credential<Data>; private: Private }
   : T extends Private<infer Data>
   ? Data
   : never;
 
-type ToUserInput<T extends Input> = T extends Credential<
+type ToUserInput<T extends Input> = T extends CredentialType<
   CredentialId,
   infer Private,
   infer Data
 >
-  ? { private: Private; data: Data }
+  ? { credential: Credential<Data>; private: Private }
   : T extends Claim<infer Data>
   ? Data
   : T extends Private<infer Data>
   ? Data
   : never;
 
-type ToDataInput<T extends Input> = T extends Input<infer Data> ? Data : never;
+type ToDataInput<T extends Input> = T extends CredentialType<
+  CredentialId,
+  any,
+  infer Data
+>
+  ? Credential<Data>
+  : T extends Input<infer Data>
+  ? Data
+  : never;
