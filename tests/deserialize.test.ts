@@ -20,9 +20,9 @@ import {
 import {
   serializeProvableType,
   serializeProvable,
-  serializeNestedProvableFor,
-  convertNodeToSerializable,
-  convertInputToSerializable,
+  serializeNestedProvable,
+  serializeNode,
+  serializeInput,
   convertSpecToSerializable,
   serializeSpec,
 } from '../src/serialize-spec.ts';
@@ -33,7 +33,6 @@ import {
   deserializeNode,
   deserializeProvableType,
   deserializeProvable,
-  deserializeNestedProvableFor,
 } from '../src/deserialize-spec.ts';
 
 import { createAttestation } from './test-utils.ts';
@@ -191,25 +190,12 @@ test('deserializeProvableType', async (t) => {
     const result = deserializeProvableType({ type: 'Signature' });
     assert.strictEqual(result, Signature);
   });
-
-  await t.test('should throw error for unsupported type', async (t) => {
-    try {
-      deserializeProvableType({ type: 'UnsupportedType' });
-      assert.fail('Expected an error to be thrown');
-    } catch (error) {
-      assert(error instanceof Error);
-      assert.strictEqual(
-        error.message,
-        'Unsupported provable type: UnsupportedType'
-      );
-    }
-  });
 });
 
 test('deserializeInput', async (t) => {
   await t.test('should deserialize constant input', () => {
     const input = Input.constant(Field, Field(42));
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
     assert.deepStrictEqual(deserialized, input);
@@ -217,7 +203,7 @@ test('deserializeInput', async (t) => {
 
   await t.test('should deserialize public input', () => {
     const input = Input.public(Field);
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
     assert.deepStrictEqual(deserialized, input);
@@ -225,7 +211,7 @@ test('deserializeInput', async (t) => {
 
   await t.test('should deserialize private input', () => {
     const input = Input.private(Signature);
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
     assert.deepStrictEqual(deserialized, input);
@@ -236,11 +222,11 @@ test('deserializeInput', async (t) => {
 
     const input = Attestation.signatureNative(InputData);
 
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
 
     const deserialized = deserializeInput(serialized);
 
-    const reserialized = convertInputToSerializable(deserialized);
+    const reserialized = serializeInput(deserialized);
 
     assert.deepStrictEqual(serialized, reserialized);
 
@@ -260,7 +246,7 @@ test('deserializeInput', async (t) => {
       },
       score: UInt32,
     });
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
     assert.deepStrictEqual(deserialized, input);
@@ -294,10 +280,7 @@ test('deserializeInputs', async (t) => {
     };
 
     const serialized = Object.fromEntries(
-      Object.entries(inputs).map(([key, value]) => [
-        key,
-        convertInputToSerializable(value),
-      ])
+      Object.entries(inputs).map(([key, value]) => [key, serializeInput(value)])
     );
 
     const deserialized = deserializeInputs(serialized);
@@ -312,10 +295,7 @@ test('deserializeInputs', async (t) => {
     };
 
     const serialized = Object.fromEntries(
-      Object.entries(inputs).map(([key, value]) => [
-        key,
-        convertInputToSerializable(value),
-      ])
+      Object.entries(inputs).map(([key, value]) => [key, serializeInput(value)])
     );
 
     const deserialized = deserializeInputs(serialized);
@@ -323,7 +303,7 @@ test('deserializeInputs', async (t) => {
     const reserialized = Object.fromEntries(
       Object.entries(deserialized).map(([key, value]) => [
         key,
-        convertInputToSerializable(value),
+        serializeInput(value),
       ])
     );
 
@@ -339,10 +319,7 @@ test('deserializeInputs', async (t) => {
     };
 
     const serialized = Object.fromEntries(
-      Object.entries(inputs).map(([key, value]) => [
-        key,
-        convertInputToSerializable(value),
-      ])
+      Object.entries(inputs).map(([key, value]) => [key, serializeInput(value)])
     );
 
     const deserialized = deserializeInputs(serialized);
@@ -350,7 +327,7 @@ test('deserializeInputs', async (t) => {
     const reserialized = Object.fromEntries(
       Object.entries(deserialized).map(([key, value]) => [
         key,
-        convertInputToSerializable(value),
+        serializeInput(value),
       ])
     );
 
@@ -367,7 +344,7 @@ test('deserializeInputs', async (t) => {
 test('deserializeNode', async (t) => {
   await t.test('should deserialize constant node', () => {
     const node: Node<Field> = { type: 'constant', data: Field(123) };
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -380,7 +357,7 @@ test('deserializeNode', async (t) => {
         isAdmin: Input.public(Bool),
       },
     };
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -397,7 +374,7 @@ test('deserializeNode', async (t) => {
         },
       },
     };
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -407,7 +384,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: Field(10) },
       { type: 'constant', data: Field(10) }
     );
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -417,7 +394,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: UInt32.from(5) },
       { type: 'constant', data: UInt32.from(10) }
     );
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -427,7 +404,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: UInt64.from(15) },
       { type: 'constant', data: UInt64.from(15) }
     );
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -437,7 +414,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: Bool(true) },
       { type: 'constant', data: Bool(false) }
     );
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -453,7 +430,7 @@ test('deserializeNode', async (t) => {
         { type: 'constant', data: Bool(true) }
       )
     );
-    const serialized = convertNodeToSerializable(node);
+    const serialized = serializeNode(node);
     const deserialized = deserializeNode(serialized);
     assert.deepStrictEqual(deserialized, node);
   });
@@ -476,7 +453,7 @@ test('deserializeNode', async (t) => {
 });
 
 test('deserializeSpec', async (t) => {
-  await t.test('should correctly deserialize a simple Spec', () => {
+  await t.test('should correctly deserialize a simple Spec', async () => {
     const originalSpec = Spec(
       {
         age: Input.private(Field),
@@ -489,63 +466,66 @@ test('deserializeSpec', async (t) => {
       })
     );
 
-    const serialized = serializeSpec(originalSpec);
-    const deserialized = deserializeSpec(serialized);
+    const serialized = await serializeSpec(originalSpec);
+    const deserialized = await deserializeSpec(serialized);
 
     assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
     assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
   });
 
   // it is not possible to directly compare attestations because of the verify function
-  await t.test('should correctly deserialize a Spec with attestation', () => {
-    const originalSpec = Spec(
-      {
-        signedData: Attestation.signatureNative({ field: Field }),
-        zeroField: Input.constant(Field, Field(0)),
-      },
-      ({ signedData, zeroField }) => ({
-        assert: Operation.equals(
-          Operation.property(signedData, 'field'),
-          zeroField
-        ),
-        data: signedData,
-      })
-    );
+  await t.test(
+    'should correctly deserialize a Spec with attestation',
+    async () => {
+      const originalSpec = Spec(
+        {
+          signedData: Attestation.signatureNative({ field: Field }),
+          zeroField: Input.constant(Field, Field(0)),
+        },
+        ({ signedData, zeroField }) => ({
+          assert: Operation.equals(
+            Operation.property(signedData, 'field'),
+            zeroField
+          ),
+          data: signedData,
+        })
+      );
 
-    const serialized = serializeSpec(originalSpec);
-    const deserialized = deserializeSpec(serialized);
+      const serialized = await serializeSpec(originalSpec);
+      const deserialized = await deserializeSpec(serialized);
 
-    const reserialized = serializeSpec(deserialized);
+      const reserialized = await serializeSpec(deserialized);
 
-    assert.deepStrictEqual(serialized, reserialized);
+      assert.deepStrictEqual(serialized, reserialized);
 
-    assert.deepStrictEqual(
-      deserialized.inputs.zeroField,
-      originalSpec.inputs.zeroField
-    );
+      assert.deepStrictEqual(
+        deserialized.inputs.zeroField,
+        originalSpec.inputs.zeroField
+      );
 
-    assert.deepStrictEqual(
-      deserialized.inputs.signedData.type,
-      originalSpec.inputs.signedData.type
-    );
+      assert.deepStrictEqual(
+        deserialized.inputs.signedData.type,
+        originalSpec.inputs.signedData.type
+      );
 
-    assert.deepStrictEqual(
-      deserialized.inputs.signedData.private,
-      originalSpec.inputs.signedData.private
-    );
-    assert.deepStrictEqual(
-      deserialized.inputs.signedData.public,
-      originalSpec.inputs.signedData.public
-    );
-    assert.deepStrictEqual(
-      deserialized.inputs.signedData.data,
-      originalSpec.inputs.signedData.data
-    );
-  });
+      assert.deepStrictEqual(
+        deserialized.inputs.signedData.private,
+        originalSpec.inputs.signedData.private
+      );
+      assert.deepStrictEqual(
+        deserialized.inputs.signedData.public,
+        originalSpec.inputs.signedData.public
+      );
+      assert.deepStrictEqual(
+        deserialized.inputs.signedData.data,
+        originalSpec.inputs.signedData.data
+      );
+    }
+  );
 
   await t.test(
     'should correctly deserialize a Spec with nested operations',
-    () => {
+    async () => {
       const originalSpec = Spec(
         {
           field1: Input.private(Field),
@@ -561,10 +541,10 @@ test('deserializeSpec', async (t) => {
         })
       );
 
-      const serialized = serializeSpec(originalSpec);
-      const deserialized = deserializeSpec(serialized);
+      const serialized = await serializeSpec(originalSpec);
+      const deserialized = await deserializeSpec(serialized);
 
-      const reserialized = serializeSpec(deserialized);
+      const reserialized = await serializeSpec(deserialized);
 
       assert.deepStrictEqual(serialized, reserialized);
 

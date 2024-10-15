@@ -10,9 +10,9 @@ import {
 
 import {
   serializeProvableType,
-  serializeNestedProvableFor,
-  convertNodeToSerializable,
-  convertInputToSerializable,
+  serializeNestedProvable,
+  serializeNode,
+  serializeInput,
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
@@ -52,23 +52,23 @@ test('Serialize Inputs', async (t) => {
   });
 
   await t.test('should serialize simple provable types (nested)', () => {
-    assert.deepStrictEqual(serializeNestedProvableFor(Field), {
+    assert.deepStrictEqual(serializeNestedProvable(Field), {
       type: 'Field',
     });
-    assert.deepStrictEqual(serializeNestedProvableFor(Bool), { type: 'Bool' });
-    assert.deepStrictEqual(serializeNestedProvableFor(UInt8), {
+    assert.deepStrictEqual(serializeNestedProvable(Bool), { type: 'Bool' });
+    assert.deepStrictEqual(serializeNestedProvable(UInt8), {
       type: 'UInt8',
     });
-    assert.deepStrictEqual(serializeNestedProvableFor(UInt32), {
+    assert.deepStrictEqual(serializeNestedProvable(UInt32), {
       type: 'UInt32',
     });
-    assert.deepStrictEqual(serializeNestedProvableFor(UInt64), {
+    assert.deepStrictEqual(serializeNestedProvable(UInt64), {
       type: 'UInt64',
     });
-    assert.deepStrictEqual(serializeNestedProvableFor(PublicKey), {
+    assert.deepStrictEqual(serializeNestedProvable(PublicKey), {
       type: 'PublicKey',
     });
-    assert.deepStrictEqual(serializeNestedProvableFor(Signature), {
+    assert.deepStrictEqual(serializeNestedProvable(Signature), {
       type: 'Signature',
     });
   });
@@ -82,7 +82,7 @@ test('Serialize Inputs', async (t) => {
       },
     };
 
-    assert.deepStrictEqual(serializeNestedProvableFor(nestedType), {
+    assert.deepStrictEqual(serializeNestedProvable(nestedType), {
       field: { type: 'Field' },
       nested: {
         bool: { type: 'Bool' },
@@ -104,7 +104,7 @@ test('Serialize Inputs', async (t) => {
       },
     };
 
-    assert.deepStrictEqual(serializeNestedProvableFor(complexType), {
+    assert.deepStrictEqual(serializeNestedProvable(complexType), {
       simpleField: { type: 'Field' },
       nestedObject: {
         publicKey: { type: 'PublicKey' },
@@ -118,9 +118,9 @@ test('Serialize Inputs', async (t) => {
   });
 
   await t.test('should throw an error for unsupported types', () => {
-    assert.throws(() => serializeNestedProvableFor('unsupported' as any), {
+    assert.throws(() => serializeNestedProvable('unsupported' as any), {
       name: 'Error',
-      message: 'Unsupported type in NestedProvableFor: unsupported',
+      message: 'Unsupported type in NestedProvable: unsupported',
     });
   });
 });
@@ -129,7 +129,7 @@ test('Serialize Nodes', async (t) => {
   await t.test('should serialize constant Node', () => {
     const constantNode: Node<Field> = { type: 'constant', data: Field(123) };
 
-    const serialized = convertNodeToSerializable(constantNode);
+    const serialized = serializeNode(constantNode);
 
     const expected = {
       type: 'constant',
@@ -151,7 +151,7 @@ test('Serialize Nodes', async (t) => {
       },
     };
 
-    const serialized = convertNodeToSerializable(rootNode);
+    const serialized = serializeNode(rootNode);
 
     const expected = {
       type: 'root',
@@ -177,7 +177,7 @@ test('Serialize Nodes', async (t) => {
       },
     };
 
-    const serialized = convertNodeToSerializable(propertyNode);
+    const serialized = serializeNode(propertyNode);
 
     const expected = {
       type: 'property',
@@ -200,7 +200,7 @@ test('Serialize Nodes', async (t) => {
       { type: 'constant', data: Field(10) }
     );
 
-    const serialized = convertNodeToSerializable(equalsNode);
+    const serialized = serializeNode(equalsNode);
 
     const expected = {
       type: 'equals',
@@ -217,7 +217,7 @@ test('Serialize Nodes', async (t) => {
       { type: 'constant', data: UInt32.from(10) }
     );
 
-    const serialized = convertNodeToSerializable(lessThanNode);
+    const serialized = serializeNode(lessThanNode);
 
     const expected = {
       type: 'lessThan',
@@ -234,7 +234,7 @@ test('Serialize Nodes', async (t) => {
       { type: 'constant', data: UInt64.from(15) }
     );
 
-    const serialized = convertNodeToSerializable(lessThanEqNode);
+    const serialized = serializeNode(lessThanEqNode);
 
     const expected = {
       type: 'lessThanEq',
@@ -251,7 +251,7 @@ test('Serialize Nodes', async (t) => {
       { type: 'constant', data: Bool(false) }
     );
 
-    const serialized = convertNodeToSerializable(andNode);
+    const serialized = serializeNode(andNode);
 
     const expected = {
       type: 'and',
@@ -274,7 +274,7 @@ test('Serialize Nodes', async (t) => {
       )
     );
 
-    const serialized = convertNodeToSerializable(nestedNode);
+    const serialized = serializeNode(nestedNode);
 
     const expected = {
       type: 'and',
@@ -294,11 +294,11 @@ test('Serialize Nodes', async (t) => {
   });
 });
 
-test('convertInputToSerializable', async (t) => {
+test('serializeInput', async (t) => {
   await t.test('should serialize constant input', () => {
     const input = Input.constant(Field, Field(42));
 
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
 
     const expected = {
       type: 'constant',
@@ -312,7 +312,7 @@ test('convertInputToSerializable', async (t) => {
   await t.test('should serialize public input', () => {
     const input = Input.public(Field);
 
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
 
     const expected = {
       type: 'public',
@@ -325,7 +325,7 @@ test('convertInputToSerializable', async (t) => {
   await t.test('should serialize private input', () => {
     const input = Input.private(Field);
 
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
 
     const expected = {
       type: 'private',
@@ -338,7 +338,7 @@ test('convertInputToSerializable', async (t) => {
     const InputData = { age: Field, isAdmin: Bool };
     const input = Attestation.signatureNative(InputData);
 
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
 
     const expected = {
       type: 'attestation',
@@ -364,7 +364,7 @@ test('convertInputToSerializable', async (t) => {
     };
     const input = Input.private(NestedInputData);
 
-    const serialized = convertInputToSerializable(input);
+    const serialized = serializeInput(input);
 
     const expected = {
       type: 'private',
@@ -382,7 +382,7 @@ test('convertInputToSerializable', async (t) => {
 
   await t.test('should throw error for unsupported input type', () => {
     const invalidInput = { type: 'invalid' } as any;
-    assert.throws(() => convertInputToSerializable(invalidInput), {
+    assert.throws(() => serializeInput(invalidInput), {
       name: 'Error',
       message: 'Invalid input type',
     });
@@ -731,7 +731,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     })
   );
 
-  const serialized = serializeSpec(spec);
+  const serialized = await serializeSpec(spec);
 
   await t.test('should include a hash in serialized output', () => {
     const parsed = JSON.parse(serialized);
@@ -744,13 +744,16 @@ test('Serialize and deserialize spec with hash', async (t) => {
     assert(validateSpecHash(serialized), 'Hash should be valid');
   });
 
-  await t.test('should detect tampering', () => {
+  await t.test('should detect tampering', async () => {
     const tampered = JSON.parse(serialized);
     const tamperedSpec = JSON.parse(tampered.spec);
     tamperedSpec.inputs.age.type = 'public';
     tampered.spec = JSON.stringify(tamperedSpec);
     const tamperedString = JSON.stringify(tampered);
-    assert(!validateSpecHash(tamperedString), 'Should detect tampered spec');
+    assert(
+      !(await validateSpecHash(tamperedString)),
+      'Should detect tampered spec'
+    );
   });
 
   await t.test(
@@ -763,7 +766,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
       const tamperedString = JSON.stringify(tampered);
 
       try {
-        deserializeSpec(tamperedString);
+        await deserializeSpec(tamperedString);
         assert.fail('Expected an error to be thrown');
       } catch (error) {
         assert(error instanceof Error, 'Should throw an Error object');

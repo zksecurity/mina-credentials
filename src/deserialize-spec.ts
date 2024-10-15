@@ -8,14 +8,20 @@ import {
   Signature,
   Provable,
   type ProvablePure,
+  assert,
 } from 'o1js';
 import { Attestation, Input, Node, Operation, Spec } from './program-config.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
+  NestedProvablePure,
   NestedProvablePureFor,
 } from './nested.ts';
-import { validateSpecHash } from './serialize-spec.ts';
+import {
+  validateSpecHash,
+  supportedTypes,
+  type O1jsTypeName,
+} from './serialize-spec.ts';
 
 export {
   deserializeSpec,
@@ -24,11 +30,11 @@ export {
   deserializeNode,
   deserializeProvableType,
   deserializeProvable,
-  deserializeNestedProvableFor,
+  deserializeNestedProvable,
 };
 
-function deserializeSpec(serializedSpecWithHash: string): Spec {
-  if (!validateSpecHash(serializedSpecWithHash)) {
+async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
+  if (!(await validateSpecHash(serializedSpecWithHash))) {
     throw new Error('Invalid spec hash');
   }
 
@@ -59,12 +65,12 @@ function deserializeInput(input: any): Input {
         deserializeProvable(input.data.type, input.value)
       );
     case 'public':
-      return Input.public(deserializeNestedProvablePureFor(input.data));
+      return Input.public(deserializeNestedProvablePure(input.data));
     case 'private':
-      return Input.private(deserializeNestedProvableFor(input.data));
+      return Input.private(deserializeNestedProvable(input.data));
     case 'attestation':
       return Attestation[input.id as keyof typeof Attestation](
-        deserializeNestedProvablePureFor(input.data)
+        deserializeNestedProvablePure(input.data)
       );
     default:
       throw new Error(`Invalid input type: ${input.type}`);
@@ -114,59 +120,41 @@ function deserializeNode(node: any): Node {
   }
 }
 
-function deserializeProvableType(type: { type: string }): Provable<any> {
-  switch (type.type) {
-    case 'Field':
-      return Field;
-    case 'Bool':
-      return Bool;
-    case 'UInt8':
-      return UInt8;
-    case 'UInt32':
-      return UInt32;
-    case 'UInt64':
-      return UInt64;
-    case 'PublicKey':
-      return PublicKey;
-    case 'Signature':
-      return Signature;
-    default:
-      throw new Error(`Unsupported provable type: ${type.type}`);
-  }
+function deserializeProvableType(type: { type: O1jsTypeName }): Provable<any> {
+  let result = supportedTypes[type.type];
+  assert(result !== undefined, `Unsupported provable type: ${type.type}`);
+  return result;
 }
 
 function deserializeProvable(type: string, value: string): any {
   switch (type) {
     case 'Field':
-      return Field(value);
+      return Field.fromJSON(value);
     case 'Bool':
       return Bool(value === 'true');
     case 'UInt8':
       return UInt8.fromJSON({ value });
     case 'UInt32':
-      return UInt32.from(value);
+      return UInt32.fromJSON(value);
     case 'UInt64':
-      return UInt64.from(value);
+      return UInt64.fromJSON(value);
     case 'PublicKey':
-      return PublicKey.fromBase58(value);
+      return PublicKey.fromJSON(value);
     case 'Signature':
-      return Signature.fromBase58(value);
+      return Signature.fromJSON(value);
     default:
       throw new Error(`Unsupported provable type: ${type}`);
   }
 }
 
 function deserializeProvablePureType(type: {
-  type: string;
+  type: O1jsTypeName;
 }): ProvablePure<any> {
   const provableType = deserializeProvableType(type);
-  if (provableType === Signature) {
-    throw new Error('Signature is not a ProvablePure type');
-  }
   return provableType as ProvablePure<any>;
 }
 
-function deserializeNestedProvableFor(type: any): NestedProvableFor<any> {
+function deserializeNestedProvable(type: any): NestedProvable {
   if (typeof type === 'object' && type !== null) {
     if ('type' in type) {
       // basic provable type
@@ -175,17 +163,15 @@ function deserializeNestedProvableFor(type: any): NestedProvableFor<any> {
       // nested object
       const result: Record<string, any> = {};
       for (const [key, value] of Object.entries(type)) {
-        result[key] = deserializeNestedProvableFor(value);
+        result[key] = deserializeNestedProvable(value);
       }
       return result as NestedProvableFor<any>;
     }
   }
-  throw new Error(`Invalid type in NestedProvableFor: ${type}`);
+  throw Error(`Invalid type in NestedProvable: ${type}`);
 }
 
-function deserializeNestedProvablePureFor(
-  type: any
-): NestedProvablePureFor<any> {
+function deserializeNestedProvablePure(type: any): NestedProvablePure {
   if (typeof type === 'object' && type !== null) {
     if ('type' in type) {
       // basic provable pure type
@@ -194,10 +180,10 @@ function deserializeNestedProvablePureFor(
       // nested object
       const result: Record<string, any> = {};
       for (const [key, value] of Object.entries(type)) {
-        result[key] = deserializeNestedProvablePureFor(value);
+        result[key] = deserializeNestedProvablePure(value);
       }
-      return result as NestedProvablePureFor<any>;
+      return result as NestedProvablePure;
     }
   }
-  throw new Error(`Invalid type in NestedProvablePureFor: ${type}`);
+  throw new Error(`Invalid type in NestedProvablePure: ${type}`);
 }
