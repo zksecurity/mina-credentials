@@ -77,13 +77,13 @@ function deserializeInput(input: any): Input {
         case 'none':
           return Credential.none(data);
         case 'proof':
-          throw new Error('Serializing proof credential is not supported yet');
+          throw Error('Serializing proof credential is not supported yet');
         default:
-          throw new Error(`Unsupported credential id: ${id}`);
+          throw Error(`Unsupported credential id: ${id}`);
       }
     }
     default:
-      throw new Error(`Invalid input type: ${input.type}`);
+      throw Error(`Invalid input type: ${input.type}`);
   }
 }
 
@@ -126,7 +126,7 @@ function deserializeNode(node: any): Node {
         deserializeNode(node.right)
       );
     default:
-      throw new Error(`Invalid node type: ${node.type}`);
+      throw Error(`Invalid node type: ${node.type}`);
   }
 }
 
@@ -153,7 +153,7 @@ function deserializeProvable(type: string, value: string): any {
     case 'Signature':
       return Signature.fromJSON(value);
     default:
-      throw new Error(`Unsupported provable type: ${type}`);
+      throw Error(`Unsupported provable type: ${type}`);
   }
 }
 
@@ -195,5 +195,5 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
       return result as NestedProvablePure;
     }
   }
-  throw new Error(`Invalid type in NestedProvablePure: ${type}`);
+  throw Error(`Invalid type in NestedProvablePure: ${type}`);
 }

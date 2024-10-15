@@ -325,8 +325,14 @@ test('serializeInput', async (t) => {
     const expected = {
       type: 'credential',
       id: 'signatureNative',
-      public: { type: 'PublicKey' },
-      private: { type: 'Signature' },
+      private: {
+        issuerPublicKey: {
+          type: 'PublicKey',
+        },
+        issuerSignature: {
+          type: 'Signature',
+        },
+      },
       data: {
         age: { type: 'Field' },
         isAdmin: { type: 'Bool' },
@@ -491,8 +497,14 @@ test('convertSpecToSerializable', async (t) => {
         signedData: {
           type: 'credential',
           id: 'signatureNative',
-          public: { type: 'PublicKey' },
-          private: { type: 'Signature' },
+          private: {
+            issuerPublicKey: {
+              type: 'PublicKey',
+            },
+            issuerSignature: {
+              type: 'Signature',
+            },
+          },
           data: {
             field: { type: 'Field' },
           },
@@ -514,8 +526,14 @@ test('convertSpecToSerializable', async (t) => {
                   signedData: {
                     type: 'credential',
                     id: 'signatureNative',
-                    public: { type: 'PublicKey' },
-                    private: { type: 'Signature' },
+                    private: {
+                      issuerPublicKey: {
+                        type: 'PublicKey',
+                      },
+                      issuerSignature: {
+                        type: 'Signature',
+                      },
+                    },
                     data: {
                       field: { type: 'Field' },
                     },
@@ -538,8 +556,14 @@ test('convertSpecToSerializable', async (t) => {
                 signedData: {
                   type: 'credential',
                   id: 'signatureNative',
-                  public: { type: 'PublicKey' },
-                  private: { type: 'Signature' },
+                  private: {
+                    issuerPublicKey: {
+                      type: 'PublicKey',
+                    },
+                    issuerSignature: {
+                      type: 'Signature',
+                    },
+                  },
                   data: {
                     field: { type: 'Field' },
                   },
@@ -562,8 +586,14 @@ test('convertSpecToSerializable', async (t) => {
               signedData: {
                 type: 'credential',
                 id: 'signatureNative',
-                public: { type: 'PublicKey' },
-                private: { type: 'Signature' },
+                private: {
+                  issuerPublicKey: {
+                    type: 'PublicKey',
+                  },
+                  issuerSignature: {
+                    type: 'Signature',
+                  },
+                },
                 data: {
                   field: { type: 'Field' },
                 },

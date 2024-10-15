@@ -92,7 +92,6 @@ async function createProofCredential(data: {
   let inputProof = await inputProgram.run({ data });
   let proof = ProvedData.fromProof(inputProof);
   return {
-    public: inputVk.hash,
     private: { vk: inputVk, proof },
     data: inputProof.publicOutput,
   };
@@ -104,7 +103,6 @@ async function createInvalidProofCredential(data: {
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
   let proof = await ProvedData.dummyProof({}, data);
   return {
-    public: inputVk.hash,
     private: { vk: inputVk, proof },
     data,
   };

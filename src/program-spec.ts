@@ -112,7 +112,7 @@ type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
 type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
-  | Credential<CredentialId, any, any, Data>
+  | Credential<CredentialId, any, Data>
   | Constant<Data>
   | Claim<Data>
   | Private<Data>;
@@ -311,9 +311,6 @@ function publicInputTypes<S extends Spec>({
   let result: Record<string, NestedProvablePure> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
-    if (input.type === 'credential') {
-      result[key] = input.public;
-    }
     if (input.type === 'claim') {
       result[key] = input.data;
     }
@@ -395,11 +392,14 @@ function verifyCredentials<S extends Spec>(
 ) {
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      let publicInput = publicInputs[key];
       let { private: privateInput, data } = privateInputs[key];
-      input.verify(publicInput, privateInput, data);
+      input.verify(privateInput, data);
     }
   });
+  // TODO derive `credHash` for every credential
+  // TODO derive `issuer` in a credential-specific way, for every credential
+  // TODO if there are any credentials: assert all have the same `owner`
+  // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
 }
 
 function recombineDataInputs<S extends Spec>(
@@ -467,20 +467,10 @@ type MapToDataInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToDataInput<T[K]>;
 };
 
-type ToPublic<T extends Input> = T extends Credential<
-  CredentialId,
-  infer Public,
-  any,
-  any
->
-  ? Public
-  : T extends Claim<infer Data>
-  ? Data
-  : never;
+type ToPublic<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
 type ToPrivate<T extends Input> = T extends Credential<
   CredentialId,
-  any,
   infer Private,
   infer Data
 >
@@ -491,11 +481,10 @@ type ToPrivate<T extends Input> = T extends Credential<
 
 type ToUserInput<T extends Input> = T extends Credential<
   CredentialId,
-  infer Public,
   infer Private,
   infer Data
 >
-  ? { public: Public; private: Private; data: Data }
+  ? { private: Private; data: Data }
   : T extends Claim<infer Data>
   ? Data
   : T extends Private<infer Data>

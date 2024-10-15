@@ -9,5 +9,8 @@ function createSignatureCredential<Data>(type: NestedProvable, data: Data) {
     issuer.privateKey,
     NestedProvable.get(type).toFields(data)
   );
-  return { public: issuer.publicKey, private: signature, data };
+  return {
+    private: { issuerPublicKey: issuer.publicKey, issuerSignature: signature },
+    data,
+  };
 }

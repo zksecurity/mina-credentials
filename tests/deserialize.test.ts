@@ -503,10 +503,6 @@ test('deserializeSpec', async (t) => {
         originalSpec.inputs.signedData.private
       );
       assert.deepStrictEqual(
-        deserialized.inputs.signedData.public,
-        originalSpec.inputs.signedData.public
-      );
-      assert.deepStrictEqual(
         deserialized.inputs.signedData.data,
         originalSpec.inputs.signedData.data
       );
