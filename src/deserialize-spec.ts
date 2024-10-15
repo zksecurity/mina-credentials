@@ -73,7 +73,7 @@ function deserializeInput(input: any): Input {
       let id: CredentialId = input.id;
       let data = deserializeNestedProvablePure(input.data);
       switch (id) {
-        case 'signatureNative':
+        case 'signature-native':
           return Credential.signatureNative(data);
         case 'none':
           return Credential.none(data);

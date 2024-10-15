@@ -24,7 +24,7 @@ export { Credential, type CredentialId };
 
 const Undefined_: ProvablePure<undefined> = Undefined;
 
-type CredentialId = 'none' | 'signatureNative' | 'proof';
+type CredentialId = 'none' | 'signature-native' | 'proof';
 
 /**
  * A credential is:
@@ -89,7 +89,7 @@ const None = defineCredential({
 
 // native signature
 const Signed = defineCredential({
-  id: 'signatureNative',
+  id: 'signature-native',
   private: {
     issuerPublicKey: PublicKey,
     issuerSignature: Signature,

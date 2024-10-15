@@ -308,7 +308,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'signatureNative',
+      id: 'signature-native',
       private: {
         issuerPublicKey: {
           type: 'PublicKey',
@@ -436,7 +436,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          id: 'signatureNative',
+          id: 'signature-native',
           private: {
             issuerPublicKey: {
               type: 'PublicKey',
