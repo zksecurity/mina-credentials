@@ -40,11 +40,12 @@ async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
 
   const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);
   const parsedSpec = JSON.parse(serializedSpec);
+  let inputs = deserializeInputs(parsedSpec.inputs);
   return {
-    inputs: deserializeInputs(parsedSpec.inputs),
+    inputs,
     logic: {
-      assert: deserializeNode(parsedSpec.logic.assert),
-      data: deserializeNode(parsedSpec.logic.data),
+      assert: deserializeNode(inputs, parsedSpec.logic.assert),
+      data: deserializeNode(inputs, parsedSpec.logic.data),
     },
   };
 }
@@ -87,7 +88,7 @@ function deserializeInput(input: any): Input {
   }
 }
 
-function deserializeNode(node: any): Node {
+function deserializeNode(input: any, node: any): Node {
   switch (node.type) {
     case 'constant':
       return {
@@ -95,35 +96,32 @@ function deserializeNode(node: any): Node {
         data: deserializeProvable(node.data.type, node.data.value),
       };
     case 'root':
-      return {
-        type: 'root',
-        input: deserializeInputs(node.input),
-      };
+      return { type: 'root', input };
     case 'property':
       return {
         type: 'property',
         key: node.key,
-        inner: deserializeNode(node.inner),
+        inner: deserializeNode(input, node.inner),
       };
     case 'equals':
       return Operation.equals(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     case 'lessThan':
       return Operation.lessThan(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     case 'lessThanEq':
       return Operation.lessThanEq(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     case 'and':
       return Operation.and(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     default:
       throw Error(`Invalid node type: ${node.type}`);

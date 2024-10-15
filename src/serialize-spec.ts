@@ -47,6 +47,7 @@ export {
   serializeProvable,
   serializeNestedProvable,
   serializeNode,
+  serializeInputs,
   serializeInput,
   convertSpecToSerializable,
   serializeSpec,
@@ -64,18 +65,22 @@ async function serializeSpec(spec: Spec): Promise<string> {
 
 function convertSpecToSerializable(spec: Spec): Record<string, any> {
   return {
-    inputs: Object.fromEntries(
-      // sort by keys so we always get the same serialization for the same spec
-      // will be important for hashing
-      Object.entries(spec.inputs)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([key, input]) => [key, serializeInput(input)])
-    ),
+    inputs: serializeInputs(spec.inputs),
     logic: {
       assert: serializeNode(spec.logic.assert),
       data: serializeNode(spec.logic.data),
     },
   };
+}
+
+function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
+  return Object.fromEntries(
+    // sort by keys so we always get the same serialization for the same spec
+    // will be important for hashing
+    Object.entries(inputs)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, input]) => [key, serializeInput(input)])
+  );
 }
 
 function serializeInput(input: Input): any {
@@ -122,16 +127,7 @@ function serializeNode(node: Node): any {
       };
     }
     case 'root': {
-      return {
-        type: 'root',
-        input: Object.fromEntries(
-          // sort by keys so we always get the same serialization for the same spec
-          // will be important for hashing
-          Object.entries(node.input)
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([key, input]) => [key, serializeInput(input)])
-        ),
-      };
+      return { type: 'root' };
     }
     case 'property': {
       return {

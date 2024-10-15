@@ -135,13 +135,7 @@ test('Serialize Nodes', async (t) => {
 
     const serialized = serializeNode(rootNode);
 
-    const expected = {
-      type: 'root',
-      input: {
-        age: { type: 'private', data: { type: 'Field' } },
-        isAdmin: { type: 'public', data: { type: 'Bool' } },
-      },
-    };
+    const expected = { type: 'root' };
 
     assert.deepStrictEqual(serialized, expected);
   });
@@ -161,17 +155,7 @@ test('Serialize Nodes', async (t) => {
 
     const serialized = serializeNode(propertyNode);
 
-    const expected = {
-      type: 'property',
-      key: 'age',
-      inner: {
-        type: 'root',
-        input: {
-          age: { type: 'private', data: { type: 'Field' } },
-          isAdmin: { type: 'public', data: { type: 'Bool' } },
-        },
-      },
-    };
+    const expected = { type: 'property', key: 'age', inner: { type: 'root' } };
 
     assert.deepStrictEqual(serialized, expected);
   });
@@ -407,68 +391,24 @@ test('convertSpecToSerializable', async (t) => {
             left: {
               type: 'property',
               key: 'age',
-              inner: {
-                type: 'root',
-                input: {
-                  age: { type: 'private', data: { type: 'Field' } },
-                  isAdmin: { type: 'public', data: { type: 'Bool' } },
-                  maxAge: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '100',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
             right: {
               type: 'property',
               key: 'maxAge',
-              inner: {
-                type: 'root',
-                input: {
-                  age: { type: 'private', data: { type: 'Field' } },
-                  isAdmin: { type: 'public', data: { type: 'Bool' } },
-                  maxAge: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '100',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
           right: {
             type: 'property',
             key: 'isAdmin',
-            inner: {
-              type: 'root',
-              input: {
-                age: { type: 'private', data: { type: 'Field' } },
-                isAdmin: { type: 'public', data: { type: 'Bool' } },
-                maxAge: {
-                  type: 'constant',
-                  data: { type: 'Field' },
-                  value: '100',
-                },
-              },
-            },
+            inner: { type: 'root' },
           },
         },
         data: {
           type: 'property',
           key: 'age',
-          inner: {
-            type: 'root',
-            input: {
-              age: { type: 'private', data: { type: 'Field' } },
-              isAdmin: { type: 'public', data: { type: 'Bool' } },
-              maxAge: {
-                type: 'constant',
-                data: { type: 'Field' },
-                value: '100',
-              },
-            },
-          },
+          inner: { type: 'root' },
         },
       },
     };
@@ -520,91 +460,19 @@ test('convertSpecToSerializable', async (t) => {
             inner: {
               type: 'property',
               key: 'signedData',
-              inner: {
-                type: 'root',
-                input: {
-                  signedData: {
-                    type: 'credential',
-                    id: 'signatureNative',
-                    private: {
-                      issuerPublicKey: {
-                        type: 'PublicKey',
-                      },
-                      issuerSignature: {
-                        type: 'Signature',
-                      },
-                    },
-                    data: {
-                      field: { type: 'Field' },
-                    },
-                  },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
           right: {
             type: 'property',
             key: 'zeroField',
-            inner: {
-              type: 'root',
-              input: {
-                signedData: {
-                  type: 'credential',
-                  id: 'signatureNative',
-                  private: {
-                    issuerPublicKey: {
-                      type: 'PublicKey',
-                    },
-                    issuerSignature: {
-                      type: 'Signature',
-                    },
-                  },
-                  data: {
-                    field: { type: 'Field' },
-                  },
-                },
-                zeroField: {
-                  type: 'constant',
-                  data: { type: 'Field' },
-                  value: '0',
-                },
-              },
-            },
+            inner: { type: 'root' },
           },
         },
         data: {
           type: 'property',
           key: 'signedData',
-          inner: {
-            type: 'root',
-            input: {
-              signedData: {
-                type: 'credential',
-                id: 'signatureNative',
-                private: {
-                  issuerPublicKey: {
-                    type: 'PublicKey',
-                  },
-                  issuerSignature: {
-                    type: 'Signature',
-                  },
-                },
-                data: {
-                  field: { type: 'Field' },
-                },
-              },
-              zeroField: {
-                type: 'constant',
-                data: { type: 'Field' },
-                value: '0',
-              },
-            },
-          },
+          inner: { type: 'root' },
         },
       },
     };
@@ -642,34 +510,12 @@ test('convertSpecToSerializable', async (t) => {
             left: {
               type: 'property',
               key: 'field1',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
             right: {
               type: 'property',
               key: 'field2',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
           right: {
@@ -677,52 +523,19 @@ test('convertSpecToSerializable', async (t) => {
             left: {
               type: 'property',
               key: 'field1',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
             right: {
               type: 'property',
               key: 'zeroField',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
         },
         data: {
           type: 'property',
           key: 'field2',
-          inner: {
-            type: 'root',
-            input: {
-              field1: { type: 'private', data: { type: 'Field' } },
-              field2: { type: 'private', data: { type: 'Field' } },
-              zeroField: {
-                type: 'constant',
-                data: { type: 'Field' },
-                value: '0',
-              },
-            },
-          },
+          inner: { type: 'root' },
         },
       },
     };

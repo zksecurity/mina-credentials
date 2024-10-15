@@ -335,37 +335,33 @@ test('deserializeNode', async (t) => {
   await t.test('should deserialize constant node', () => {
     const node: Node<Field> = { type: 'constant', data: Field(123) };
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode({}, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
   await t.test('should deserialize root node', () => {
-    const node: Node = {
-      type: 'root',
-      input: {
-        age: Input.private(Field),
-        isAdmin: Input.public(Bool),
-      },
+    let input = {
+      age: Input.private(Field),
+      isAdmin: Input.public(Bool),
     };
+    const node: Node = { type: 'root', input };
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode(input, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
   await t.test('should deserialize property node', () => {
+    let input = {
+      age: Input.private(Field),
+      isAdmin: Input.public(Bool),
+    };
     const node: Node = {
       type: 'property',
       key: 'age',
-      inner: {
-        type: 'root',
-        input: {
-          age: Input.private(Field),
-          isAdmin: Input.public(Bool),
-        },
-      },
+      inner: { type: 'root', input },
     };
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode(input, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
@@ -375,7 +371,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: Field(10) }
     );
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode({}, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
@@ -385,7 +381,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: UInt32.from(10) }
     );
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode({}, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
@@ -395,7 +391,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: UInt64.from(15) }
     );
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode({}, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
@@ -405,7 +401,7 @@ test('deserializeNode', async (t) => {
       { type: 'constant', data: Bool(false) }
     );
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode({}, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
@@ -421,7 +417,7 @@ test('deserializeNode', async (t) => {
       )
     );
     const serialized = serializeNode(node);
-    const deserialized = deserializeNode(serialized);
+    const deserialized = deserializeNode({}, serialized);
     assert.deepStrictEqual(deserialized, node);
   });
 
@@ -429,7 +425,7 @@ test('deserializeNode', async (t) => {
     const invalidNode = { type: 'invalid' };
 
     try {
-      deserializeNode(invalidNode);
+      deserializeNode({}, invalidNode);
       assert.fail('Expected an error to be thrown');
     } catch (error) {
       assert(error instanceof Error, 'Error should be an instance of Error');
