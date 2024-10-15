@@ -17,12 +17,9 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "format": "prettier --write --ignore-unknown **/*",
+    "test": "node --test --experimental-strip-types --no-warnings {tests,src}/**/*.test.ts",
     "extension:dev": "vite build --config browser-extension/vite.config.js --watch",
-    "extension:build": "vite build --config browser-extension/vite.config.js",
-    "test:program": "node --test --experimental-strip-types tests/program-config.test.ts tests/program.test.ts",
-    "test:serialize": "node --test --experimental-strip-types tests/serialize.test.ts",
-    "test:deserialize": "node --test --experimental-strip-types tests/deserialize.test.ts",
-    "test:all": "node --test --experimental-strip-types tests/*.test.ts"
+    "extension:build": "vite build --config browser-extension/vite.config.js"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.272",
@@ -32,7 +29,7 @@
     "vite": "^4.3.9"
   },
   "peerDependencies": {
-    "o1js": "^1.8.0"
+    "o1js": "https://pkg.pr.new/o1-labs/o1js@0f8ff81"
   },
   "engines": {
     "node": ">=22.0"

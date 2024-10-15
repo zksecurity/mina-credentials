@@ -1,12 +1,10 @@
 import {
   assert,
   Bool,
-  Bytes,
   UInt8,
   UInt32,
   UInt64,
   Field,
-  PrivateKey,
   Provable,
   PublicKey,
   Signature,
@@ -14,6 +12,10 @@ import {
   Undefined,
   VerificationKey,
   type ProvablePure,
+  DynamicProof,
+  type InferProvable,
+  FeatureFlags,
+  Proof,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -36,7 +38,7 @@ import {
  * - can be done by defining an enum of supported base types
  */
 
-export type { PublicInputs, UserInputs };
+export type { PublicInputs, UserInputs, AttestationId };
 export {
   Spec,
   Node,
@@ -105,6 +107,8 @@ function Spec<Data, Inputs extends Record<string, Input>>(
 
 const Undefined_: ProvablePure<undefined> = Undefined;
 
+type AttestationId = 'none' | 'signatureNative' | 'proof';
+
 /**
  * An attestation is:
  * - a string fully identifying the attestation type
@@ -113,7 +117,7 @@ const Undefined_: ProvablePure<undefined> = Undefined;
  * - a type for data (which is left generic when defining attestation types)
  * - a function `verify(publicInput: Public, privateInput: Private, data: Data)` that asserts the attestation is valid
  */
-type Attestation<Id extends string, Public, Private, Data> = {
+type Attestation<Id extends AttestationId, Public, Private, Data> = {
   type: 'attestation';
   id: Id;
   public: ProvablePureType<Public>;
@@ -124,7 +128,7 @@ type Attestation<Id extends string, Public, Private, Data> = {
 };
 
 function defineAttestation<
-  Id extends string,
+  Id extends AttestationId,
   PublicType extends ProvablePureType,
   PrivateType extends ProvableType
 >(config: {
@@ -186,29 +190,96 @@ const ASignature = defineAttestation({
   },
 });
 
-// TODO recursive proof
-const AProof = defineAttestation({
-  id: 'proof',
-  // TODO include hash of public inputs of the inner proof
-  // TODO maybe names could be issuer, credential
-  public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
-  private: Struct({
-    vk: VerificationKey, // the verification key
-    proof: Undefined_, // the proof, TODO: make this a `DynamicProof` when o1js supports it, or by refactoring our provable type representation
-  }),
-
-  verify(vkHash, { vk, proof }, _type, data) {
-    vk.hash.assertEquals(vkHash);
-    // proof.verify(vk);
-    // TODO we also need to somehow ensure that the proof's output type matches the data type
-    // proof.publicOutput.assertEquals(data);
-    throw Error('Proof attestation not implemented');
+// TODO include hash of public inputs of the inner proof
+// TODO maybe names could be issuer, credential
+function AProof<
+  DataType extends NestedProvablePure,
+  InputType extends ProvablePureType,
+  Data extends InferNestedProvable<DataType>,
+  Input extends InferProvable<InputType>
+>(
+  Proof: typeof DynamicProof<Input, Data>,
+  dataType: DataType
+): Attestation<
+  'proof',
+  Field,
+  {
+    vk: VerificationKey;
+    proof: DynamicProof<Input, Data>;
   },
-});
+  InferNestedProvable<DataType>
+> {
+  let type = NestedProvable.get(dataType);
+  return {
+    type: 'attestation',
+    id: 'proof',
+    public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
+    private: Struct({ vk: VerificationKey, proof: Proof }),
+    data: type,
+    verify(vkHash, { vk, proof }, data) {
+      vk.hash.assertEquals(vkHash);
+      proof.verify(vk);
+      Provable.assertEqual(type, proof.publicOutput, data);
+    },
+  };
+}
+
+async function AProofFromProgram<
+  DataType extends ProvablePure<any>,
+  InputType extends ProvablePure<any>,
+  Data extends InferNestedProvable<DataType>,
+  Input extends InferProvable<InputType>
+>(
+  {
+    program,
+  }: {
+    program: {
+      publicInputType: InputType;
+      publicOutputType: DataType;
+      analyzeMethods: () => Promise<{
+        [I in keyof any]: any;
+      }>;
+    };
+  },
+  // TODO this needs to be exposed on the program!!
+  maxProofsVerified: 0 | 1 | 2 = 0
+) {
+  const featureFlags = await FeatureFlags.fromZkProgram(program);
+
+  class InputProof extends DynamicProof<Input, Data> {
+    static publicInputType = program.publicInputType;
+    static publicOutputType = program.publicOutputType;
+    static maxProofsVerified = maxProofsVerified;
+    static featureFlags = featureFlags;
+  }
+
+  return Object.assign(
+    AProof<DataType, InputType, Data, Input>(
+      InputProof,
+      program.publicOutputType
+    ),
+    {
+      fromProof(proof: Proof<Input, Data>): DynamicProof<Input, Data> {
+        return InputProof.fromProof(proof as any);
+      },
+      dummyProof(
+        publicInput: Input,
+        publicOutput: Data
+      ): Promise<DynamicProof<Input, Data>> {
+        return InputProof.dummy(
+          publicInput,
+          publicOutput as any,
+          maxProofsVerified
+        );
+      },
+    }
+  );
+}
 
 const Attestation = {
   none: ANone,
   proof: AProof,
+  proofFromProgram: AProofFromProgram,
   signatureNative: ASignature,
 };
 
@@ -235,7 +306,7 @@ type Public<Data> = { type: 'public'; data: NestedProvablePureFor<Data> };
 type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
-  | Attestation<string, any, any, Data>
+  | Attestation<AttestationId, any, any, Data>
   | Constant<Data>
   | Public<Data>
   | Private<Data>;
@@ -520,7 +591,6 @@ function verifyAttestations<S extends Spec>(
     if (input.type === 'attestation') {
       let publicInput = publicInputs[key];
       let { private: privateInput, data } = privateInputs[key];
-      console.log('verifying', key, input.id);
       input.verify(publicInput, privateInput, data);
     }
   });
@@ -592,7 +662,7 @@ type MapToDataInput<T extends Record<string, Input>> = {
 };
 
 type ToPublic<T extends Input> = T extends Attestation<
-  string,
+  AttestationId,
   infer Public,
   any,
   any
@@ -603,7 +673,7 @@ type ToPublic<T extends Input> = T extends Attestation<
   : never;
 
 type ToPrivate<T extends Input> = T extends Attestation<
-  string,
+  AttestationId,
   any,
   infer Private,
   infer Data
@@ -614,7 +684,7 @@ type ToPrivate<T extends Input> = T extends Attestation<
   : never;
 
 type ToUserInput<T extends Input> = T extends Attestation<
-  string,
+  AttestationId,
   infer Public,
   infer Private,
   infer Data

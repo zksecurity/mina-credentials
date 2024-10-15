@@ -1,18 +1,7 @@
+import { Proof, VerificationKey, ZkProgram } from 'o1js';
 import {
-  Proof,
-  Field,
-  PublicKey,
-  PrivateKey,
-  Signature,
-  VerificationKey,
-  ZkProgram,
-  Provable,
-} from 'o1js';
-import {
-  Attestation,
   Input,
   Node,
-  Operation,
   privateInputTypes,
   publicInputTypes,
   publicOutputType,
@@ -23,7 +12,8 @@ import {
   type PublicInputs,
   type UserInputs,
 } from './program-config.ts';
-import { NestedProvable, type NestedProvableFor } from './nested.ts';
+import { NestedProvable } from './nested.ts';
+import { type ProvablePureType } from './o1js-missing.ts';
 
 export { createProgram };
 
@@ -31,6 +21,14 @@ type Program<Data, Inputs extends Record<string, Input>> = {
   compile(): Promise<VerificationKey>;
 
   run(input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Data>>;
+
+  program: ZkProgram<
+    {
+      publicInput: ProvablePureType<PublicInputs<Inputs>>;
+      publicOutput: ProvablePureType<Data>;
+    },
+    any
+  >;
 };
 
 function createProgram<S extends Spec>(
@@ -71,6 +69,7 @@ function createProgram<S extends Spec>(
       let result = await program.run(publicInput, privateInput);
       return result as any;
     },
+    program: program as any,
   };
 }
 

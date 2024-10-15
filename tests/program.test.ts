@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, PrivateKey, Signature } from 'o1js';
+import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Attestation, Input, Operation, Spec } from '../src/program-config.ts';
 import { createAttestation } from './test-utils.ts';
 
-test('createProgram with simple spec', async (t) => {
+test('program with simple spec and signature attestation', async (t) => {
   const Bytes32 = Bytes(32);
   const InputData = { age: Field, name: Bytes32 };
 
