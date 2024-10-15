@@ -101,6 +101,7 @@ const Operation = {
   lessThan,
   lessThanEq,
   and,
+  or,
 };
 
 type Constant<Data> = {
@@ -124,7 +125,8 @@ type Node<Data = any> =
   | { type: 'equals'; left: Node; right: Node }
   | { type: 'lessThan'; left: Node; right: Node }
   | { type: 'lessThanEq'; left: Node; right: Node }
-  | { type: 'and'; left: Node<Bool>; right: Node<Bool> };
+  | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
+  | { type: 'or'; left: Node<Bool>; right: Node<Bool> };
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
@@ -164,6 +166,11 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
       return left.and(right) as Data;
+    }
+    case 'or': {
+      let left = evalNode(root, node.left);
+      let right = evalNode(root, node.right);
+      return left.or(right) as Data;
     }
   }
 }
@@ -243,6 +250,9 @@ function evalNodeType<Data>(
     case 'and': {
       return Bool as any;
     }
+    case 'or': {
+      return Bool as any;
+    }
   }
 }
 
@@ -303,6 +313,10 @@ function lessThanEq<Data extends NumericType>(
 
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
   return { type: 'and', left, right };
+}
+
+function or(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
+  return { type: 'or', left, right };
 }
 
 function publicInputTypes<S extends Spec>({
