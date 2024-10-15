@@ -84,7 +84,13 @@ function Spec<Data, Inputs extends Record<string, Input>>(
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   } = {} as any;
   for (let key in inputs) {
-    inputNodes[key] = property(rootNode, key) as any;
+    if (inputs[key]!.type === 'credential') {
+      let credential = property(rootNode, key) as any;
+      let data = property(credential, 'data') as any;
+      inputNodes[key] = data;
+    } else {
+      inputNodes[key] = property(rootNode, key) as any;
+    }
   }
   let logic = spec(inputNodes);
   let assert = logic.assert ?? Node.constant(Bool(true));
@@ -394,10 +400,9 @@ function splitUserInputs<S extends Spec>(
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      publicInput[key] = userInputs[key].public;
       privateInput[key] = {
+        credential: userInputs[key].credential,
         private: userInputs[key].private,
-        data: userInputs[key].data,
       };
     }
     if (input.type === 'claim') {
@@ -444,7 +449,7 @@ function recombineDataInputs<S extends Spec>(
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = privateInputs[key].data;
+      result[key] = privateInputs[key].credential;
     }
     if (input.type === 'claim') {
       result[key] = publicInputs[key];

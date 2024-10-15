@@ -10,7 +10,7 @@ import {
   splitUserInputs,
   recombineDataInputs,
 } from '../src/program-spec.ts';
-import { createSignatureCredential } from './test-utils.ts';
+import { createSignatureCredential, owner } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
 
 test(' Spec and Node operations', async (t) => {
@@ -222,6 +222,12 @@ test(' Spec and Node operations', async (t) => {
 
     let { privateInput, publicInput } = splitUserInputs(spec, userInputs);
     let root = recombineDataInputs(spec, publicInput, privateInput);
+
+    assert.deepStrictEqual(root, {
+      signedData: { owner, data },
+      targetAge: Field(30),
+      targetName: Bytes32.fromString('David'),
+    });
 
     const assertResult = Node.eval(root, spec.logic.assert);
     const dataResult = Node.eval(root, spec.logic.data);
