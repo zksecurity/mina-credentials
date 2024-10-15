@@ -6,6 +6,7 @@ import {
   Field,
   Provable,
   type ProvablePure,
+  Poseidon,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -103,6 +104,7 @@ const Operation = {
   and,
   or,
   not,
+  hash,
 };
 
 type Constant<Data> = {
@@ -128,7 +130,8 @@ type Node<Data = any> =
   | { type: 'lessThanEq'; left: Node; right: Node }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
-  | { type: 'not'; inner: Node<Bool> };
+  | { type: 'not'; inner: Node<Bool> }
+  | { type: 'hash'; inner: Node };
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
@@ -177,6 +180,12 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'not': {
       let inner = evalNode(root, node.inner);
       return inner.not() as Data;
+    }
+    case 'hash': {
+      let inner = evalNode(root, node.inner);
+      let innerFields = inner.toFields();
+      let hash = Poseidon.hash(innerFields);
+      return hash as Data;
     }
   }
 }
@@ -262,6 +271,9 @@ function evalNodeType<Data>(
     case 'not': {
       return Bool as any;
     }
+    case 'hash': {
+      return Field as any;
+    }
   }
 }
 
@@ -330,6 +342,10 @@ function or(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
 
 function not(inner: Node<Bool>): Node<Bool> {
   return { type: 'not', inner };
+}
+
+function hash(inner: Node): Node<Field> {
+  return { type: 'hash', inner };
 }
 
 function publicInputTypes<S extends Spec>({

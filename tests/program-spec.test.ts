@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Bytes, Field } from 'o1js';
+import { Bytes, Field, Poseidon } from 'o1js';
 import {
   Spec,
   Input,
@@ -194,6 +194,37 @@ test(' Spec and Node operations', async (t) => {
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(11));
+  });
+
+  await t.test('Spec with hash operation and equality check', () => {
+    const InputData = { value: Field };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        expectedHash: Input.public(Field),
+      },
+      ({ data, expectedHash }) => ({
+        assert: Operation.equals(
+          Operation.hash(Operation.property(data, 'value')),
+          expectedHash
+        ),
+        data: Operation.property(data, 'value'),
+      })
+    );
+
+    const inputValue = Field(123456);
+    const expectedHashValue = Poseidon.hash([inputValue]);
+
+    const root = {
+      data: { value: inputValue },
+      expectedHash: expectedHashValue,
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toBoolean(), true);
+    assert.deepStrictEqual(dataResult, inputValue);
   });
 
   await t.test('Spec with multiple assertions and lessThan', () => {
