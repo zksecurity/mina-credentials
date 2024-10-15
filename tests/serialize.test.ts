@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import {
   Input,
-  Attestation,
+  Credential,
   Operation,
   Spec,
   Node,
@@ -334,14 +334,14 @@ test('serializeInput', async (t) => {
     assert.deepStrictEqual(serialized, expected);
   });
 
-  await t.test('should serialize attestation input', () => {
+  await t.test('should serialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Attestation.signatureNative(InputData);
+    const input = Credential.signatureNative(InputData);
 
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'attestation',
+      type: 'credential',
       id: 'signatureNative',
       public: { type: 'PublicKey' },
       private: { type: 'Signature' },
@@ -488,10 +488,10 @@ test('convertSpecToSerializable', async (t) => {
     assert.deepStrictEqual(serialized, expected);
   });
 
-  await t.test('should serialize a Spec with an attestation', () => {
+  await t.test('should serialize a Spec with an credential', () => {
     const spec = Spec(
       {
-        signedData: Attestation.signatureNative({ field: Field }),
+        signedData: Credential.signatureNative({ field: Field }),
         zeroField: Input.constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
@@ -507,7 +507,7 @@ test('convertSpecToSerializable', async (t) => {
     const expected = {
       inputs: {
         signedData: {
-          type: 'attestation',
+          type: 'credential',
           id: 'signatureNative',
           public: { type: 'PublicKey' },
           private: { type: 'Signature' },
@@ -530,7 +530,7 @@ test('convertSpecToSerializable', async (t) => {
                 type: 'root',
                 input: {
                   signedData: {
-                    type: 'attestation',
+                    type: 'credential',
                     id: 'signatureNative',
                     public: { type: 'PublicKey' },
                     private: { type: 'Signature' },
@@ -554,7 +554,7 @@ test('convertSpecToSerializable', async (t) => {
               type: 'root',
               input: {
                 signedData: {
-                  type: 'attestation',
+                  type: 'credential',
                   id: 'signatureNative',
                   public: { type: 'PublicKey' },
                   private: { type: 'Signature' },
@@ -578,7 +578,7 @@ test('convertSpecToSerializable', async (t) => {
             type: 'root',
             input: {
               signedData: {
-                type: 'attestation',
+                type: 'credential',
                 id: 'signatureNative',
                 public: { type: 'PublicKey' },
                 private: { type: 'Signature' },

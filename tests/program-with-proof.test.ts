@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
-  Attestation,
+  Credential,
   Input,
   Operation,
   Spec,
@@ -13,14 +13,14 @@ import {
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
 
-// simple spec to create a proof attestation that's used recursively
+// simple spec to create a proof credential that's used recursively
 const inputProofSpec = Spec({ data: Input.private(InputData) }, ({ data }) => ({
   data,
 }));
 const inputProgram = createProgram(inputProofSpec);
 let inputVk = await inputProgram.compile();
 
-const ProvedData = await Attestation.proofFromProgram(inputProgram);
+const ProvedData = await Credential.proofFromProgram(inputProgram);
 
 const spec = Spec(
   {
@@ -39,14 +39,14 @@ const spec = Spec(
 
 const program = createProgram(spec);
 
-await describe('program with proof attestation', async () => {
+await describe('program with proof credential', async () => {
   await test('compile program', async () => {
     await program.compile();
   });
 
   await test('run program with valid inputs', async () => {
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    let provedData = await createProofAttestation(data);
+    let provedData = await createProofCredential(data);
 
     const proof = await program.run({ provedData, targetAge: Field(18) });
 
@@ -66,7 +66,7 @@ await describe('program with proof attestation', async () => {
 
   await test('run program with invalid proof', async () => {
     const data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    let provedData = await createInvalidProofAttestation(data);
+    let provedData = await createInvalidProofCredential(data);
 
     await assert.rejects(
       async () => await program.run({ provedData, targetAge: Field(18) }),
@@ -85,7 +85,7 @@ await describe('program with proof attestation', async () => {
 
 // helpers
 
-async function createProofAttestation(data: {
+async function createProofCredential(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
@@ -98,7 +98,7 @@ async function createProofAttestation(data: {
   };
 }
 
-async function createInvalidProofAttestation(data: {
+async function createInvalidProofCredential(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {

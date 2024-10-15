@@ -14,16 +14,13 @@ import {
   Spec,
   Input,
   Node,
-  Attestation,
+  Credential,
   Operation,
 } from '../src/program-config.ts';
 import {
-  serializeProvableType,
   serializeProvable,
-  serializeNestedProvable,
   serializeNode,
   serializeInput,
-  convertSpecToSerializable,
   serializeSpec,
 } from '../src/serialize-spec.ts';
 import {
@@ -34,8 +31,6 @@ import {
   deserializeProvableType,
   deserializeProvable,
 } from '../src/deserialize-spec.ts';
-
-import { createAttestation } from './test-utils.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -217,10 +212,10 @@ test('deserializeInput', async (t) => {
     assert.deepStrictEqual(deserialized, input);
   });
 
-  await t.test('should deserialize attestation input', () => {
+  await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
 
-    const input = Attestation.signatureNative(InputData);
+    const input = Credential.signatureNative(InputData);
 
     const serialized = serializeInput(input);
 
@@ -288,10 +283,10 @@ test('deserializeInputs', async (t) => {
     assert.deepStrictEqual(deserialized, inputs);
   });
 
-  await t.test('should deserialize attestation input', () => {
+  await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
     const inputs = {
-      attestation: Attestation.signatureNative(InputData),
+      credential: Credential.signatureNative(InputData),
     };
 
     const serialized = Object.fromEntries(
@@ -315,7 +310,7 @@ test('deserializeInputs', async (t) => {
       privateField: Input.private(Field),
       publicBool: Input.public(Bool),
       constantUint: Input.constant(UInt32, UInt32.from(42)),
-      attestation: Attestation.signatureNative({ score: UInt64 }),
+      credential: Credential.signatureNative({ score: UInt64 }),
     };
 
     const serialized = Object.fromEntries(
@@ -473,13 +468,13 @@ test('deserializeSpec', async (t) => {
     assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
   });
 
-  // it is not possible to directly compare attestations because of the verify function
+  // it is not possible to directly compare credentials because of the verify function
   await t.test(
-    'should correctly deserialize a Spec with attestation',
+    'should correctly deserialize a Spec with credential',
     async () => {
       const originalSpec = Spec(
         {
-          signedData: Attestation.signatureNative({ field: Field }),
+          signedData: Credential.signatureNative({ field: Field }),
           zeroField: Input.constant(Field, Field(0)),
         },
         ({ signedData, zeroField }) => ({

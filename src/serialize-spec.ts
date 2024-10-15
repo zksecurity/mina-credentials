@@ -81,9 +81,9 @@ function convertSpecToSerializable(spec: Spec): Record<string, any> {
 function serializeInput(input: Input): any {
   if ('type' in input) {
     switch (input.type) {
-      case 'attestation': {
+      case 'credential': {
         return {
-          type: 'attestation',
+          type: 'credential',
           id: input.id,
           public: serializeProvableType(input.public),
           private: serializeProvableType(input.private),

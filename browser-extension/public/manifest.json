@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Mina Attestations",
+  "name": "Mina Credentials",
   "version": "1.0.0",
-  "description": "Chrome extension for Mina Attestations",
+  "description": "Chrome extension for Mina Credentials",
   "action": {
     "default_popup": "popup/popup.html"
   },
