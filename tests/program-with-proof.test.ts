@@ -3,12 +3,12 @@ import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
-  Credential,
   Input,
   Operation,
   Spec,
   type UserInputs,
-} from '../src/program-config.ts';
+} from '../src/program-spec.ts';
+import { Credential } from '../src/credentials.ts';
 
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };

@@ -21,7 +21,7 @@ import {
   type NestedProvablePure,
   type NestedProvablePureFor,
 } from './nested.ts';
-import { Credential, CredentialId } from './credentials.ts';
+import { Credential, type CredentialId } from './credentials.ts';
 
 export type { PublicInputs, UserInputs };
 export {

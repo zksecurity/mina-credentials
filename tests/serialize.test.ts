@@ -1,12 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import {
-  Input,
-  Credential,
-  Operation,
-  Spec,
-  Node,
-} from '../src/program-config.ts';
+import { Input, Operation, Spec, Node } from '../src/program-spec.ts';
 
 import {
   serializeProvableType,
@@ -31,6 +25,7 @@ import {
   VerificationKey,
 } from 'o1js';
 import { deserializeSpec } from '../src/deserialize-spec.ts';
+import { Credential } from '../src/credentials.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {

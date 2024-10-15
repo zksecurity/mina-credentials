@@ -6,12 +6,12 @@ import {
   Input,
   Operation,
   Node,
-  Credential,
   type UserInputs,
   splitUserInputs,
   recombineDataInputs,
-} from '../src/program-config.ts';
+} from '../src/program-spec.ts';
 import { createSignatureCredential } from './test-utils.ts';
+import { Credential } from '../src/credentials.ts';
 
 test(' Spec and Node operations', async (t) => {
   const Bytes32 = Bytes(32);

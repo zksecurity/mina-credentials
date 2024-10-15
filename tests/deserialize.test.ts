@@ -10,13 +10,7 @@ import {
   Signature,
   PrivateKey,
 } from 'o1js';
-import {
-  Spec,
-  Input,
-  Node,
-  Credential,
-  Operation,
-} from '../src/program-config.ts';
+import { Spec, Input, Node, Operation } from '../src/program-spec.ts';
 import {
   serializeProvable,
   serializeNode,
@@ -31,6 +25,7 @@ import {
   deserializeProvableType,
   deserializeProvable,
 } from '../src/deserialize-spec.ts';
+import { Credential } from '../src/credentials.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -228,7 +223,7 @@ test('deserializeInput', async (t) => {
     // can't compare them directly because of the verify function
     Object.entries(input).forEach(([key, value]) => {
       if (key !== 'verify') {
-        assert.deepStrictEqual(deserialized[key], value);
+        assert.deepStrictEqual((deserialized as any)[key], value);
       }
     });
   });
@@ -499,7 +494,7 @@ test('deserializeSpec', async (t) => {
       );
 
       assert.deepStrictEqual(
-        deserialized.inputs.signedData.type,
+        deserialized.inputs.signedData?.type,
         originalSpec.inputs.signedData.type
       );
 
