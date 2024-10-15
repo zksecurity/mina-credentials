@@ -108,13 +108,13 @@ type Constant<Data> = {
   data: ProvableType<Data>;
   value: Data;
 };
-type Public<Data> = { type: 'public'; data: NestedProvablePureFor<Data> };
+type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
 type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
   | Credential<CredentialId, any, any, Data>
   | Constant<Data>
-  | Public<Data>
+  | Claim<Data>
   | Private<Data>;
 
 type Node<Data = any> =
@@ -257,8 +257,8 @@ function constant<DataType extends ProvableType>(
 
 function publicParameter<DataType extends NestedProvablePure>(
   data: DataType
-): Public<InferNestedProvable<DataType>> {
-  return { type: 'public', data: data as any };
+): Claim<InferNestedProvable<DataType>> {
+  return { type: 'claim', data: data as any };
 }
 
 function privateParameter<DataType extends NestedProvable>(
@@ -314,7 +314,7 @@ function publicInputTypes<S extends Spec>({
     if (input.type === 'credential') {
       result[key] = input.public;
     }
-    if (input.type === 'public') {
+    if (input.type === 'claim') {
       result[key] = input.data;
     }
   });
@@ -375,7 +375,7 @@ function splitUserInputs<S extends Spec>(
         data: userInputs[key].data,
       };
     }
-    if (input.type === 'public') {
+    if (input.type === 'claim') {
       publicInput[key] = userInputs[key];
     }
     if (input.type === 'private') {
@@ -418,7 +418,7 @@ function recombineDataInputs<S extends Spec>(
     if (input.type === 'credential') {
       result[key] = privateInputs[key].data;
     }
-    if (input.type === 'public') {
+    if (input.type === 'claim') {
       result[key] = publicInputs[key];
     }
     if (input.type === 'private') {
@@ -474,7 +474,7 @@ type ToPublic<T extends Input> = T extends Credential<
   any
 >
   ? Public
-  : T extends Public<infer Data>
+  : T extends Claim<infer Data>
   ? Data
   : never;
 
@@ -496,7 +496,7 @@ type ToUserInput<T extends Input> = T extends Credential<
   infer Data
 >
   ? { public: Public; private: Private; data: Data }
-  : T extends Public<infer Data>
+  : T extends Claim<infer Data>
   ? Data
   : T extends Private<infer Data>
   ? Data
