@@ -21,7 +21,7 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
+        targetAge: Input.claim(Field),
       },
       ({ data, targetAge }) => ({
         assert: Operation.equals(Operation.property(data, 'age'), targetAge),
@@ -46,8 +46,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -76,8 +76,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -106,8 +106,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -138,8 +138,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(NestedInputData),
-        targetAge: Input.public(Field),
-        targetPoints: Input.public(Field),
+        targetAge: Input.claim(Field),
+        targetPoints: Input.claim(Field),
       },
       ({ data, targetAge, targetPoints }) => ({
         assert: Operation.and(
@@ -199,8 +199,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         signedData: Credential.signatureNative(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ signedData, targetAge, targetName }) => ({
         assert: Operation.and(

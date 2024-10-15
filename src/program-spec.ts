@@ -90,7 +90,7 @@ function Spec<Data, Inputs extends Record<string, Input>>(
 }
 
 const Input = {
-  public: publicParameter,
+  claim,
   private: privateParameter,
   constant,
 };
@@ -252,7 +252,7 @@ function constant<DataType extends ProvableType>(
   return { type: 'constant', data, value };
 }
 
-function publicParameter<DataType extends NestedProvablePure>(
+function claim<DataType extends NestedProvablePure>(
   data: DataType
 ): Claim<InferNestedProvable<DataType>> {
   return { type: 'claim', data: data as any };

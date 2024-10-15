@@ -25,7 +25,7 @@ const ProvedData = await Credential.proofFromProgram(inputProgram);
 const spec = Spec(
   {
     provedData: ProvedData,
-    targetAge: Input.public(Field),
+    targetAge: Input.claim(Field),
     targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
   },
   ({ provedData, targetAge, targetName }) => ({

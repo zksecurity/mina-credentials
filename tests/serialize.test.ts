@@ -129,7 +129,7 @@ test('Serialize Nodes', async (t) => {
       type: 'root',
       input: {
         age: Input.private(Field),
-        isAdmin: Input.public(Bool),
+        isAdmin: Input.claim(Bool),
       },
     };
 
@@ -148,7 +148,7 @@ test('Serialize Nodes', async (t) => {
         type: 'root',
         input: {
           age: Input.private(Field),
-          isAdmin: Input.public(Bool),
+          isAdmin: Input.claim(Bool),
         },
       },
     };
@@ -276,7 +276,7 @@ test('serializeInput', async (t) => {
   });
 
   await t.test('should serialize public input', () => {
-    const input = Input.public(Field);
+    const input = Input.claim(Field);
 
     const serialized = serializeInput(input);
 
@@ -366,7 +366,7 @@ test('convertSpecToSerializable', async (t) => {
     const spec = Spec(
       {
         age: Input.private(Field),
-        isAdmin: Input.public(Bool),
+        isAdmin: Input.claim(Bool),
         maxAge: Input.constant(Field, Field(100)),
       },
       ({ age, isAdmin, maxAge }) => ({
@@ -547,7 +547,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
   const spec = Spec(
     {
       age: Input.private(Field),
-      isAdmin: Input.public(Bool),
+      isAdmin: Input.claim(Bool),
       ageLimit: Input.constant(Field, Field(100)),
     },
     ({ age, isAdmin, ageLimit }) => ({

@@ -13,7 +13,7 @@ test('program with simple spec and signature credential', async (t) => {
   const spec = Spec(
     {
       signedData: Credential.signatureNative(InputData),
-      targetAge: Input.public(Field),
+      targetAge: Input.claim(Field),
       targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
     },
     ({ signedData, targetAge, targetName }) => ({

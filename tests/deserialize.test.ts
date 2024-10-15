@@ -192,7 +192,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize public input', () => {
-    const input = Input.public(Field);
+    const input = Input.claim(Field);
     const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
@@ -259,7 +259,7 @@ test('deserializeInputs', async (t) => {
   await t.test('should deserialize inputs with various type', () => {
     const inputs = {
       field: Input.private(Field),
-      bool: Input.public(Bool),
+      bool: Input.claim(Bool),
       uint: Input.constant(UInt64, UInt64.from(42)),
       nested: Input.private({
         inner: Field,
@@ -303,7 +303,7 @@ test('deserializeInputs', async (t) => {
   await t.test('should handle mixed input types', () => {
     const inputs = {
       privateField: Input.private(Field),
-      publicBool: Input.public(Bool),
+      publicBool: Input.claim(Bool),
       constantUint: Input.constant(UInt32, UInt32.from(42)),
       credential: Credential.signatureNative({ score: UInt64 }),
     };
@@ -342,7 +342,7 @@ test('deserializeNode', async (t) => {
   await t.test('should deserialize root node', () => {
     let input = {
       age: Input.private(Field),
-      isAdmin: Input.public(Bool),
+      isAdmin: Input.claim(Bool),
     };
     const node: Node = { type: 'root', input };
     const serialized = serializeNode(node);
@@ -353,7 +353,7 @@ test('deserializeNode', async (t) => {
   await t.test('should deserialize property node', () => {
     let input = {
       age: Input.private(Field),
-      isAdmin: Input.public(Bool),
+      isAdmin: Input.claim(Bool),
     };
     const node: Node = {
       type: 'property',
@@ -443,7 +443,7 @@ test('deserializeSpec', async (t) => {
     const originalSpec = Spec(
       {
         age: Input.private(Field),
-        isAdmin: Input.public(Bool),
+        isAdmin: Input.claim(Bool),
         maxAge: Input.constant(Field, Field(100)),
       },
       ({ age, isAdmin, maxAge }) => ({
@@ -512,7 +512,7 @@ test('deserializeSpec', async (t) => {
         {
           field1: Input.private(Field),
           field2: Input.private(Field),
-          threshold: Input.public(UInt64),
+          threshold: Input.claim(UInt64),
         },
         ({ field1, field2, threshold }) => ({
           assert: Operation.and(
