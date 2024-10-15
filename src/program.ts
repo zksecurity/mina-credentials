@@ -11,7 +11,7 @@ import {
   verifyCredentials,
   type PublicInputs,
   type UserInputs,
-} from './program-config.ts';
+} from './program-spec.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 

@@ -10,7 +10,7 @@ import {
   type ProvablePure,
   assert,
 } from 'o1js';
-import { Input, Node, Operation, Spec } from './program-config.ts';
+import { Input, Node, Operation, Spec } from './program-spec.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
