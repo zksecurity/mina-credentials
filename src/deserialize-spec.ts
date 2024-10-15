@@ -12,7 +12,7 @@ import {
 } from 'o1js';
 import {
   Attestation,
-  AttestationId,
+  type AttestationId,
   Input,
   Node,
   Operation,

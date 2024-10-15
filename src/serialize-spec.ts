@@ -1,4 +1,4 @@
-import { NestedProvable, type NestedProvableFor } from './nested.ts';
+import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { Spec, Input, Node } from './program-config.ts';
 import {
@@ -10,7 +10,6 @@ import {
   PublicKey,
   Signature,
   Provable,
-  Struct,
 } from 'o1js';
 
 // Supported o1js base types
@@ -40,8 +39,6 @@ let mapProvableTypeToName = new Map<ProvableType<any>, string>();
 for (let [key, value] of Object.entries(supportedTypes)) {
   mapProvableTypeToName.set(value, key);
 }
-mapProvableTypeToName.set(Field(0).constructor as any, 'Field');
-mapProvableTypeToName.set(Bool(true).constructor as any, 'Bool');
 
 export {
   type O1jsTypeName,
@@ -172,7 +169,7 @@ function serializeProvable(value: any): {
   let typeClass = ProvableType.fromValue(value);
   let { type } = serializeProvableType(typeClass);
   switch (typeClass) {
-    case Bool(true).constructor as any: {
+    case Bool: {
       return { type: type, value: value.toJSON().toString() };
     }
     case UInt8: {
