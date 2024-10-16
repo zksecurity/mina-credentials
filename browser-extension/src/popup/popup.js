@@ -1,7 +1,7 @@
 /* global chrome */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('attestationForm');
+  const form = document.getElementById('credentialForm');
   const generateProofButton = document.getElementById('generateProof');
 
   chrome.storage.sync.get(['age', 'signature', 'issuerPublicKey'], (result) => {

@@ -23,6 +23,6 @@ jobs:
         run: |
           npm ci
           npm run build --if-present
-          npm run test:program
+          npm test
         env:
           CI: true

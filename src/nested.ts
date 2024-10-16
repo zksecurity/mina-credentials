@@ -2,8 +2,9 @@
  * Allows us to represent nested Provable types, to save us from always having to
  * wrap types in `Struct` and similar.
  */
-import { Provable, type ProvablePure, Struct } from 'o1js';
+import { type InferProvable, Provable, type ProvablePure, Struct } from 'o1js';
 import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
+import { assertIsObject } from './util.ts';
 
 export { NestedProvable };
 
@@ -25,6 +26,22 @@ const NestedProvable = {
     (type: NestedProvablePure): ProvablePure<any>;
     (type: NestedProvable): Provable<any>;
   },
+
+  fromValue<T>(value: T): NestedProvableFor<T> {
+    try {
+      // case 1: value comes from a provable type
+      return ProvableType.fromValue(value);
+    } catch {
+      // case 2: value is a record of values from provable types
+      assertIsObject(value);
+      return Object.fromEntries(
+        Object.entries(value).map(([key, value]) => [
+          key,
+          NestedProvable.fromValue(value),
+        ])
+      ) as any;
+    }
+  },
 };
 
 type NestedProvable = ProvableType | { [key: string]: NestedProvable };
@@ -40,10 +57,8 @@ type NestedProvablePureFor<T> =
   | ProvablePureType<T>
   | { [K in keyof T & string]: NestedProvablePureFor<T[K]> };
 
-type InferNestedProvable<A> = A extends NestedProvableFor<infer T>
-  ? T
-  : A extends ProvableType<infer T>
-  ? T
+type InferNestedProvable<A> = A extends ProvableType
+  ? InferProvable<A>
   : A extends Record<string, NestedProvable>
   ? {
       [K in keyof A]: InferNestedProvable<A[K]>;

@@ -2,6 +2,7 @@
  * This file exports types and functions that actually should be exported from o1js
  */
 import {
+  Bool,
   Field,
   type InferProvable,
   Provable,
@@ -31,6 +32,8 @@ const ProvableType = {
   // TODO o1js should make sure this is possible for _all_ provable types
   fromValue<T>(value: T): Provable<T> {
     if (value === undefined) return Undefined as any;
+    if (value instanceof Field) return Field as any;
+    if (value instanceof Bool) return Bool as any;
     assertHasProperty(
       value,
       'constructor',
