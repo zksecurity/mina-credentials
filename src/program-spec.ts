@@ -334,9 +334,9 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
     case 'and':
     case 'or':
     case 'not':
-      return Bool as any;
+      return Bool;
     case 'hash':
-      return Field as any;
+      return Field;
     case 'add':
     case 'sub':
     case 'mul':
