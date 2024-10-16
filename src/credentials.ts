@@ -41,7 +41,7 @@ type CredentialId = 'none' | 'signature-native' | 'proof';
  * - a string fully identifying the credential type
  * - a type for private parameters
  * - a type for data (which is left generic when defining credential types)
- * - a function `verify(publicInput: Public, privateInput: Private, data: Data)` that asserts the credential is valid
+ * - a function `verify(...)` that asserts the credential is valid
  */
 type CredentialType<
   Id extends CredentialId = CredentialId,
