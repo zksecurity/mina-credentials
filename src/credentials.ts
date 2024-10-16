@@ -86,14 +86,14 @@ function defineCredential<
     InferNestedProvable<PrivateType>,
     InferNestedProvable<DataType>
   > {
-    const Credential = { owner: PublicKey, data: dataType };
+    const credentialType = Credential.type(dataType);
     return {
       type: 'credential',
       id: config.id,
       private: config.private as any,
       data: dataType as any,
       verify(privateInput, credential) {
-        return config.verify(privateInput, Credential, credential);
+        return config.verify(privateInput, credentialType, credential);
       },
     };
   };
@@ -143,8 +143,8 @@ function Proved<
   },
   Data
 > {
-  let type = NestedProvable.get(dataType);
-  const Credential = provable({ owner: PublicKey, data: type });
+  let type = NestedProvable.get(dataType as NestedProvablePureFor<Data>);
+  const credentialType = provable(Credential.type(type));
   return {
     type: 'credential',
     id: 'proof',
@@ -153,7 +153,7 @@ function Proved<
 
     verify({ vk, proof }, credential) {
       proof.verify(vk);
-      Provable.assertEqual(Credential, proof.publicOutput, credential);
+      Provable.assertEqual(credentialType, proof.publicOutput, credential);
     },
   };
 }
@@ -169,7 +169,7 @@ async function ProvedFromProgram<
   }: {
     program: {
       publicInputType: InputType;
-      publicOutputType: ProvablePure<{ owner: PublicKey; data: Data }>;
+      publicOutputType: ProvablePure<Credential<Data>>;
       analyzeMethods: () => Promise<{
         [I in keyof any]: any;
       }>;
@@ -188,7 +188,7 @@ async function ProvedFromProgram<
   }
 
   let data = ProvableType.synthesize(program.publicOutputType).data;
-  let dataType = ProvableType.fromValue(data);
+  let dataType = NestedProvable.get(NestedProvable.fromValue(data));
   assertPure(dataType);
 
   return Object.assign(
@@ -218,4 +218,9 @@ const Credential = {
   proof: Proved,
   proofFromProgram: ProvedFromProgram,
   signatureNative: Signed,
+
+  // get the credential type for a credential
+  type<DataType extends NestedProvable>(data: DataType) {
+    return { owner: PublicKey, data };
+  },
 };

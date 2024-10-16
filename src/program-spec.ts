@@ -359,7 +359,10 @@ function privateInputTypes<S extends Spec>({
 
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = { private: input.private, data: input.data };
+      result[key] = {
+        credential: Credential.type(input.data),
+        private: input.private,
+      };
     }
     if (input.type === 'private') {
       result[key] = input.data;
@@ -379,7 +382,11 @@ function publicOutputType<S extends Spec>(spec: S): ProvablePure<any> {
 function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
   let result: Record<string, NestedProvable> = {};
   Object.entries(inputs).forEach(([key, input]) => {
-    result[key] = input.data;
+    if (input.type === 'credential') {
+      result[key] = Credential.type(input.data);
+    } else {
+      result[key] = input.data;
+    }
   });
   return result;
 }
@@ -425,8 +432,8 @@ function verifyCredentials<S extends Spec>(
 ) {
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      let { private: privateInput, data } = privateInputs[key];
-      input.verify(privateInput, data);
+      let { credential, private: privateInput } = privateInputs[key];
+      input.verify(privateInput, credential);
     }
   });
   // TODO derive `credHash` for every credential
