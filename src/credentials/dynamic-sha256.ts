@@ -70,7 +70,7 @@ function padding(
   - max number of blocks = ceil((M.maxLength + 9) / 64) 
   - number of actual blocks = ceil((M.length + 9) / 64) = floor((M.length + 9 + 63) / 64) = floor((M.length + 8) / 64) + 1
   - block number of L section = floor((M.length + 8) / 64)
-  - block number of 0x1 byte index = floor(M.length / 64)
+  - block number of 0x80 byte index = floor(M.length / 64)
   */
 
   // check that all message bytes beyond the actual length are 0, so that we get valid padding just by adding the 0x80 and L bytes
