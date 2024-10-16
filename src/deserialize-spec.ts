@@ -102,25 +102,46 @@ function deserializeNode(input: any, node: any): Node {
         inner: deserializeNode(input, node.inner),
       };
     case 'equals':
-      return Operation.equals(
-        deserializeNode(input, node.left),
-        deserializeNode(input, node.right)
-      );
     case 'lessThan':
-      return Operation.lessThan(
-        deserializeNode(input, node.left),
-        deserializeNode(input, node.right)
-      );
     case 'lessThanEq':
-      return Operation.lessThanEq(
-        deserializeNode(input, node.left),
-        deserializeNode(input, node.right)
-      );
+      return {
+        type: node.type,
+        left: deserializeNode(input, node.left),
+        right: deserializeNode(input, node.right),
+      };
     case 'and':
-      return Operation.and(
-        deserializeNode(input, node.left),
-        deserializeNode(input, node.right)
-      );
+    case 'or':
+    case 'add':
+    case 'sub':
+    case 'mul':
+    case 'div':
+      return {
+        type: node.type,
+        left: deserializeNode(input, node.left),
+        right: deserializeNode(input, node.right),
+      };
+    case 'not':
+    case 'hash':
+      return {
+        type: node.type,
+        inner: deserializeNode(input, node.inner),
+      };
+    case 'ifThenElse':
+      return {
+        type: 'ifThenElse',
+        condition: deserializeNode(input, node.condition),
+        thenNode: deserializeNode(input, node.thenNode),
+        elseNode: deserializeNode(input, node.elseNode),
+      };
+    case 'record':
+      const deserializedData: Record<string, Node> = {};
+      for (const [key, value] of Object.entries(node.data)) {
+        deserializedData[key] = deserializeNode(input, value);
+      }
+      return {
+        type: 'record',
+        data: deserializedData,
+      };
     default:
       throw Error(`Invalid node type: ${node.type}`);
   }

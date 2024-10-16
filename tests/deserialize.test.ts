@@ -436,6 +436,116 @@ test('deserializeNode', async (t) => {
       );
     }
   });
+
+  await t.test('should deserialize record node', () => {
+    const originalNode: Node = Operation.record({
+      field1: { type: 'constant', data: Field(123) },
+      field2: { type: 'constant', data: Bool(true) },
+    });
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize add node', () => {
+    const originalNode: Node<Field> = Operation.add(
+      { type: 'constant', data: Field(5) },
+      { type: 'constant', data: Field(10) }
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize sub node', () => {
+    const originalNode: Node<Field> = Operation.sub(
+      { type: 'constant', data: Field(15) },
+      { type: 'constant', data: Field(7) }
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize mul node', () => {
+    const originalNode: Node<UInt32> = Operation.mul(
+      { type: 'constant', data: UInt32.from(3) },
+      { type: 'constant', data: UInt32.from(4) }
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize div node', () => {
+    const originalNode: Node<Field> = Operation.div(
+      { type: 'constant', data: Field(20) },
+      { type: 'constant', data: Field(5) }
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize not node', () => {
+    const originalNode: Node<Bool> = Operation.not({
+      type: 'constant',
+      data: Bool(true),
+    });
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize hash node', () => {
+    const originalNode: Node<Field> = Operation.hash({
+      type: 'constant',
+      data: Field(123),
+    });
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize or node', () => {
+    const originalNode: Node<Bool> = Operation.or(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Bool(false) }
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize ifThenElse node', () => {
+    const originalNode: Node<Field> = Operation.ifThenElse(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Field(1) },
+      { type: 'constant', data: Field(0) }
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
+
+  await t.test('should deserialize complex nested node', () => {
+    const originalNode: Node<Bool> = Operation.and(
+      Operation.lessThan(
+        Operation.add(
+          { type: 'constant', data: Field(5) },
+          { type: 'constant', data: Field(10) }
+        ),
+        { type: 'constant', data: Field(20) }
+      ),
+      Operation.or(
+        { type: 'constant', data: Bool(true) },
+        Operation.not({ type: 'constant', data: Bool(false) })
+      )
+    );
+    const serialized = serializeNode(originalNode);
+    const deserialized = deserializeNode({}, serialized);
+    assert.deepStrictEqual(deserialized, originalNode);
+  });
 });
 
 test('deserializeSpec', async (t) => {

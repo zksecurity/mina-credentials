@@ -137,11 +137,39 @@ function serializeNode(node: Node): any {
     case 'lessThan':
     case 'lessThanEq':
     case 'and':
+    case 'or':
+    case 'add':
+    case 'sub':
+    case 'mul':
+    case 'div':
       return {
         type: node.type,
         left: serializeNode(node.left),
         right: serializeNode(node.right),
       };
+    case 'hash':
+    case 'not':
+      return {
+        type: node.type,
+        inner: serializeNode(node.inner),
+      };
+    case 'ifThenElse':
+      return {
+        type: 'ifThenElse',
+        condition: serializeNode(node.condition),
+        thenNode: serializeNode(node.thenNode),
+        elseNode: serializeNode(node.elseNode),
+      };
+    case 'record': {
+      const serializedData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(node.data)) {
+        serializedData[key] = serializeNode(value);
+      }
+      return {
+        type: 'record',
+        data: serializedData,
+      };
+    }
   }
 }
 
