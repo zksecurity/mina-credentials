@@ -313,6 +313,32 @@ test(' Spec and Node operations', async (t) => {
     assert.deepStrictEqual(dataResult, UInt64.from(2000000));
   });
 
+  await t.test('Spec with mul UInt32 and UInt64', () => {
+    const spec = Spec(
+      {
+        value1: Input.private(UInt32),
+        value2: Input.private(UInt64),
+        product: Input.public(UInt64),
+      },
+      ({ value1, value2, product }) => ({
+        assert: Operation.equals(Operation.mul(value1, value2), product),
+        data: Operation.mul(value1, value2),
+      })
+    );
+
+    const root = {
+      value1: UInt32.from(1000),
+      value2: UInt64.from(2000),
+      product: UInt64.from(2000000),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toBoolean(), true);
+    assert.deepStrictEqual(dataResult, UInt64.from(2000000));
+  });
+
   await t.test('Spec with ifThenElse operation', () => {
     const InputData = { value: Field };
     const spec = Spec(

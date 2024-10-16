@@ -102,6 +102,7 @@ const Operation = {
   lessThan,
   lessThanEq,
   add,
+  mul,
   and,
   or,
   not,
@@ -131,6 +132,7 @@ type Node<Data = any> =
   | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'mul'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
@@ -179,6 +181,9 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'add': {
       return addNodes(root, node) as Data;
     }
+    case 'mul': {
+      return mulNodes(root, node) as Data;
+    }
     case 'and': {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
@@ -219,6 +224,18 @@ function addNodes(
   const [leftConverted, rightConverted] = convertNodes(left, right);
 
   return leftConverted.add(rightConverted as any);
+}
+
+function mulNodes(
+  root: object,
+  node: { left: Node<NumericType>; right: Node<NumericType> }
+): NumericType {
+  let left = evalNode(root, node.left);
+  let right = evalNode(root, node.right);
+
+  const [leftConverted, rightConverted] = convertNodes(left, right);
+
+  return leftConverted.mul(rightConverted as any);
 }
 
 function compareNodes(
@@ -290,42 +307,34 @@ function evalNodeType<Data>(
       // case 2: inner is a record of provable types
       return inner[node.key] as any;
     }
-    case 'equals': {
+    case 'equals':
+    case 'lessThan':
+    case 'lessThanEq':
+    case 'and':
+    case 'or':
+    case 'not':
       return Bool as any;
-    }
-    case 'lessThan': {
-      return Bool as any;
-    }
-    case 'lessThanEq': {
-      return Bool as any;
-    }
-    case 'add': {
-      const leftType = evalNodeType(rootType, node.left);
-      const rightType = evalNodeType(rootType, node.right);
-      const leftTypeIndex = numericTypeOrder.findIndex(
-        (type) => leftType === type
-      );
-      const rightTypeIndex = numericTypeOrder.findIndex(
-        (type) => rightType === type
-      );
-      return numericTypeOrder[Math.max(leftTypeIndex, rightTypeIndex)] as any;
-    }
-    case 'and': {
-      return Bool as any;
-    }
-    case 'or': {
-      return Bool as any;
-    }
-    case 'not': {
-      return Bool as any;
-    }
-    case 'hash': {
+    case 'hash':
       return Field as any;
-    }
-    case 'ifThenElse': {
+    case 'add':
+    case 'mul':
+      return ArithmeticOperationType(rootType, node);
+    case 'ifThenElse':
       return Node as any;
-    }
   }
+}
+
+function ArithmeticOperationType(
+  rootType: NestedProvable,
+  node: { left: Node<NumericType>; right: Node<NumericType> }
+): NestedProvable {
+  const leftType = evalNodeType(rootType, node.left);
+  const rightType = evalNodeType(rootType, node.right);
+  const leftTypeIndex = numericTypeOrder.findIndex((type) => leftType === type);
+  const rightTypeIndex = numericTypeOrder.findIndex(
+    (type) => rightType === type
+  );
+  return numericTypeOrder[Math.max(leftTypeIndex, rightTypeIndex)] as any;
 }
 
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
@@ -390,6 +399,13 @@ function add<Data extends NumericType>(
   right: Node<Data>
 ): Node<Data> {
   return { type: 'add', left, right };
+}
+
+function mul<Data extends NumericType>(
+  left: Node<Data>,
+  right: Node<Data>
+): Node<Data> {
+  return { type: 'mul', left, right };
 }
 
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
