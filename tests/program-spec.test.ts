@@ -10,7 +10,7 @@ import {
   splitUserInputs,
   recombineDataInputs,
 } from '../src/program-spec.ts';
-import { createSignatureCredential } from './test-utils.ts';
+import { createSignatureCredential, owner } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
 
 test(' Spec and Node operations', async (t) => {
@@ -21,7 +21,7 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
+        targetAge: Input.claim(Field),
       },
       ({ data, targetAge }) => ({
         assert: Operation.equals(Operation.property(data, 'age'), targetAge),
@@ -46,8 +46,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -76,8 +76,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -106,8 +106,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -138,8 +138,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Input.private(NestedInputData),
-        targetAge: Input.public(Field),
-        targetPoints: Input.public(Field),
+        targetAge: Input.claim(Field),
+        targetPoints: Input.claim(Field),
       },
       ({ data, targetAge, targetPoints }) => ({
         assert: Operation.and(
@@ -199,8 +199,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         signedData: Credential.signatureNative(InputData),
-        targetAge: Input.public(Field),
-        targetName: Input.public(Bytes32),
+        targetAge: Input.claim(Field),
+        targetName: Input.claim(Bytes32),
       },
       ({ signedData, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -222,6 +222,12 @@ test(' Spec and Node operations', async (t) => {
 
     let { privateInput, publicInput } = splitUserInputs(spec, userInputs);
     let root = recombineDataInputs(spec, publicInput, privateInput);
+
+    assert.deepStrictEqual(root, {
+      signedData: { owner, data },
+      targetAge: Field(30),
+      targetName: Bytes32.fromString('David'),
+    });
 
     const assertResult = Node.eval(root, spec.logic.assert);
     const dataResult = Node.eval(root, spec.logic.data);

@@ -1,10 +1,8 @@
 import {
   assert,
-  Field,
   Provable,
   PublicKey,
   Signature,
-  Struct,
   Undefined,
   VerificationKey,
   type ProvablePure,
@@ -12,75 +10,77 @@ import {
   type InferProvable,
   FeatureFlags,
   Proof,
+  provable,
 } from 'o1js';
 import {
-  type InferProvableType,
-  type ProvablePureType,
+  assertPure,
   ProvableType,
+  type ProvablePureType,
 } from './o1js-missing.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
+  type NestedProvableFor,
   type NestedProvablePure,
   type NestedProvablePureFor,
 } from './nested.ts';
 
-export { Credential, type CredentialId };
+export { Credential, type CredentialType, type CredentialId };
 
 const Undefined_: ProvablePure<undefined> = Undefined;
 
-type CredentialId = 'none' | 'signatureNative' | 'proof';
+type CredentialId = 'none' | 'signature-native' | 'proof';
 
 /**
- * A credential is:
+ * A credential type is:
  * - a string fully identifying the credential type
- * - a type for public parameters
  * - a type for private parameters
  * - a type for data (which is left generic when defining credential types)
- * - a function `verify(publicInput: Public, privateInput: Private, data: Data)` that asserts the credential is valid
+ * - a function `verify(...)` that asserts the credential is valid
  */
-type Credential<Id extends CredentialId, Public, Private, Data> = {
+type CredentialType<
+  Id extends CredentialId = CredentialId,
+  Private = any,
+  Data = any
+> = {
   type: 'credential';
   id: Id;
-  public: ProvablePureType<Public>;
-  private: ProvableType<Private>;
+  private: NestedProvableFor<Private>;
   data: NestedProvablePureFor<Data>;
 
-  verify(publicInput: Public, privateInput: Private, data: Data): void;
+  verify(privateInput: Private, credential: Credential<Data>): void;
 };
+
+type Credential<Data> = { owner: PublicKey; data: Data };
 
 function defineCredential<
   Id extends CredentialId,
-  PublicType extends ProvablePureType,
-  PrivateType extends ProvableType
+  PrivateType extends NestedProvable
 >(config: {
   id: Id;
-  public: PublicType;
   private: PrivateType;
 
   verify<DataType extends NestedProvablePure>(
-    publicInput: InferProvableType<PublicType>,
-    privateInput: InferProvableType<PrivateType>,
-    dataType: DataType,
-    data: InferNestedProvable<DataType>
+    privateInput: InferNestedProvable<PrivateType>,
+    Credential: { owner: typeof PublicKey; data: DataType },
+    credential: Credential<InferNestedProvable<DataType>>
   ): void;
 }) {
   return function credential<DataType extends NestedProvablePure>(
     dataType: DataType
-  ): Credential<
+  ): CredentialType<
     Id,
-    InferProvableType<PublicType>,
-    InferProvableType<PrivateType>,
+    InferNestedProvable<PrivateType>,
     InferNestedProvable<DataType>
   > {
+    const credentialType = Credential.withOwner(dataType);
     return {
       type: 'credential',
       id: config.id,
-      public: config.public,
-      private: config.private,
+      private: config.private as any,
       data: dataType as any,
-      verify(publicInput, privateInput, data) {
-        return config.verify(publicInput, privateInput, dataType, data);
+      verify(privateInput, credential) {
+        return config.verify(privateInput, credentialType, credential);
       },
     };
   };
@@ -89,7 +89,6 @@ function defineCredential<
 // dummy credential with no proof attached
 const None = defineCredential({
   id: 'none',
-  public: Undefined_,
   private: Undefined_,
   verify() {
     // do nothing
@@ -98,50 +97,50 @@ const None = defineCredential({
 
 // native signature
 const Signed = defineCredential({
-  id: 'signatureNative',
-  public: PublicKey, // issuer public key
-  private: Signature,
+  id: 'signature-native',
+  private: {
+    issuerPublicKey: PublicKey,
+    issuerSignature: Signature,
+  },
 
   // verify the signature
-  verify(issuerPk, signature, type, data) {
-    let ok = signature.verify(
-      issuerPk,
-      NestedProvable.get(type).toFields(data)
+  verify({ issuerPublicKey, issuerSignature }, Credential, credential) {
+    let ok = issuerSignature.verify(
+      issuerPublicKey,
+      NestedProvable.get(Credential).toFields(credential)
     );
     assert(ok, 'Invalid signature');
   },
 });
 
 // TODO include hash of public inputs of the inner proof
-// TODO maybe names could be issuer, credential
 function Proved<
   DataType extends NestedProvablePure,
   InputType extends ProvablePureType,
   Data extends InferNestedProvable<DataType>,
   Input extends InferProvable<InputType>
 >(
-  Proof: typeof DynamicProof<Input, Data>,
+  Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): Credential<
+): CredentialType<
   'proof',
-  Field,
   {
     vk: VerificationKey;
-    proof: DynamicProof<Input, Data>;
+    proof: DynamicProof<Input, Credential<Data>>;
   },
-  InferNestedProvable<DataType>
+  Data
 > {
-  let type = NestedProvable.get(dataType);
+  let type = NestedProvable.get(dataType as NestedProvablePureFor<Data>);
+  const credentialType = provable(Credential.withOwner(type));
   return {
     type: 'credential',
     id: 'proof',
-    public: Field, // the verification key hash (TODO: make this a `VerificationKey` when o1js supports it)
-    private: Struct({ vk: VerificationKey, proof: Proof }),
+    private: { vk: VerificationKey, proof: Proof },
     data: type,
-    verify(vkHash, { vk, proof }, data) {
-      vk.hash.assertEquals(vkHash);
+
+    verify({ vk, proof }, credential) {
       proof.verify(vk);
-      Provable.assertEqual(type, proof.publicOutput, data);
+      Provable.assertEqual(credentialType, proof.publicOutput, credential);
     },
   };
 }
@@ -157,7 +156,7 @@ async function ProvedFromProgram<
   }: {
     program: {
       publicInputType: InputType;
-      publicOutputType: DataType;
+      publicOutputType: ProvablePure<Credential<Data>>;
       analyzeMethods: () => Promise<{
         [I in keyof any]: any;
       }>;
@@ -168,26 +167,29 @@ async function ProvedFromProgram<
 ) {
   const featureFlags = await FeatureFlags.fromZkProgram(program);
 
-  class InputProof extends DynamicProof<Input, Data> {
+  class InputProof extends DynamicProof<Input, Credential<Data>> {
     static publicInputType = program.publicInputType;
     static publicOutputType = program.publicOutputType;
     static maxProofsVerified = maxProofsVerified;
     static featureFlags = featureFlags;
   }
 
+  let data = ProvableType.synthesize(program.publicOutputType).data;
+  let dataType = NestedProvable.get(NestedProvable.fromValue(data));
+  assertPure(dataType);
+
   return Object.assign(
-    Proved<DataType, InputType, Data, Input>(
-      InputProof,
-      program.publicOutputType
-    ),
+    Proved<ProvablePure<Data>, InputType, Data, Input>(InputProof, dataType),
     {
-      fromProof(proof: Proof<Input, Data>): DynamicProof<Input, Data> {
+      fromProof(
+        proof: Proof<Input, Credential<Data>>
+      ): DynamicProof<Input, Credential<Data>> {
         return InputProof.fromProof(proof as any);
       },
       dummyProof(
         publicInput: Input,
-        publicOutput: Data
-      ): Promise<DynamicProof<Input, Data>> {
+        publicOutput: Credential<Data>
+      ): Promise<DynamicProof<Input, Credential<Data>>> {
         return InputProof.dummy(
           publicInput,
           publicOutput as any,
@@ -203,4 +205,9 @@ const Credential = {
   proof: Proved,
   proofFromProgram: ProvedFromProgram,
   signatureNative: Signed,
+
+  // get the nested type for a credential
+  withOwner<DataType extends NestedProvable>(data: DataType) {
+    return { owner: PublicKey, data };
+  },
 };

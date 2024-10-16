@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes } from 'o1js';
+import { Field, Bytes, PublicKey } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
   Input,
@@ -9,14 +9,18 @@ import {
   type UserInputs,
 } from '../src/program-spec.ts';
 import { Credential } from '../src/credentials.ts';
+import { owner } from './test-utils.ts';
 
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
 
 // simple spec to create a proof credential that's used recursively
-const inputProofSpec = Spec({ data: Input.private(InputData) }, ({ data }) => ({
-  data,
-}));
+const inputProofSpec = Spec(
+  { owner: Input.claim(PublicKey), data: Input.private(InputData) },
+  ({ owner, data }) => ({
+    data: Operation.record({ owner, data }),
+  })
+);
 const inputProgram = createProgram(inputProofSpec);
 let inputVk = await inputProgram.compile();
 
@@ -25,7 +29,7 @@ const ProvedData = await Credential.proofFromProgram(inputProgram);
 const spec = Spec(
   {
     provedData: ProvedData,
-    targetAge: Input.public(Field),
+    targetAge: Input.claim(Field),
     targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
   },
   ({ provedData, targetAge, targetName }) => ({
@@ -89,12 +93,11 @@ async function createProofCredential(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let inputProof = await inputProgram.run({ data });
+  let inputProof = await inputProgram.run({ owner, data });
   let proof = ProvedData.fromProof(inputProof);
   return {
-    public: inputVk.hash,
+    credential: inputProof.publicOutput,
     private: { vk: inputVk, proof },
-    data: inputProof.publicOutput,
   };
 }
 
@@ -102,10 +105,9 @@ async function createInvalidProofCredential(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let proof = await ProvedData.dummyProof({}, data);
+  let proof = await ProvedData.dummyProof({ owner }, { owner, data });
   return {
-    public: inputVk.hash,
+    credential: proof.publicOutput,
     private: { vk: inputVk, proof },
-    data,
   };
 }

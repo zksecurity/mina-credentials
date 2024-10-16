@@ -129,19 +129,13 @@ test('Serialize Nodes', async (t) => {
       type: 'root',
       input: {
         age: Input.private(Field),
-        isAdmin: Input.public(Bool),
+        isAdmin: Input.claim(Bool),
       },
     };
 
     const serialized = serializeNode(rootNode);
 
-    const expected = {
-      type: 'root',
-      input: {
-        age: { type: 'private', data: { type: 'Field' } },
-        isAdmin: { type: 'public', data: { type: 'Bool' } },
-      },
-    };
+    const expected = { type: 'root' };
 
     assert.deepStrictEqual(serialized, expected);
   });
@@ -154,24 +148,14 @@ test('Serialize Nodes', async (t) => {
         type: 'root',
         input: {
           age: Input.private(Field),
-          isAdmin: Input.public(Bool),
+          isAdmin: Input.claim(Bool),
         },
       },
     };
 
     const serialized = serializeNode(propertyNode);
 
-    const expected = {
-      type: 'property',
-      key: 'age',
-      inner: {
-        type: 'root',
-        input: {
-          age: { type: 'private', data: { type: 'Field' } },
-          isAdmin: { type: 'public', data: { type: 'Bool' } },
-        },
-      },
-    };
+    const expected = { type: 'property', key: 'age', inner: { type: 'root' } };
 
     assert.deepStrictEqual(serialized, expected);
   });
@@ -292,7 +276,7 @@ test('serializeInput', async (t) => {
   });
 
   await t.test('should serialize public input', () => {
-    const input = Input.public(Field);
+    const input = Input.claim(Field);
 
     const serialized = serializeInput(input);
 
@@ -324,9 +308,15 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'signatureNative',
-      public: { type: 'PublicKey' },
-      private: { type: 'Signature' },
+      id: 'signature-native',
+      private: {
+        issuerPublicKey: {
+          type: 'PublicKey',
+        },
+        issuerSignature: {
+          type: 'Signature',
+        },
+      },
       data: {
         age: { type: 'Field' },
         isAdmin: { type: 'Bool' },
@@ -376,7 +366,7 @@ test('convertSpecToSerializable', async (t) => {
     const spec = Spec(
       {
         age: Input.private(Field),
-        isAdmin: Input.public(Bool),
+        isAdmin: Input.claim(Bool),
         maxAge: Input.constant(Field, Field(100)),
       },
       ({ age, isAdmin, maxAge }) => ({
@@ -401,68 +391,24 @@ test('convertSpecToSerializable', async (t) => {
             left: {
               type: 'property',
               key: 'age',
-              inner: {
-                type: 'root',
-                input: {
-                  age: { type: 'private', data: { type: 'Field' } },
-                  isAdmin: { type: 'public', data: { type: 'Bool' } },
-                  maxAge: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '100',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
             right: {
               type: 'property',
               key: 'maxAge',
-              inner: {
-                type: 'root',
-                input: {
-                  age: { type: 'private', data: { type: 'Field' } },
-                  isAdmin: { type: 'public', data: { type: 'Bool' } },
-                  maxAge: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '100',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
           right: {
             type: 'property',
             key: 'isAdmin',
-            inner: {
-              type: 'root',
-              input: {
-                age: { type: 'private', data: { type: 'Field' } },
-                isAdmin: { type: 'public', data: { type: 'Bool' } },
-                maxAge: {
-                  type: 'constant',
-                  data: { type: 'Field' },
-                  value: '100',
-                },
-              },
-            },
+            inner: { type: 'root' },
           },
         },
         data: {
           type: 'property',
           key: 'age',
-          inner: {
-            type: 'root',
-            input: {
-              age: { type: 'private', data: { type: 'Field' } },
-              isAdmin: { type: 'public', data: { type: 'Bool' } },
-              maxAge: {
-                type: 'constant',
-                data: { type: 'Field' },
-                value: '100',
-              },
-            },
-          },
+          inner: { type: 'root' },
         },
       },
     };
@@ -490,9 +436,15 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          id: 'signatureNative',
-          public: { type: 'PublicKey' },
-          private: { type: 'Signature' },
+          id: 'signature-native',
+          private: {
+            issuerPublicKey: {
+              type: 'PublicKey',
+            },
+            issuerSignature: {
+              type: 'Signature',
+            },
+          },
           data: {
             field: { type: 'Field' },
           },
@@ -507,73 +459,27 @@ test('convertSpecToSerializable', async (t) => {
             key: 'field',
             inner: {
               type: 'property',
-              key: 'signedData',
+              key: 'data',
               inner: {
-                type: 'root',
-                input: {
-                  signedData: {
-                    type: 'credential',
-                    id: 'signatureNative',
-                    public: { type: 'PublicKey' },
-                    private: { type: 'Signature' },
-                    data: {
-                      field: { type: 'Field' },
-                    },
-                  },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
+                type: 'property',
+                key: 'signedData',
+                inner: { type: 'root' },
               },
             },
           },
           right: {
             type: 'property',
             key: 'zeroField',
-            inner: {
-              type: 'root',
-              input: {
-                signedData: {
-                  type: 'credential',
-                  id: 'signatureNative',
-                  public: { type: 'PublicKey' },
-                  private: { type: 'Signature' },
-                  data: {
-                    field: { type: 'Field' },
-                  },
-                },
-                zeroField: {
-                  type: 'constant',
-                  data: { type: 'Field' },
-                  value: '0',
-                },
-              },
-            },
+            inner: { type: 'root' },
           },
         },
         data: {
           type: 'property',
-          key: 'signedData',
+          key: 'data',
           inner: {
-            type: 'root',
-            input: {
-              signedData: {
-                type: 'credential',
-                id: 'signatureNative',
-                public: { type: 'PublicKey' },
-                private: { type: 'Signature' },
-                data: {
-                  field: { type: 'Field' },
-                },
-              },
-              zeroField: {
-                type: 'constant',
-                data: { type: 'Field' },
-                value: '0',
-              },
-            },
+            type: 'property',
+            key: 'signedData',
+            inner: { type: 'root' },
           },
         },
       },
@@ -612,34 +518,12 @@ test('convertSpecToSerializable', async (t) => {
             left: {
               type: 'property',
               key: 'field1',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
             right: {
               type: 'property',
               key: 'field2',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
           right: {
@@ -647,52 +531,19 @@ test('convertSpecToSerializable', async (t) => {
             left: {
               type: 'property',
               key: 'field1',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
             right: {
               type: 'property',
               key: 'zeroField',
-              inner: {
-                type: 'root',
-                input: {
-                  field1: { type: 'private', data: { type: 'Field' } },
-                  field2: { type: 'private', data: { type: 'Field' } },
-                  zeroField: {
-                    type: 'constant',
-                    data: { type: 'Field' },
-                    value: '0',
-                  },
-                },
-              },
+              inner: { type: 'root' },
             },
           },
         },
         data: {
           type: 'property',
           key: 'field2',
-          inner: {
-            type: 'root',
-            input: {
-              field1: { type: 'private', data: { type: 'Field' } },
-              field2: { type: 'private', data: { type: 'Field' } },
-              zeroField: {
-                type: 'constant',
-                data: { type: 'Field' },
-                value: '0',
-              },
-            },
-          },
+          inner: { type: 'root' },
         },
       },
     };
@@ -704,7 +555,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
   const spec = Spec(
     {
       age: Input.private(Field),
-      isAdmin: Input.public(Bool),
+      isAdmin: Input.claim(Bool),
       ageLimit: Input.constant(Field, Field(100)),
     },
     ({ age, isAdmin, ageLimit }) => ({

@@ -40,11 +40,12 @@ async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
 
   const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);
   const parsedSpec = JSON.parse(serializedSpec);
+  let inputs = deserializeInputs(parsedSpec.inputs);
   return {
-    inputs: deserializeInputs(parsedSpec.inputs),
+    inputs,
     logic: {
-      assert: deserializeNode(parsedSpec.logic.assert),
-      data: deserializeNode(parsedSpec.logic.data),
+      assert: deserializeNode(inputs, parsedSpec.logic.assert),
+      data: deserializeNode(inputs, parsedSpec.logic.data),
     },
   };
 }
@@ -65,29 +66,29 @@ function deserializeInput(input: any): Input {
         deserializeProvable(input.data.type, input.value)
       );
     case 'public':
-      return Input.public(deserializeNestedProvablePure(input.data));
+      return Input.claim(deserializeNestedProvablePure(input.data));
     case 'private':
       return Input.private(deserializeNestedProvable(input.data));
     case 'credential': {
       let id: CredentialId = input.id;
       let data = deserializeNestedProvablePure(input.data);
       switch (id) {
-        case 'signatureNative':
+        case 'signature-native':
           return Credential.signatureNative(data);
         case 'none':
           return Credential.none(data);
         case 'proof':
-          throw new Error('Serializing proof credential is not supported yet');
+          throw Error('Serializing proof credential is not supported yet');
         default:
-          throw new Error(`Unsupported credential id: ${id}`);
+          throw Error(`Unsupported credential id: ${id}`);
       }
     }
     default:
-      throw new Error(`Invalid input type: ${input.type}`);
+      throw Error(`Invalid input type: ${input.type}`);
   }
 }
 
-function deserializeNode(node: any): Node {
+function deserializeNode(input: any, node: any): Node {
   switch (node.type) {
     case 'constant':
       return {
@@ -95,38 +96,35 @@ function deserializeNode(node: any): Node {
         data: deserializeProvable(node.data.type, node.data.value),
       };
     case 'root':
-      return {
-        type: 'root',
-        input: deserializeInputs(node.input),
-      };
+      return { type: 'root', input };
     case 'property':
       return {
         type: 'property',
         key: node.key,
-        inner: deserializeNode(node.inner),
+        inner: deserializeNode(input, node.inner),
       };
     case 'equals':
       return Operation.equals(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     case 'lessThan':
       return Operation.lessThan(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     case 'lessThanEq':
       return Operation.lessThanEq(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     case 'and':
       return Operation.and(
-        deserializeNode(node.left),
-        deserializeNode(node.right)
+        deserializeNode(input, node.left),
+        deserializeNode(input, node.right)
       );
     default:
-      throw new Error(`Invalid node type: ${node.type}`);
+      throw Error(`Invalid node type: ${node.type}`);
   }
 }
 
@@ -153,7 +151,7 @@ function deserializeProvable(type: string, value: string): any {
     case 'Signature':
       return Signature.fromJSON(value);
     default:
-      throw new Error(`Unsupported provable type: ${type}`);
+      throw Error(`Unsupported provable type: ${type}`);
   }
 }
 
@@ -195,5 +193,5 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
       return result as NestedProvablePure;
     }
   }
-  throw new Error(`Invalid type in NestedProvablePure: ${type}`);
+  throw Error(`Invalid type in NestedProvablePure: ${type}`);
 }
