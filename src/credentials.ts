@@ -132,7 +132,11 @@ function verifyCredentials({
   // verify the owner signature
   if (owner !== undefined) {
     let hashes = credHashes.map((c) => c.hash);
-    ownerSignature.verify(owner, [context, ...zip(hashes, issuers).flat()]);
+    let ok = ownerSignature.verify(owner, [
+      context,
+      ...zip(hashes, issuers).flat(),
+    ]);
+    ok.assertTrue('Invalid owner signature');
   }
 
   return {
