@@ -459,8 +459,12 @@ test('convertSpecToSerializable', async (t) => {
             key: 'field',
             inner: {
               type: 'property',
-              key: 'signedData',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'signedData',
+                inner: { type: 'root' },
+              },
             },
           },
           right: {
@@ -471,8 +475,12 @@ test('convertSpecToSerializable', async (t) => {
         },
         data: {
           type: 'property',
-          key: 'signedData',
-          inner: { type: 'root' },
+          key: 'data',
+          inner: {
+            type: 'property',
+            key: 'signedData',
+            inner: { type: 'root' },
+          },
         },
       },
     };
