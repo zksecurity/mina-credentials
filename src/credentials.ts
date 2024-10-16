@@ -86,16 +86,22 @@ type CredentialInputs = {
   }[];
 };
 
-type CredentialWithIssuer = {
-  credential: Credential<any>;
-  issuer: Field;
+/**
+ * Outputs of verifying credentials, used as inputs to application circuit.
+ */
+type CredentialOutputs = {
+  owner: PublicKey;
+  credentials: {
+    credential: Credential<any>;
+    issuer: Field;
+  }[];
 };
 
 function verifyCredentials({
   context,
   ownerSignature,
   credentials,
-}: CredentialInputs): CredentialWithIssuer[] {
+}: CredentialInputs): CredentialOutputs {
   // pack credentials in hashes
   let credHashes = credentials.map(({ credentialType: { data }, credential }) =>
     HashedCredential(data).hash(credential)
@@ -113,14 +119,25 @@ function verifyCredentials({
     credentialType.issuer(privateInput)
   );
 
-  // TODO if there are any credentials: assert all have the same `owner`
+  // assert that all credentials have the same owner, and determine that owner
+  let owner: undefined | PublicKey;
+
+  credentials.forEach(({ credential }) => {
+    owner ??= credential.owner; // set to the first owner
+    credential.owner.assertEquals(owner);
+  });
+
   // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
 
-  // return credential-issuer pairs
-  return zip(credentials, issuers).map(([{ credential }, issuer]) => ({
-    credential,
-    issuer,
-  }));
+  return {
+    owner: owner ?? PublicKey.empty(), // use a (0,0) public key in case there are no credentials
+
+    // credential-issuer pairs
+    credentials: zip(credentials, issuers).map(([{ credential }, issuer]) => ({
+      credential,
+      issuer,
+    })),
+  };
 }
 
 function defineCredential<
