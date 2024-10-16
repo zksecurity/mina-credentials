@@ -201,6 +201,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let inner = evalNode(root, node.inner);
       return inner.not() as Data;
     }
+    // TODO: handle composite types
     case 'hash': {
       let inner = evalNode(root, node.inner);
       let innerFields = inner.toFields();
