@@ -401,42 +401,21 @@ function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
   return result;
 }
 
-function splitUserInputs<S extends Spec>(
-  spec: S,
-  userInputs: UserInputs<any>
+function splitUserInputs<I extends Spec['inputs']>(
+  userInputs: UserInputs<I>
 ): {
-  publicInput: PublicInputs<S['inputs']>;
-  privateInput: PrivateInputs<S['inputs']>;
+  publicInput: PublicInputs<I>;
+  privateInput: PrivateInputs<I>;
 };
-function splitUserInputs<S extends Spec>(
-  spec: S,
-  { context, ownerSignature, inputs: userInputs }: UserInputs<any>
-) {
-  let claims: Record<string, any> = {};
-  let privateCredentialInputs: Record<string, any> = {};
-
-  Object.entries(spec.inputs).forEach(([key, input]) => {
-    let userInput: any = userInputs[key];
-    if (input.type === 'credential') {
-      privateCredentialInputs[key] = {
-        credential: userInput.credential,
-        private: userInput.private,
-      };
-    }
-    if (input.type === 'claim') {
-      claims[key] = userInputs[key];
-    }
-    if (input.type === 'private') {
-      privateCredentialInputs[key] = userInputs[key];
-    }
-    if (input.type === 'constant') {
-      // do nothing
-    }
-  });
-
+function splitUserInputs({
+  context,
+  ownerSignature,
+  claims,
+  credentials,
+}: UserInputs<any>) {
   return {
     publicInput: { context, claims },
-    privateInput: { ownerSignature, privateCredentialInputs },
+    privateInput: { ownerSignature, privateCredentialInputs: credentials },
   };
 }
 
@@ -503,7 +482,8 @@ type PrivateInputs<Inputs extends Record<string, Input>> = {
 type UserInputs<Inputs extends Record<string, Input>> = {
   context: Field;
   ownerSignature: Signature;
-  inputs: ExcludeFromRecord<MapToUserInput<Inputs>, never>;
+  claims: ExcludeFromRecord<MapToClaim<Inputs>, never>;
+  credentials: ExcludeFromRecord<MapToPrivate<Inputs>, never>;
 };
 
 type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
@@ -519,10 +499,6 @@ type MapToPrivate<T extends Record<string, Input>> = {
   [K in keyof T]: ToPrivate<T[K]>;
 };
 
-type MapToUserInput<T extends Record<string, Input>> = {
-  [K in keyof T]: ToUserInput<T[K]>;
-};
-
 type MapToDataInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToDataInput<T[K]>;
 };
@@ -535,18 +511,6 @@ type ToPrivate<T extends Input> = T extends CredentialType<
   infer Data
 >
   ? { credential: Credential<Data>; private: Private }
-  : T extends Private<infer Data>
-  ? Data
-  : never;
-
-type ToUserInput<T extends Input> = T extends CredentialType<
-  CredentialId,
-  infer Private,
-  infer Data
->
-  ? { credential: Credential<Data>; private: Private }
-  : T extends Claim<infer Data>
-  ? Data
   : T extends Private<infer Data>
   ? Data
   : never;

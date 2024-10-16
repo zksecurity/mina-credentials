@@ -78,7 +78,7 @@ function createProgram<S extends Spec>(
       return result.verificationKey;
     },
     async run(input) {
-      let { publicInput, privateInput } = splitUserInputs(spec, input);
+      let { publicInput, privateInput } = splitUserInputs(input);
       let result = await program.run(publicInput, privateInput);
       return result as any;
     },

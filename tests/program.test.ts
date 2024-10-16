@@ -43,7 +43,8 @@ test('program with simple spec and signature credential', async (t) => {
     const proof = await program.run({
       context,
       ownerSignature,
-      inputs: { signedData, targetAge: Field(18) },
+      credentials: { signedData },
+      claims: { targetAge: Field(18) },
     });
 
     assert(proof, 'Proof should be generated');
@@ -69,7 +70,8 @@ test('program with simple spec and signature credential', async (t) => {
         await program.run({
           context,
           ownerSignature,
-          inputs: { signedData, targetAge: Field(18) },
+          credentials: { signedData },
+          claims: { targetAge: Field(18) },
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -96,7 +98,8 @@ test('program with simple spec and signature credential', async (t) => {
         await program.run({
           context,
           ownerSignature,
-          inputs: { signedData, targetAge: Field(18) },
+          credentials: { signedData },
+          claims: { targetAge: Field(18) },
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');

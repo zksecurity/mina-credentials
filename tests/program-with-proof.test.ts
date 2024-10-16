@@ -59,7 +59,8 @@ await describe('program with proof credential', async () => {
     const proof = await program.run({
       context,
       ownerSignature,
-      inputs: { provedData, targetAge: Field(18) },
+      credentials: { provedData },
+      claims: { targetAge: Field(18) },
     });
 
     assert(proof, 'Proof should be generated');
@@ -85,7 +86,8 @@ await describe('program with proof credential', async () => {
         await program.run({
           context,
           ownerSignature,
-          inputs: { provedData, targetAge: Field(18) },
+          credentials: { provedData },
+          claims: { targetAge: Field(18) },
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -105,11 +107,12 @@ await describe('program with proof credential', async () => {
 async function createProofCredential(data: {
   age: Field;
   name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['inputs']['provedData']> {
+}): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
   let inputProof = await inputProgram.run({
     context,
     ownerSignature,
-    inputs: { owner, data },
+    claims: { owner },
+    credentials: { data },
   });
   let proof = ProvedData.fromProof(inputProof);
   return {
@@ -121,7 +124,7 @@ async function createProofCredential(data: {
 async function createInvalidProofCredential(data: {
   age: Field;
   name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['inputs']['provedData']> {
+}): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
   let context = Field(0);
   let proof = await ProvedData.dummyProof(
     { context, claims: { owner } },

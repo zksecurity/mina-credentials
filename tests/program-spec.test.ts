@@ -218,15 +218,11 @@ test(' Spec and Node operations', async (t) => {
       context: Field(0),
       // TODO actual owner signature
       ownerSignature: signedData.private.issuerSignature,
-
-      inputs: {
-        signedData,
-        targetAge: Field(30),
-        targetName: Bytes32.fromString('David'),
-      },
+      credentials: { signedData },
+      claims: { targetAge: Field(30), targetName: Bytes32.fromString('David') },
     };
 
-    let { privateInput, publicInput } = splitUserInputs(spec, userInputs);
+    let { privateInput, publicInput } = splitUserInputs(userInputs);
     let root = recombineDataInputs(spec, publicInput, privateInput);
 
     assert.deepStrictEqual(root, {
