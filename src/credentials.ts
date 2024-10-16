@@ -25,12 +25,7 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 
-export {
-  Credential,
-  type CredentialType,
-  type CredentialId,
-  type CredentialFor,
-};
+export { Credential, type CredentialType, type CredentialId };
 
 const Undefined_: ProvablePure<undefined> = Undefined;
 
@@ -57,14 +52,6 @@ type CredentialType<
 };
 
 type Credential<Data> = { owner: PublicKey; data: Data };
-
-type CredentialFor<C extends CredentialType> = C extends CredentialType<
-  CredentialId,
-  any,
-  infer Data
->
-  ? Credential<Data>
-  : never;
 
 function defineCredential<
   Id extends CredentialId,
