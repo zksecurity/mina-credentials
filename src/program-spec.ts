@@ -104,6 +104,7 @@ const Operation = {
   add,
   sub,
   mul,
+  div,
   and,
   or,
   not,
@@ -135,6 +136,7 @@ type Node<Data = any> =
   | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'sub'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'mul'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'div'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
@@ -183,6 +185,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'add':
     case 'sub':
     case 'mul':
+    case 'div':
       return arithmeticOperation(root, node) as Data;
     case 'and': {
       let left = evalNode(root, node.left);
@@ -217,7 +220,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
 function arithmeticOperation(
   root: object,
   node: {
-    type: 'add' | 'sub' | 'mul';
+    type: 'add' | 'sub' | 'mul' | 'div';
     left: Node<NumericType>;
     right: Node<NumericType>;
   }
@@ -234,6 +237,8 @@ function arithmeticOperation(
       return leftConverted.sub(rightConverted as any);
     case 'mul':
       return leftConverted.mul(rightConverted as any);
+    case 'div':
+      return leftConverted.div(rightConverted as any);
   }
 }
 
@@ -318,6 +323,7 @@ function evalNodeType<Data>(
     case 'add':
     case 'sub':
     case 'mul':
+    case 'div':
       return ArithmeticOperationType(rootType, node);
     case 'ifThenElse':
       return Node as any;
@@ -413,6 +419,13 @@ function mul<Data extends NumericType>(
   right: Node<Data>
 ): Node<Data> {
   return { type: 'mul', left, right };
+}
+
+function div<Data extends NumericType>(
+  left: Node<Data>,
+  right: Node<Data>
+): Node<Data> {
+  return { type: 'div', left, right };
 }
 
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
