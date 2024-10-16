@@ -11,6 +11,7 @@ import {
   FeatureFlags,
   Proof,
   provable,
+  Field,
 } from 'o1js';
 import {
   assertPure,
@@ -25,15 +26,27 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 
-export { Credential, type CredentialType, type CredentialId };
+export {
+  Credential,
+  type CredentialType,
+  type CredentialId,
+  type CredentialInputs,
+  verifyCredentials,
+};
 
-const Undefined_: ProvablePure<undefined> = Undefined;
+/**
+ * A credential is a generic piece of data (the "attributes") along with an owner represented by a public key.
+ */
+type Credential<Data> = { owner: PublicKey; data: Data };
 
+/**
+ * The different types of credential we currently support.
+ */
 type CredentialId = 'none' | 'signature-native' | 'proof';
 
 /**
  * A credential type is:
- * - a string fully identifying the credential type
+ * - a string id fully identifying the credential type
  * - a type for private parameters
  * - a type for data (which is left generic when defining credential types)
  * - a function `verify(...)` that asserts the credential is valid
@@ -51,7 +64,33 @@ type CredentialType<
   verify(privateInput: Private, credential: Credential<Data>): void;
 };
 
-type Credential<Data> = { owner: PublicKey; data: Data };
+/**
+ * Inputs to verify credentials inside a presentation proof.
+ */
+type CredentialInputs = {
+  context: Field;
+  ownerSignature: Signature;
+
+  credentials: {
+    credentialType: CredentialType;
+    credential: Credential<any>;
+    privateInput: any;
+  }[];
+};
+
+function verifyCredentials({
+  context,
+  ownerSignature,
+  credentials,
+}: CredentialInputs) {
+  credentials.forEach(({ credentialType, credential, privateInput }) => {
+    credentialType.verify(privateInput, credential);
+  });
+  // TODO derive `credHash` for every credential
+  // TODO derive `issuer` in a credential-specific way, for every credential
+  // TODO if there are any credentials: assert all have the same `owner`
+  // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
+}
 
 function defineCredential<
   Id extends CredentialId,
@@ -87,6 +126,8 @@ function defineCredential<
 }
 
 // dummy credential with no proof attached
+const Undefined_: ProvablePure<undefined> = Undefined;
+
 const None = defineCredential({
   id: 'none',
   private: Undefined_,

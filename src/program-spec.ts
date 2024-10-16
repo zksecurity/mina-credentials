@@ -6,6 +6,7 @@ import {
   Field,
   Provable,
   type ProvablePure,
+  Signature,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -25,6 +26,7 @@ import {
   type CredentialType,
   type CredentialId,
   Credential,
+  type CredentialInputs,
 } from './credentials.ts';
 
 export type { PublicInputs, UserInputs };
@@ -37,7 +39,7 @@ export {
   publicOutputType,
   privateInputTypes,
   splitUserInputs,
-  verifyCredentials,
+  extractCredentialInputs,
   recombineDataInputs,
 };
 
@@ -337,7 +339,7 @@ function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
   return { type: 'and', left, right };
 }
 
-// helpers to extract portions of the spec
+// helpers to extract/recombine portions of the spec inputs
 
 function publicInputTypes<S extends Spec>({
   inputs,
@@ -425,21 +427,31 @@ function splitUserInputs<S extends Spec>(
   return { publicInput, privateInput };
 }
 
-function verifyCredentials<S extends Spec>(
+function extractCredentialInputs<S extends Spec>(
   spec: S,
   publicInputs: Record<string, any>,
   privateInputs: Record<string, any>
-) {
+): CredentialInputs {
+  // TODO take context from public inputs
+  let context = Field(0);
+
+  // TODO take ownerSignature from private inputs
+  let ownerSignature = Signature.empty();
+
+  let credentials: CredentialInputs['credentials'] = [];
+
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      let { credential, private: privateInput } = privateInputs[key];
-      input.verify(privateInput, credential);
+      let value = privateInputs[key];
+      credentials.push({
+        credentialType: input,
+        credential: value.credential,
+        privateInput: value.private,
+      });
     }
   });
-  // TODO derive `credHash` for every credential
-  // TODO derive `issuer` in a credential-specific way, for every credential
-  // TODO if there are any credentials: assert all have the same `owner`
-  // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
+
+  return { context, ownerSignature, credentials };
 }
 
 function recombineDataInputs<S extends Spec>(

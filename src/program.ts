@@ -8,12 +8,13 @@ import {
   recombineDataInputs,
   Spec,
   splitUserInputs,
-  verifyCredentials,
+  extractCredentialInputs,
   type PublicInputs,
   type UserInputs,
 } from './program-spec.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
+import { verifyCredentials } from './credentials.ts';
 
 export { createProgram };
 
@@ -47,7 +48,13 @@ function createProgram<S extends Spec>(
       run: {
         privateInputs: [PrivateInput],
         method(publicInput, privateInput) {
-          verifyCredentials(spec, publicInput, privateInput);
+          let credentials = extractCredentialInputs(
+            spec,
+            publicInput,
+            privateInput
+          );
+          // TODO return issuers from this function and pass it to app logic
+          verifyCredentials(credentials);
 
           let root = recombineDataInputs(spec, publicInput, privateInput);
           let assertion = Node.eval(root, spec.logic.assert);
