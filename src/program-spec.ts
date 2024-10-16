@@ -444,11 +444,11 @@ function hash(inner: Node): Node<Field> {
   return { type: 'hash', inner };
 }
 
-function ifThenElse(
+function ifThenElse<Data>(
   condition: Node<Bool>,
-  thenNode: Node,
-  elseNode: Node
-): Node {
+  thenNode: Node<Data>,
+  elseNode: Node<Data>
+): Node<Data> {
   return { type: 'ifThenElse', condition, thenNode, elseNode };
 }
 
