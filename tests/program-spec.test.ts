@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Bool, Bytes, Field, Poseidon } from 'o1js';
+import { Bool, Bytes, Field, Poseidon, UInt32, UInt64 } from 'o1js';
 import {
   Spec,
   Input,
@@ -285,6 +285,32 @@ test(' Spec and Node operations', async (t) => {
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
+  });
+
+  await t.test('Spec with add UInt32 and UInt64', () => {
+    const spec = Spec(
+      {
+        value1: Input.private(UInt32),
+        value2: Input.private(UInt64),
+        sum: Input.public(UInt64),
+      },
+      ({ value1, value2, sum }) => ({
+        assert: Operation.equals(Operation.add(value1, value2), sum),
+        data: Operation.add(value1, value2),
+      })
+    );
+
+    const root = {
+      value1: UInt32.from(1000000),
+      value2: UInt64.from(1000000),
+      sum: UInt64.from(2000000),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toBoolean(), true);
+    assert.deepStrictEqual(dataResult, UInt64.from(2000000));
   });
 
   await t.test('Spec with ifThenElse operation', () => {

@@ -101,6 +101,7 @@ const Operation = {
   equals,
   lessThan,
   lessThanEq,
+  add,
   and,
   or,
   not,
@@ -127,8 +128,9 @@ type Node<Data = any> =
   | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
   | { type: 'equals'; left: Node; right: Node }
-  | { type: 'lessThan'; left: Node; right: Node }
-  | { type: 'lessThanEq'; left: Node; right: Node }
+  | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
@@ -174,6 +176,9 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'lessThan':
     case 'lessThanEq':
       return compareNodes(root, node, node.type === 'lessThanEq') as Data;
+    case 'add': {
+      return addNodes(root, node) as Data;
+    }
     case 'and': {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
@@ -204,16 +209,34 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
   }
 }
 
+function addNodes(
+  root: object,
+  node: { left: Node<NumericType>; right: Node<NumericType> }
+): NumericType {
+  let left = evalNode(root, node.left);
+  let right = evalNode(root, node.right);
+
+  const [leftConverted, rightConverted] = convertNodes(left, right);
+
+  return leftConverted.add(rightConverted as any);
+}
+
 function compareNodes(
   root: object,
   node: { left: Node<any>; right: Node<any> },
   allowEqual: boolean
 ): Bool {
-  const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
-
   let left = evalNode(root, node.left);
   let right = evalNode(root, node.right);
 
+  const [leftConverted, rightConverted] = convertNodes(left, right);
+
+  return allowEqual
+    ? leftConverted.lessThanOrEqual(rightConverted as any)
+    : leftConverted.lessThan(rightConverted as any);
+}
+
+function convertNodes(left: any, right: any): [NumericType, NumericType] {
   const leftTypeIndex = numericTypeOrder.findIndex(
     (type) => left instanceof type
   );
@@ -221,27 +244,27 @@ function compareNodes(
     (type) => right instanceof type
   );
 
+  const resultType = numericTypeOrder[Math.max(leftTypeIndex, rightTypeIndex)];
+
   const leftConverted =
     leftTypeIndex < rightTypeIndex
-      ? right instanceof Field
+      ? resultType === Field
         ? left.toField()
-        : right instanceof UInt64
+        : resultType === UInt64
         ? left.toUInt64()
         : left.toUInt32()
       : left;
 
   const rightConverted =
     leftTypeIndex > rightTypeIndex
-      ? left instanceof Field
+      ? resultType === Field
         ? right.toField()
-        : left instanceof UInt64
+        : resultType === UInt64
         ? right.toUInt64()
         : right.toUInt32()
       : right;
 
-  return allowEqual
-    ? leftConverted.lessThanOrEqual(rightConverted)
-    : leftConverted.lessThan(rightConverted);
+  return [leftConverted, rightConverted];
 }
 
 function evalNodeType<Data>(
@@ -275,6 +298,17 @@ function evalNodeType<Data>(
     }
     case 'lessThanEq': {
       return Bool as any;
+    }
+    case 'add': {
+      const leftType = evalNodeType(rootType, node.left);
+      const rightType = evalNodeType(rootType, node.right);
+      const leftTypeIndex = numericTypeOrder.findIndex(
+        (type) => leftType === type
+      );
+      const rightTypeIndex = numericTypeOrder.findIndex(
+        (type) => rightType === type
+      );
+      return numericTypeOrder[Math.max(leftTypeIndex, rightTypeIndex)] as any;
     }
     case 'and': {
       return Bool as any;
@@ -335,6 +369,8 @@ function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
 }
 
 type NumericType = Field | UInt64 | UInt32 | UInt8;
+const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
+
 function lessThan<Data extends NumericType>(
   left: Node<Data>,
   right: Node<Data>
@@ -347,6 +383,13 @@ function lessThanEq<Data extends NumericType>(
   right: Node<Data>
 ): Node<Bool> {
   return { type: 'lessThanEq', left, right };
+}
+
+function add<Data extends NumericType>(
+  left: Node<Data>,
+  right: Node<Data>
+): Node<Data> {
+  return { type: 'add', left, right };
 }
 
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
