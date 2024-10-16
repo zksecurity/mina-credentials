@@ -13,6 +13,7 @@ import {
   Field,
   type ProvableHashable,
   Hashed,
+  Poseidon,
 } from 'o1js';
 import {
   assertPure,
@@ -54,6 +55,7 @@ type CredentialId = 'none' | 'signature-native' | 'proof';
  * - a type for private parameters
  * - a type for data (which is left generic when defining credential types)
  * - a function `verify(...)` that asserts the credential is valid
+ * - a function `issuer(...)` that derives a commitment to the "issuer" of the credential, e.g. a public key for signed credentials
  */
 type CredentialType<
   Id extends CredentialId = CredentialId,
@@ -66,6 +68,8 @@ type CredentialType<
   data: NestedProvablePureFor<Data>;
 
   verify(privateInput: Private, credHash: Hashed<Credential<Data>>): void;
+
+  issuer(privateInput: Private): Field;
 };
 
 /**
@@ -82,15 +86,19 @@ type CredentialInputs = {
   }[];
 };
 
+type CredentialWithIssuer = {
+  credential: Credential<any>;
+  issuer: Field;
+};
+
 function verifyCredentials({
   context,
   ownerSignature,
   credentials,
-}: CredentialInputs) {
+}: CredentialInputs): CredentialWithIssuer[] {
   // pack credentials in hashes
-  let credHashes: Hashed<Credential<any>>[] = credentials.map(
-    ({ credentialType: { data }, credential }) =>
-      HashedCredential(data).hash(credential)
+  let credHashes = credentials.map(({ credentialType: { data }, credential }) =>
+    HashedCredential(data).hash(credential)
   );
 
   // verify each credential using its own verification method
@@ -100,9 +108,19 @@ function verifyCredentials({
     }
   );
 
-  // TODO derive `issuer` in a credential-specific way, for every credential
+  // TODO would be nice to make this a `Hashed<Issuer>` over a more informative `Issuer` type, for easier use in the app circuit
+  let issuers = credentials.map(({ credentialType, privateInput }) =>
+    credentialType.issuer(privateInput)
+  );
+
   // TODO if there are any credentials: assert all have the same `owner`
   // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
+
+  // return credential-issuer pairs
+  return zip(credentials, issuers).map(([{ credential }, issuer]) => ({
+    credential,
+    issuer,
+  }));
 }
 
 function defineCredential<
@@ -116,6 +134,8 @@ function defineCredential<
     privateInput: InferNestedProvable<PrivateType>,
     credHash: Hashed<Credential<Data>>
   ): void;
+
+  issuer(privateInput: InferNestedProvable<PrivateType>): Field;
 }) {
   return function credential<DataType extends NestedProvablePure>(
     dataType: DataType
@@ -130,18 +150,22 @@ function defineCredential<
       private: config.private as any,
       data: dataType as any,
       verify: config.verify,
+      issuer: config.issuer,
     };
   };
 }
 
 // dummy credential with no proof attached
-const Undefined_: ProvablePure<undefined> = Undefined;
-
 const None = defineCredential({
   id: 'none',
-  private: Undefined_,
-  verify() {
-    // do nothing
+  private: Undefined,
+
+  // do nothing
+  verify() {},
+
+  // dummy issuer
+  issuer() {
+    return Field(0);
   },
 });
 
@@ -158,9 +182,16 @@ const Signed = defineCredential({
     let ok = issuerSignature.verify(issuerPublicKey, [credHash.hash]);
     assert(ok, 'Invalid signature');
   },
+
+  // issuer == issuer public key
+  issuer({ issuerPublicKey }) {
+    return Poseidon.hashWithPrefix(
+      'mina-cred:v0:simple',
+      issuerPublicKey.toFields()
+    );
+  },
 });
 
-// TODO include hash of public inputs of the inner proof
 function Proved<
   DataType extends NestedProvablePure,
   InputType extends ProvablePureType,
@@ -186,10 +217,22 @@ function Proved<
     private: { vk: VerificationKey, proof: Proof },
     data: NestedProvable.get(data),
 
+    // verify the proof, check that its public output is exactly the credential
     verify({ vk, proof }, credHash) {
       proof.verify(vk);
       let credential = credHash.unhash();
       Provable.assertEqual(credentialType, proof.publicOutput, credential);
+    },
+
+    // issuer == hash of vk and public input
+    issuer({ vk, proof }) {
+      let credIdent = Poseidon.hash(
+        Proof.publicInputType.toFields(proof.publicInput)
+      );
+      return Poseidon.hashWithPrefix('mina-cred:v0:recursive', [
+        vk.hash,
+        credIdent,
+      ]);
     },
   };
 }
