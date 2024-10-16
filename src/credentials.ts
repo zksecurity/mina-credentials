@@ -14,6 +14,7 @@ import {
   type ProvableHashable,
   Hashed,
   Poseidon,
+  PrivateKey,
 } from 'o1js';
 import {
   assertPure,
@@ -35,6 +36,7 @@ export {
   type CredentialId,
   type CredentialInputs,
   verifyCredentials,
+  signCredential,
 };
 
 export { HashedCredential };
@@ -127,7 +129,11 @@ function verifyCredentials({
     credential.owner.assertEquals(owner);
   });
 
-  // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
+  // verify the owner signature
+  if (owner !== undefined) {
+    let hashes = credHashes.map((c) => c.hash);
+    ownerSignature.verify(owner, [context, ...zip(hashes, issuers).flat()]);
+  }
 
   return {
     owner: owner ?? PublicKey.empty(), // use a (0,0) public key in case there are no credentials
@@ -138,6 +144,22 @@ function verifyCredentials({
       issuer,
     })),
   };
+}
+
+// TODO support many credentials
+function signCredential<Private, Data>(
+  ownerKey: PrivateKey,
+  inputs: {
+    credentialType: CredentialType<any, Private, Data>;
+    context: Field;
+    credential: Credential<Data>;
+    privateInput: Private;
+  }
+) {
+  let { credentialType, context, credential, privateInput } = inputs;
+  let credHash = HashedCredential(credentialType.data).hash(credential);
+  let issuer = credentialType.issuer(privateInput);
+  return Signature.create(ownerKey, [context, credHash.hash, issuer]);
 }
 
 function defineCredential<

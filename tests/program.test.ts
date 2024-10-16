@@ -1,22 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, Signature } from 'o1js';
+import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Input, Operation, Spec } from '../src/program-spec.ts';
-import { createSignatureCredential } from './test-utils.ts';
+import {
+  createOwnerSignature,
+  createSignatureCredential,
+} from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
 
 // TODO
 let context = Field(0);
-let ownerSignature = Signature.empty();
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
   const InputData = { age: Field, name: Bytes32 };
+  const SignedData = Credential.signatureNative(InputData);
 
   const spec = Spec(
     {
-      signedData: Credential.signatureNative(InputData),
+      signedData: SignedData,
       targetAge: Input.claim(Field),
       targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
     },
@@ -39,6 +42,10 @@ test('program with simple spec and signature credential', async (t) => {
   await t.test('run program with valid input', async () => {
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
     let signedData = createSignatureCredential(InputData, data);
+    let ownerSignature = createOwnerSignature(context, [
+      SignedData,
+      signedData,
+    ]);
 
     const proof = await program.run({
       context,
@@ -64,6 +71,10 @@ test('program with simple spec and signature credential', async (t) => {
   await t.test('run program with invalid age input', async () => {
     const data = { age: Field(20), name: Bytes32.fromString('Alice') };
     const signedData = createSignatureCredential(InputData, data);
+    let ownerSignature = createOwnerSignature(context, [
+      SignedData,
+      signedData,
+    ]);
 
     await assert.rejects(
       async () =>
@@ -92,6 +103,10 @@ test('program with simple spec and signature credential', async (t) => {
   await t.test('run program with invalid name input', async () => {
     const data = { age: Field(18), name: Bytes32.fromString('Bob') };
     const signedData = createSignatureCredential(InputData, data);
+    let ownerSignature = createOwnerSignature(context, [
+      SignedData,
+      signedData,
+    ]);
 
     await assert.rejects(
       async () =>
