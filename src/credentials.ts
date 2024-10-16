@@ -10,8 +10,9 @@ import {
   type InferProvable,
   FeatureFlags,
   Proof,
-  provable,
   Field,
+  type ProvableHashable,
+  Hashed,
 } from 'o1js';
 import {
   assertPure,
@@ -25,6 +26,7 @@ import {
   type NestedProvablePure,
   type NestedProvablePureFor,
 } from './nested.ts';
+import { zip } from './util.ts';
 
 export {
   Credential,
@@ -33,6 +35,8 @@ export {
   type CredentialInputs,
   verifyCredentials,
 };
+
+export { HashedCredential };
 
 /**
  * A credential is a generic piece of data (the "attributes") along with an owner represented by a public key.
@@ -61,7 +65,7 @@ type CredentialType<
   private: NestedProvableFor<Private>;
   data: NestedProvablePureFor<Data>;
 
-  verify(privateInput: Private, credential: Credential<Data>): void;
+  verify(privateInput: Private, credHash: Hashed<Credential<Data>>): void;
 };
 
 /**
@@ -83,10 +87,19 @@ function verifyCredentials({
   ownerSignature,
   credentials,
 }: CredentialInputs) {
-  credentials.forEach(({ credentialType, credential, privateInput }) => {
-    credentialType.verify(privateInput, credential);
-  });
-  // TODO derive `credHash` for every credential
+  // pack credentials in hashes
+  let credHashes: Hashed<Credential<any>>[] = credentials.map(
+    ({ credentialType: { data }, credential }) =>
+      HashedCredential(data).hash(credential)
+  );
+
+  // verify each credential using its own verification method
+  zip(credentials, credHashes).forEach(
+    ([{ credentialType, privateInput }, credHash]) => {
+      credentialType.verify(privateInput, credHash);
+    }
+  );
+
   // TODO derive `issuer` in a credential-specific way, for every credential
   // TODO if there are any credentials: assert all have the same `owner`
   // TODO if there are any credentials: use `context` from public inputs and `ownerSignature` from private inputs to verify owner signature
@@ -99,10 +112,9 @@ function defineCredential<
   id: Id;
   private: PrivateType;
 
-  verify<DataType extends NestedProvablePure>(
+  verify<Data>(
     privateInput: InferNestedProvable<PrivateType>,
-    Credential: { owner: typeof PublicKey; data: DataType },
-    credential: Credential<InferNestedProvable<DataType>>
+    credHash: Hashed<Credential<Data>>
   ): void;
 }) {
   return function credential<DataType extends NestedProvablePure>(
@@ -112,15 +124,12 @@ function defineCredential<
     InferNestedProvable<PrivateType>,
     InferNestedProvable<DataType>
   > {
-    const credentialType = Credential.withOwner(dataType);
     return {
       type: 'credential',
       id: config.id,
       private: config.private as any,
       data: dataType as any,
-      verify(privateInput, credential) {
-        return config.verify(privateInput, credentialType, credential);
-      },
+      verify: config.verify,
     };
   };
 }
@@ -145,11 +154,8 @@ const Signed = defineCredential({
   },
 
   // verify the signature
-  verify({ issuerPublicKey, issuerSignature }, Credential, credential) {
-    let ok = issuerSignature.verify(
-      issuerPublicKey,
-      NestedProvable.get(Credential).toFields(credential)
-    );
+  verify({ issuerPublicKey, issuerSignature }, credHash) {
+    let ok = issuerSignature.verify(issuerPublicKey, [credHash.hash]);
     assert(ok, 'Invalid signature');
   },
 });
@@ -171,16 +177,18 @@ function Proved<
   },
   Data
 > {
-  let type = NestedProvable.get(dataType as NestedProvablePureFor<Data>);
-  const credentialType = provable(Credential.withOwner(type));
+  // TODO annoying that this cast doesn't work without overriding the type
+  let data: NestedProvablePureFor<Data> = dataType as any;
+  const credentialType = HashableCredential(data);
   return {
     type: 'credential',
     id: 'proof',
     private: { vk: VerificationKey, proof: Proof },
-    data: type,
+    data: NestedProvable.get(data),
 
-    verify({ vk, proof }, credential) {
+    verify({ vk, proof }, credHash) {
       proof.verify(vk);
+      let credential = credHash.unhash();
       Provable.assertEqual(credentialType, proof.publicOutput, credential);
     },
   };
@@ -247,8 +255,22 @@ const Credential = {
   proofFromProgram: ProvedFromProgram,
   signatureNative: Signed,
 
-  // get the nested type for a credential
+  // type layout of a credential
   withOwner<DataType extends NestedProvable>(data: DataType) {
     return { owner: PublicKey, data };
   },
 };
+
+// helpers to create derived types
+
+function HashableCredential<Data>(
+  dataType: NestedProvableFor<Data>
+): ProvableHashable<Credential<Data>> {
+  return NestedProvable.get(Credential.withOwner(dataType)) as any;
+}
+
+function HashedCredential<Data>(
+  dataType: NestedProvableFor<Data>
+): typeof Hashed<Credential<Data>> {
+  return Hashed.create(HashableCredential(dataType));
+}
