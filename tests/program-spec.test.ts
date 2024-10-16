@@ -215,9 +215,15 @@ test(' Spec and Node operations', async (t) => {
     const signedData = createSignatureCredential(InputData, data);
 
     let userInputs: UserInputs<typeof spec.inputs> = {
-      signedData,
-      targetAge: Field(30),
-      targetName: Bytes32.fromString('David'),
+      context: Field(0),
+      // TODO actual owner signature
+      ownerSignature: signedData.private.issuerSignature,
+
+      inputs: {
+        signedData,
+        targetAge: Field(30),
+        targetName: Bytes32.fromString('David'),
+      },
     };
 
     let { privateInput, publicInput } = splitUserInputs(spec, userInputs);

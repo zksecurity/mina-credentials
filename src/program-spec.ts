@@ -403,23 +403,24 @@ function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
 
 function splitUserInputs<S extends Spec>(
   spec: S,
-  userInputs: Record<string, any>
+  userInputs: UserInputs<any>
 ): {
   publicInput: PublicInputs<S['inputs']>;
   privateInput: PrivateInputs<S['inputs']>;
 };
 function splitUserInputs<S extends Spec>(
   spec: S,
-  userInputs: Record<string, any>
+  { context, ownerSignature, inputs: userInputs }: UserInputs<any>
 ) {
   let claims: Record<string, any> = {};
   let privateCredentialInputs: Record<string, any> = {};
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
+    let userInput: any = userInputs[key];
     if (input.type === 'credential') {
       privateCredentialInputs[key] = {
-        credential: userInputs[key].credential,
-        private: userInputs[key].private,
+        credential: userInput.credential,
+        private: userInput.private,
       };
     }
     if (input.type === 'claim') {
@@ -432,12 +433,6 @@ function splitUserInputs<S extends Spec>(
       // do nothing
     }
   });
-
-  // TODO take context from user inputs
-  let context = Field(0);
-
-  // TODO take ownerSignature from user inputs
-  let ownerSignature = Signature.empty();
 
   return {
     publicInput: { context, claims },
@@ -505,10 +500,11 @@ type PrivateInputs<Inputs extends Record<string, Input>> = {
   privateCredentialInputs: ExcludeFromRecord<MapToPrivate<Inputs>, never>;
 };
 
-type UserInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
-  MapToUserInput<Inputs>,
-  never
->;
+type UserInputs<Inputs extends Record<string, Input>> = {
+  context: Field;
+  ownerSignature: Signature;
+  inputs: ExcludeFromRecord<MapToUserInput<Inputs>, never>;
+};
 
 type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   MapToDataInput<Inputs>,

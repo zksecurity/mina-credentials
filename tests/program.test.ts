@@ -1,10 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes } from 'o1js';
+import { Field, Bytes, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Input, Operation, Spec } from '../src/program-spec.ts';
 import { createSignatureCredential } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
+
+// TODO
+let context = Field(0);
+let ownerSignature = Signature.empty();
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
@@ -36,7 +40,11 @@ test('program with simple spec and signature credential', async (t) => {
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
     let signedData = createSignatureCredential(InputData, data);
 
-    const proof = await program.run({ signedData, targetAge: Field(18) });
+    const proof = await program.run({
+      context,
+      ownerSignature,
+      inputs: { signedData, targetAge: Field(18) },
+    });
 
     assert(proof, 'Proof should be generated');
 
@@ -57,7 +65,12 @@ test('program with simple spec and signature credential', async (t) => {
     const signedData = createSignatureCredential(InputData, data);
 
     await assert.rejects(
-      async () => await program.run({ signedData, targetAge: Field(18) }),
+      async () =>
+        await program.run({
+          context,
+          ownerSignature,
+          inputs: { signedData, targetAge: Field(18) },
+        }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
         assert(
@@ -79,7 +92,12 @@ test('program with simple spec and signature credential', async (t) => {
     const signedData = createSignatureCredential(InputData, data);
 
     await assert.rejects(
-      async () => await program.run({ signedData, targetAge: Field(18) }),
+      async () =>
+        await program.run({
+          context,
+          ownerSignature,
+          inputs: { signedData, targetAge: Field(18) },
+        }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
         assert(

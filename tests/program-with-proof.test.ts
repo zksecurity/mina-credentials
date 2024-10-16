@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, PublicKey } from 'o1js';
+import { Field, Bytes, PublicKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
   Input,
@@ -13,6 +13,10 @@ import { owner } from './test-utils.ts';
 
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
+
+// TODO
+let context = Field(0);
+let ownerSignature = Signature.empty();
 
 // simple spec to create a proof credential that's used recursively
 const inputProofSpec = Spec(
@@ -52,7 +56,11 @@ await describe('program with proof credential', async () => {
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
     let provedData = await createProofCredential(data);
 
-    const proof = await program.run({ provedData, targetAge: Field(18) });
+    const proof = await program.run({
+      context,
+      ownerSignature,
+      inputs: { provedData, targetAge: Field(18) },
+    });
 
     assert(proof, 'Proof should be generated');
 
@@ -73,7 +81,12 @@ await describe('program with proof credential', async () => {
     let provedData = await createInvalidProofCredential(data);
 
     await assert.rejects(
-      async () => await program.run({ provedData, targetAge: Field(18) }),
+      async () =>
+        await program.run({
+          context,
+          ownerSignature,
+          inputs: { provedData, targetAge: Field(18) },
+        }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
         assert(
@@ -92,8 +105,12 @@ await describe('program with proof credential', async () => {
 async function createProofCredential(data: {
   age: Field;
   name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let inputProof = await inputProgram.run({ owner, data });
+}): Promise<UserInputs<typeof spec.inputs>['inputs']['provedData']> {
+  let inputProof = await inputProgram.run({
+    context,
+    ownerSignature,
+    inputs: { owner, data },
+  });
   let proof = ProvedData.fromProof(inputProof);
   return {
     credential: inputProof.publicOutput,
@@ -104,7 +121,7 @@ async function createProofCredential(data: {
 async function createInvalidProofCredential(data: {
   age: Field;
   name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['provedData']> {
+}): Promise<UserInputs<typeof spec.inputs>['inputs']['provedData']> {
   let context = Field(0);
   let proof = await ProvedData.dummyProof(
     { context, claims: { owner } },
