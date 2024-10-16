@@ -105,6 +105,7 @@ const Operation = {
   or,
   not,
   hash,
+  ifThenElse,
 };
 
 type Constant<Data> = {
@@ -131,7 +132,13 @@ type Node<Data = any> =
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
-  | { type: 'hash'; inner: Node };
+  | { type: 'hash'; inner: Node }
+  | {
+      type: 'ifThenElse';
+      condition: Node<Bool>;
+      thenNode: Node;
+      elseNode: Node;
+    };
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
@@ -186,6 +193,13 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let innerFields = inner.toFields();
       let hash = Poseidon.hash(innerFields);
       return hash as Data;
+    }
+    case 'ifThenElse': {
+      let condition = evalNode(root, node.condition);
+      let thenNode = evalNode(root, node.thenNode);
+      let elseNode = evalNode(root, node.elseNode);
+      let result = Provable.if(condition, thenNode, elseNode);
+      return result as Data;
     }
   }
 }
@@ -274,6 +288,9 @@ function evalNodeType<Data>(
     case 'hash': {
       return Field as any;
     }
+    case 'ifThenElse': {
+      return Node as any;
+    }
   }
 }
 
@@ -346,6 +363,14 @@ function not(inner: Node<Bool>): Node<Bool> {
 
 function hash(inner: Node): Node<Field> {
   return { type: 'hash', inner };
+}
+
+function ifThenElse(
+  condition: Node<Bool>,
+  thenNode: Node,
+  elseNode: Node
+): Node {
+  return { type: 'ifThenElse', condition, thenNode, elseNode };
 }
 
 function publicInputTypes<S extends Spec>({

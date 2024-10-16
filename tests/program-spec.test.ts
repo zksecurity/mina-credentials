@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Bytes, Field, Poseidon } from 'o1js';
+import { Bool, Bytes, Field, Poseidon } from 'o1js';
 import {
   Spec,
   Input,
@@ -285,6 +285,178 @@ test(' Spec and Node operations', async (t) => {
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
+  });
+
+  await t.test('Spec with ifThenElse operation', () => {
+    const InputData = { value: Field };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        threshold: Input.public(Field),
+        zero: Input.constant(Field, Field(0)),
+      },
+      ({ data, threshold, zero }) => ({
+        assert: Node.constant(Bool(true)),
+        data: Operation.ifThenElse(
+          Operation.lessThan(Operation.property(data, 'value'), threshold),
+          zero,
+          Operation.property(data, 'value')
+        ),
+      })
+    );
+
+    // value < threshold
+    const root1 = {
+      data: { value: Field(5) },
+      threshold: Field(10),
+      zero: Field(0),
+    };
+
+    const result1 = Node.eval(root1, spec.logic.data);
+    assert.deepStrictEqual(result1, Field(0));
+
+    // value >= threshold
+    const root2 = {
+      data: { value: Field(15) },
+      threshold: Field(10),
+      zero: Field(0),
+    };
+
+    const result2 = Node.eval(root2, spec.logic.data);
+    assert.deepStrictEqual(result2, Field(15));
+  });
+
+  await t.test('Spec with ifThenElse in assert', () => {
+    const InputData = { value: Field };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        threshold: Input.public(Field),
+        lowLimit: Input.constant(Field, Field(10)),
+        highLimit: Input.constant(Field, Field(20)),
+      },
+      ({ data, threshold, lowLimit, highLimit }) => ({
+        assert: Operation.ifThenElse(
+          Operation.lessThan(Operation.property(data, 'value'), threshold),
+          Operation.lessThan(Operation.property(data, 'value'), lowLimit),
+          Operation.not(
+            Operation.lessThan(Operation.property(data, 'value'), highLimit)
+          )
+        ),
+        data: Operation.property(data, 'value'),
+      })
+    );
+
+    // value < threshold and < lowLimit (should pass)
+    const root1 = {
+      data: { value: Field(5) },
+      threshold: Field(15),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult1 = Node.eval(root1, spec.logic.assert);
+    assert.strictEqual(assertResult1.toBoolean(), true);
+
+    // value >= threshold and >= highLimit (should pass)
+    const root2 = {
+      data: { value: Field(25) },
+      threshold: Field(15),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult2 = Node.eval(root2, spec.logic.assert);
+    assert.strictEqual(assertResult2.toBoolean(), true);
+
+    // lowLimit <= value < threshold (should fail)
+    const root3 = {
+      data: { value: Field(12) },
+      threshold: Field(15),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult3 = Node.eval(root3, spec.logic.assert);
+    assert.strictEqual(assertResult3.toBoolean(), false);
+
+    // threshold <= value < highLimit (should fail)
+    const root4 = {
+      data: { value: Field(18) },
+      threshold: Field(15),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult4 = Node.eval(root4, spec.logic.assert);
+    assert.strictEqual(assertResult4.toBoolean(), false);
+  });
+
+  await t.test('Spec with ifThenElse as part of a complex assert', () => {
+    const InputData = { value: Field };
+    const spec = Spec(
+      {
+        data: Input.private(InputData),
+        threshold: Input.public(Field),
+        lowLimit: Input.constant(Field, Field(10)),
+        highLimit: Input.constant(Field, Field(20)),
+      },
+      ({ data, threshold, lowLimit, highLimit }) => ({
+        assert: Operation.and(
+          Operation.lessThan(lowLimit, Operation.property(data, 'value')),
+          Operation.ifThenElse(
+            Operation.lessThan(Operation.property(data, 'value'), threshold),
+            Operation.lessThan(Operation.property(data, 'value'), highLimit),
+            Operation.equals(Operation.property(data, 'value'), highLimit)
+          )
+        ),
+        data: Operation.property(data, 'value'),
+      })
+    );
+
+    // 10 < value < threshold < highLimit (should pass)
+    const root1 = {
+      data: { value: Field(15) },
+      threshold: Field(18),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult1 = Node.eval(root1, spec.logic.assert);
+    assert.strictEqual(assertResult1.toBoolean(), true);
+
+    // 10 < threshold <= value = highLimit (should pass)
+    const root2 = {
+      data: { value: Field(20) },
+      threshold: Field(18),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult2 = Node.eval(root2, spec.logic.assert);
+    assert.strictEqual(assertResult2.toBoolean(), true);
+
+    // value <= lowLimit (should fail)
+    const root3 = {
+      data: { value: Field(10) },
+      threshold: Field(18),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult3 = Node.eval(root3, spec.logic.assert);
+    assert.strictEqual(assertResult3.toBoolean(), false);
+
+    // 10 < threshold <= value < highLimit (should fail)
+    const root4 = {
+      data: { value: Field(19) },
+      threshold: Field(18),
+      lowLimit: Field(10),
+      highLimit: Field(20),
+    };
+
+    const assertResult4 = Node.eval(root4, spec.logic.assert);
+    assert.strictEqual(assertResult4.toBoolean(), false);
   });
 
   await t.test('Spec with nested properties', () => {
