@@ -360,7 +360,7 @@ function privateInputTypes<S extends Spec>({
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
       result[key] = {
-        credential: Credential.type(input.data),
+        credential: Credential.withOwner(input.data),
         private: input.private,
       };
     }
@@ -383,7 +383,7 @@ function dataInputTypes<S extends Spec>({ inputs }: S): NestedProvable {
   let result: Record<string, NestedProvable> = {};
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = Credential.type(input.data);
+      result[key] = Credential.withOwner(input.data);
     } else {
       result[key] = input.data;
     }

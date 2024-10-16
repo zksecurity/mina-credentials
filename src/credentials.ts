@@ -86,7 +86,7 @@ function defineCredential<
     InferNestedProvable<PrivateType>,
     InferNestedProvable<DataType>
   > {
-    const credentialType = Credential.type(dataType);
+    const credentialType = Credential.withOwner(dataType);
     return {
       type: 'credential',
       id: config.id,
@@ -144,7 +144,7 @@ function Proved<
   Data
 > {
   let type = NestedProvable.get(dataType as NestedProvablePureFor<Data>);
-  const credentialType = provable(Credential.type(type));
+  const credentialType = provable(Credential.withOwner(type));
   return {
     type: 'credential',
     id: 'proof',
@@ -219,8 +219,8 @@ const Credential = {
   proofFromProgram: ProvedFromProgram,
   signatureNative: Signed,
 
-  // get the credential type for a credential
-  type<DataType extends NestedProvable>(data: DataType) {
+  // get the nested type for a credential
+  withOwner<DataType extends NestedProvable>(data: DataType) {
     return { owner: PublicKey, data };
   },
 };

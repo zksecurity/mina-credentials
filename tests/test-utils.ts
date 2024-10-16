@@ -10,7 +10,7 @@ function createSignatureCredential<Data>(type: NestedProvable, data: Data) {
   let issuer = PrivateKey.randomKeypair();
   let signature = Signature.create(
     issuer.privateKey,
-    NestedProvable.get(Credential.type(type)).toFields({ owner, data })
+    NestedProvable.get(Credential.withOwner(type)).toFields({ owner, data })
   );
   return {
     credential: { owner, data },
