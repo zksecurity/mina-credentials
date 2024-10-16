@@ -16,20 +16,39 @@ inside wallets and other applications for easy identification and selection.
 
 ## Mina Credential
 
-< HOW A MINA CREDENTIAL IS FORMATTED / STORED >
+```javascript
+type credential = {
+  owner: PublicKey,       // the owners public key
+  metaHash: Field,        // hash of arbitrary metadata
+  attributes: Attributes, // struct of hidden attributes (e.g. age, name, SSN)
+}
+```
 
 ```javascript
-credential = {
-  owner: PublicKey,       // the owners public key
-  metahash: Field,        // hash of arbitrary metadata
-  attributes: Attributes, // struct of hidden attributes (e.g. age, name, SSN)
+type Witness =
+  | { type: "simple",
+      issuer: PublicKey,
+      issuerSignature: Signature,
+    }
+  | { type: "recursive",
+      vk: VerificationKey,
+      credIdent: Field,
+      credProof: Proof,
+    }
+```
+
+```javascript
+type storedCredential = {
+  witness: Witness,
+  metadata: Metadata,
+  credential: Credential,
 }
 ```
 
 ## Mina Credential Presentation
 
 ```javascript
-presentation = {
+type presentation = {
   proof: Proof,
   claims: Claims,
 }
@@ -39,12 +58,36 @@ The presentation MUST NOT contain the "context" field, which MUST be recomputed 
 
 ## Mina Credential Metadata
 
-< HOW IS METADATA FORMATTED >
+Metadata is a general key-value map. We standardize a few fields for interoperability across wallets:
+so that e.g. wallet can display an issuer name and icon for any compatible credential.
+Issuers may add their own fields as needed.
+Standardized fields are:
 
+- `credName`: The name of the credential.
+- `issuerName`: The name of the issuer.
+- `description`: A human-readable description of the credential.
+- `icon`: A byte array representing an icon for the credential.
+
+Any standardized fields MAY be omitted, wallets MUST handle the absence of any field gracefully, e.g. with a default icon.
+Wallets MUST NOT make trust decisions based on metadata, in particular,
+wallets MUST NOT verify the issuer based on the `issuerName` field.
+Wallets MAY ignore ANY metadata field.
 
 ```javascript
-metadata = Keccak256.hash(
+type metadata = {
+  credName: String,
+  issuerName: String,
+  description: String,
+  icon: Bytes, // jpg, png, webp, etc.
+  ...
+}
+```
 
+The `metaHash` field of the credential is the hash of the metadata.
+The `metaHash` fiueld MUST be computed using `Keccak256` over the metadata.
+
+```javascript
+metaHash = Keccak256.hash(metadata)
 ```
 
 # Protocols
@@ -54,11 +97,10 @@ metadata = Keccak256.hash(
 Presentation proofs MUST not be reused.
 Presentation proofs MUST be generated for each presentation.
 
-
 ### Public Inputs
 
 ```javascript
-PublicInput {
+type PublicInput = {
   context: Field, // context : specified later
   claims: Claims  // application specific public inputs.
 }
@@ -72,7 +114,7 @@ The circuit verifies two signatures: one from the issuer and one from the owner.
 
 ```javascript
 // the private inputs for the circuit
-PrivateInput {
+type PrivateInput = {
   credential: Credential,
   issuerPk: PublicKey,
   issuerSignature: Signature,
@@ -110,7 +152,7 @@ The circuit verifies a proof "from" the issuing authority and a signature from t
 
 ```javascript
 // the private inputs for the circuit
-PrivateInput {
+type PrivateInput = {
   vk: VerificationKey,
   credIdent: Field,
   credProof: Proof,
@@ -180,16 +222,3 @@ let action = Keccak256.hash(HTTP_REQUEST);
 ```
 
 The scheme MUST be `https`.
-
-# Discussion
-
-Discuss the following with Gregor:
-
-1. Should the `issuer` be a struct instead? (e.g. `Issuer { pk: PublicKey, signature: Signature }`)
-1. What is the standard way to provide domain-specific for signautures in the Mina ecosystem? should we do:
-```
-m = Poseidon.hashWithPrefix("mina-cred:v1:", [credHash, issuer, context]);
-
-signature.verifySignedHashV2(message, m);
-```
-1. Discuss [Nullifiers](https://github.com/o1-labs/o1js/issues/756) in the context of Mina Credentials.
