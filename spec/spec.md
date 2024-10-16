@@ -16,13 +16,17 @@ inside wallets and other applications for easy identification and selection.
 
 ## Mina Credential
 
+A credential is a set of attributes and an owner:
+
 ```javascript
-type credential = {
+type Credential = {
   owner: PublicKey,       // the owners public key
   metaHash: Field,        // hash of arbitrary metadata
   attributes: Attributes, // struct of hidden attributes (e.g. age, name, SSN)
 }
 ```
+
+Is is stored along with metadata and the version of the credential:
 
 ```javascript
 type Witness =
@@ -38,47 +42,55 @@ type Witness =
 ```
 
 ```javascript
-type storedCredential = {
+type StoredCredential = {
+  version: "v0",
   witness: Witness,
   metadata: Metadata,
   credential: Credential,
 }
 ```
 
+Wallets MUST import/export credentials in this format, but MAY store them in any format internally.
+Wallets MUST validate the credential before importing it, we describe the validation procedure in this document.
+Note: validating a credential does not require access to the owner's private key.
+
 ## Mina Credential Presentation
 
+The presentation proof is encoded as follows:
+
 ```javascript
-type presentation = {
+type Presentation = {
+  version: "v0",
   proof: Proof,
   claims: Claims,
 }
 ```
 
-The presentation MUST NOT contain the "context" field, which MUST be recomputed by the verifier.
-
 ## Mina Credential Metadata
 
 Metadata is a general key-value map. We standardize a few fields for interoperability across wallets:
 so that e.g. wallet can display an issuer name and icon for any compatible credential.
-Issuers may add their own fields as needed.
+Issuers may add their own fields as needed, such custom fields MUST NOT use the `mina` prefix.
+
 Standardized fields are:
 
-- `credName`: The name of the credential.
-- `issuerName`: The name of the issuer.
-- `description`: A human-readable description of the credential.
-- `icon`: A byte array representing an icon for the credential.
+- `minaCredName`: The name of the credential: utf-8 encoded string.
+- `minaIssuerName`: The name of the issuer: utf-8 encoded string.
+- `minaDescription`: A human-readable description of the credential: utf-8 encoded string.
+- `minaIcon`: A byte array representing an icon for the credential.
 
-Any standardized fields MAY be omitted, wallets MUST handle the absence of any field gracefully, e.g. with a default icon.
+Any fields (inlcuding the standardized ones) MAY be omitted,
+wallets MUST handle the absence of any field gracefully, e.g. with a default icon.
 Wallets MUST NOT make trust decisions based on metadata, in particular,
-wallets MUST NOT verify the issuer based on the `issuerName` field.
+wallets MUST NOT verify the issuer based on the `minaIssuerName` field.
 Wallets MAY ignore ANY metadata field.
 
 ```javascript
-type metadata = {
-  credName: String,
-  issuerName: String,
-  description: String,
-  icon: Bytes, // jpg, png, webp, etc.
+type Metadata = {
+  minaCredName: String,
+  minaIssuerName: String,
+  minaDescription: String,
+  minaIcon: Uint8Array, // svg, jpg, png, webp, etc.
   ...
 }
 ```
@@ -96,6 +108,8 @@ metaHash = Keccak256.hash(metadata)
 
 Presentation proofs MUST not be reused.
 Presentation proofs MUST be generated for each presentation.
+The presentation MUST NOT contain the "context" field, which MUST be recomputed by the verifier.
+The presentation MUST NOT include the `metadata` of the credential.
 
 ### Public Inputs
 
