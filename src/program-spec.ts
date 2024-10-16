@@ -102,6 +102,7 @@ const Operation = {
   lessThan,
   lessThanEq,
   add,
+  sub,
   mul,
   and,
   or,
@@ -132,6 +133,7 @@ type Node<Data = any> =
   | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'sub'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'mul'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
@@ -178,12 +180,10 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'lessThan':
     case 'lessThanEq':
       return compareNodes(root, node, node.type === 'lessThanEq') as Data;
-    case 'add': {
-      return addNodes(root, node) as Data;
-    }
-    case 'mul': {
-      return mulNodes(root, node) as Data;
-    }
+    case 'add':
+    case 'sub':
+    case 'mul':
+      return arithmeticOperation(root, node) as Data;
     case 'and': {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
@@ -214,28 +214,27 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
   }
 }
 
-function addNodes(
+function arithmeticOperation(
   root: object,
-  node: { left: Node<NumericType>; right: Node<NumericType> }
+  node: {
+    type: 'add' | 'sub' | 'mul';
+    left: Node<NumericType>;
+    right: Node<NumericType>;
+  }
 ): NumericType {
   let left = evalNode(root, node.left);
   let right = evalNode(root, node.right);
 
   const [leftConverted, rightConverted] = convertNodes(left, right);
 
-  return leftConverted.add(rightConverted as any);
-}
-
-function mulNodes(
-  root: object,
-  node: { left: Node<NumericType>; right: Node<NumericType> }
-): NumericType {
-  let left = evalNode(root, node.left);
-  let right = evalNode(root, node.right);
-
-  const [leftConverted, rightConverted] = convertNodes(left, right);
-
-  return leftConverted.mul(rightConverted as any);
+  switch (node.type) {
+    case 'add':
+      return leftConverted.add(rightConverted as any);
+    case 'sub':
+      return leftConverted.sub(rightConverted as any);
+    case 'mul':
+      return leftConverted.mul(rightConverted as any);
+  }
 }
 
 function compareNodes(
@@ -317,6 +316,7 @@ function evalNodeType<Data>(
     case 'hash':
       return Field as any;
     case 'add':
+    case 'sub':
     case 'mul':
       return ArithmeticOperationType(rootType, node);
     case 'ifThenElse':
@@ -399,6 +399,13 @@ function add<Data extends NumericType>(
   right: Node<Data>
 ): Node<Data> {
   return { type: 'add', left, right };
+}
+
+function sub<Data extends NumericType>(
+  left: Node<Data>,
+  right: Node<Data>
+): Node<Data> {
+  return { type: 'sub', left, right };
 }
 
 function mul<Data extends NumericType>(

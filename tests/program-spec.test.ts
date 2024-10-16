@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Bool, Bytes, Field, Poseidon, UInt32, UInt64 } from 'o1js';
+import { Bool, Bytes, Field, Poseidon, UInt32, UInt64, UInt8 } from 'o1js';
 import {
   Spec,
   Input,
@@ -311,6 +311,32 @@ test(' Spec and Node operations', async (t) => {
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, UInt64.from(2000000));
+  });
+
+  await t.test('Spec with sub UInt32 and UInt8', () => {
+    const spec = Spec(
+      {
+        value1: Input.private(UInt32),
+        value2: Input.private(UInt8),
+        difference: Input.public(UInt32),
+      },
+      ({ value1, value2, difference }) => ({
+        assert: Operation.equals(Operation.sub(value1, value2), difference),
+        data: Operation.sub(value1, value2),
+      })
+    );
+
+    const root = {
+      value1: UInt32.from(1000),
+      value2: UInt8.from(200),
+      difference: UInt32.from(800),
+    };
+
+    const assertResult = Node.eval(root, spec.logic.assert);
+    const dataResult = Node.eval(root, spec.logic.data);
+
+    assert.strictEqual(assertResult.toBoolean(), true);
+    assert.deepStrictEqual(dataResult, UInt32.from(800));
   });
 
   await t.test('Spec with mul UInt32 and UInt64', () => {
