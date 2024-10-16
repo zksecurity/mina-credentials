@@ -20,7 +20,7 @@ let ownerSignature = Signature.empty();
 
 // simple spec to create a proof credential that's used recursively
 const inputProofSpec = Spec(
-  { owner: Input.claim(PublicKey), data: Input.private(InputData) },
+  { owner: Input.claim(PublicKey), data: Input.claim(InputData) },
   ({ owner, data }) => ({
     data: Operation.record({ owner, data }),
   })
@@ -111,8 +111,8 @@ async function createProofCredential(data: {
   let inputProof = await inputProgram.run({
     context,
     ownerSignature,
-    claims: { owner },
-    credentials: { data },
+    claims: { owner, data },
+    credentials: {},
   });
   let proof = ProvedData.fromProof(inputProof);
   return {
@@ -127,7 +127,7 @@ async function createInvalidProofCredential(data: {
 }): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
   let context = Field(0);
   let proof = await ProvedData.dummyProof(
-    { context, claims: { owner } },
+    { context, claims: { owner, data } },
     { owner, data }
   );
   return {

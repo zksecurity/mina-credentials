@@ -10,6 +10,7 @@ import {
   PublicKey,
   Signature,
   Provable,
+  Undefined,
 } from 'o1js';
 
 // Supported o1js base types
@@ -21,6 +22,7 @@ const O1jsType = {
   UInt64: 'UInt64',
   PublicKey: 'PublicKey',
   Signature: 'Signature',
+  Undefined: 'Undefined',
 } as const;
 
 type O1jsTypeName = (typeof O1jsType)[keyof typeof O1jsType];
@@ -33,6 +35,7 @@ const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
   [O1jsType.UInt64]: UInt64,
   [O1jsType.PublicKey]: PublicKey,
   [O1jsType.Signature]: Signature,
+  [O1jsType.Undefined]: Undefined,
 };
 
 let mapProvableTypeToName = new Map<ProvableType<any>, string>();
@@ -104,12 +107,6 @@ function serializeInput(input: Input): any {
       case 'claim': {
         return {
           type: 'public',
-          data: serializeNestedProvable(input.data),
-        };
-      }
-      case 'private': {
-        return {
-          type: 'private',
           data: serializeNestedProvable(input.data),
         };
       }

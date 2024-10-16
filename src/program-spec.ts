@@ -29,7 +29,7 @@ import {
   type CredentialInputs,
 } from './credentials.ts';
 
-export type { PublicInputs, UserInputs };
+export type { PublicInputs, UserInputs, DataInputs };
 export {
   Spec,
   Node,
@@ -101,11 +101,7 @@ function Spec<Data, Inputs extends Record<string, Input>>(
   return { inputs, logic: { assert, data } };
 }
 
-const Input = {
-  claim,
-  private: privateParameter,
-  constant,
-};
+const Input = { claim, constant };
 
 const Operation = {
   property,
@@ -122,13 +118,11 @@ type Constant<Data> = {
   value: Data;
 };
 type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
-type Private<Data> = { type: 'private'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
   | CredentialType<CredentialId, any, Data>
   | Constant<Data>
-  | Claim<Data>
-  | Private<Data>;
+  | Claim<Data>;
 
 type Node<Data = any> =
   | { type: 'constant'; data: Data }
@@ -286,12 +280,6 @@ function claim<DataType extends NestedProvablePure>(
   return { type: 'claim', data: data as any };
 }
 
-function privateParameter<DataType extends NestedProvable>(
-  data: DataType
-): Private<InferNestedProvable<DataType>> {
-  return { type: 'private', data: data as any };
-}
-
 // Node constructors
 
 function root<Inputs extends Record<string, Input>>(
@@ -362,22 +350,19 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
   ownerSignature: Signature;
   privateCredentialInputs: Record<string, any>;
 }> {
-  let result: Record<string, NestedProvable> = {};
+  let credentials: Record<string, NestedProvable> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = {
+      credentials[key] = {
         credential: Credential.withOwner(input.data),
         private: input.private,
       };
     }
-    if (input.type === 'private') {
-      result[key] = input.data;
-    }
   });
   return {
     ownerSignature: Signature,
-    privateCredentialInputs: result,
+    privateCredentialInputs: credentials,
   };
 }
 
@@ -459,9 +444,6 @@ function recombineDataInputs<S extends Spec>(
     if (input.type === 'claim') {
       result[key] = claims[key];
     }
-    if (input.type === 'private') {
-      result[key] = privateCredentialInputs[key];
-    }
     if (input.type === 'constant') {
       result[key] = input.value;
     }
@@ -471,19 +453,19 @@ function recombineDataInputs<S extends Spec>(
 
 type PublicInputs<Inputs extends Record<string, Input>> = {
   context: Field;
-  claims: ExcludeFromRecord<MapToClaim<Inputs>, never>;
+  claims: ExcludeFromRecord<MapToClaims<Inputs>, never>;
 };
 
 type PrivateInputs<Inputs extends Record<string, Input>> = {
   ownerSignature: Signature;
-  privateCredentialInputs: ExcludeFromRecord<MapToPrivate<Inputs>, never>;
+  privateCredentialInputs: ExcludeFromRecord<MapToCredentials<Inputs>, never>;
 };
 
 type UserInputs<Inputs extends Record<string, Input>> = {
   context: Field;
   ownerSignature: Signature;
-  claims: ExcludeFromRecord<MapToClaim<Inputs>, never>;
-  credentials: ExcludeFromRecord<MapToPrivate<Inputs>, never>;
+  claims: ExcludeFromRecord<MapToClaims<Inputs>, never>;
+  credentials: ExcludeFromRecord<MapToCredentials<Inputs>, never>;
 };
 
 type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
@@ -491,12 +473,12 @@ type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   never
 >;
 
-type MapToClaim<T extends Record<string, Input>> = {
+type MapToClaims<T extends Record<string, Input>> = {
   [K in keyof T]: ToClaim<T[K]>;
 };
 
-type MapToPrivate<T extends Record<string, Input>> = {
-  [K in keyof T]: ToPrivate<T[K]>;
+type MapToCredentials<T extends Record<string, Input>> = {
+  [K in keyof T]: ToCredential<T[K]>;
 };
 
 type MapToDataInput<T extends Record<string, Input>> = {
@@ -505,14 +487,12 @@ type MapToDataInput<T extends Record<string, Input>> = {
 
 type ToClaim<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
-type ToPrivate<T extends Input> = T extends CredentialType<
+type ToCredential<T extends Input> = T extends CredentialType<
   CredentialId,
   infer Private,
   infer Data
 >
   ? { credential: Credential<Data>; private: Private }
-  : T extends Private<infer Data>
-  ? Data
   : never;
 
 type ToDataInput<T extends Input> = T extends CredentialType<

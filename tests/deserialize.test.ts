@@ -200,7 +200,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize private input', () => {
-    const input = Input.private(Signature);
+    const input = Credential.none(Signature);
     const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
@@ -229,7 +229,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize nested input', () => {
-    const input = Input.private({
+    const input = Credential.none({
       personal: {
         age: Field,
         id: UInt64,
@@ -258,10 +258,10 @@ test('deserializeInput', async (t) => {
 test('deserializeInputs', async (t) => {
   await t.test('should deserialize inputs with various type', () => {
     const inputs = {
-      field: Input.private(Field),
+      field: Credential.none(Field),
       bool: Input.claim(Bool),
       uint: Input.constant(UInt64, UInt64.from(42)),
-      nested: Input.private({
+      nested: Credential.none({
         inner: Field,
         deep: {
           value: Bool,
@@ -302,7 +302,7 @@ test('deserializeInputs', async (t) => {
 
   await t.test('should handle mixed input types', () => {
     const inputs = {
-      privateField: Input.private(Field),
+      privateField: Credential.none(Field),
       publicBool: Input.claim(Bool),
       constantUint: Input.constant(UInt32, UInt32.from(42)),
       credential: Credential.signatureNative({ score: UInt64 }),
@@ -341,7 +341,7 @@ test('deserializeNode', async (t) => {
 
   await t.test('should deserialize root node', () => {
     let input = {
-      age: Input.private(Field),
+      age: Credential.none(Field),
       isAdmin: Input.claim(Bool),
     };
     const node: Node = { type: 'root', input };
@@ -352,7 +352,7 @@ test('deserializeNode', async (t) => {
 
   await t.test('should deserialize property node', () => {
     let input = {
-      age: Input.private(Field),
+      age: Credential.none(Field),
       isAdmin: Input.claim(Bool),
     };
     const node: Node = {
@@ -442,7 +442,7 @@ test('deserializeSpec', async (t) => {
   await t.test('should correctly deserialize a simple Spec', async () => {
     const originalSpec = Spec(
       {
-        age: Input.private(Field),
+        age: Credential.none(Field),
         isAdmin: Input.claim(Bool),
         maxAge: Input.constant(Field, Field(100)),
       },
@@ -510,8 +510,8 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          field1: Input.private(Field),
-          field2: Input.private(Field),
+          field1: Credential.none(Field),
+          field2: Credential.none(Field),
           threshold: Input.claim(UInt64),
         },
         ({ field1, field2, threshold }) => ({

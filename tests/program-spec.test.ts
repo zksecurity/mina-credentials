@@ -9,6 +9,7 @@ import {
   type UserInputs,
   splitUserInputs,
   recombineDataInputs,
+  type DataInputs,
 } from '../src/program-spec.ts';
 import { createSignatureCredential, owner } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
@@ -20,7 +21,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field };
     const spec = Spec(
       {
-        data: Input.private(InputData),
+        data: Credential.none(InputData),
         targetAge: Input.claim(Field),
       },
       ({ data, targetAge }) => ({
@@ -29,8 +30,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root = {
-      data: { age: Field(25) },
+    const root: DataInputs<typeof spec.inputs> = {
+      data: { owner, data: { age: Field(25) } },
       targetAge: Field(25),
     };
 
@@ -45,7 +46,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        data: Input.private(InputData),
+        data: Credential.none(InputData),
         targetAge: Input.claim(Field),
         targetName: Input.claim(Bytes32),
       },
@@ -58,8 +59,11 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root = {
-      data: { age: Field(30), name: Bytes32.fromString('Alice') },
+    const root: DataInputs<typeof spec.inputs> = {
+      data: {
+        owner,
+        data: { age: Field(30), name: Bytes32.fromString('Alice') },
+      },
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
     };
@@ -75,7 +79,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        data: Input.private(InputData),
+        data: Credential.none(InputData),
         targetAge: Input.claim(Field),
         targetName: Input.claim(Bytes32),
       },
@@ -88,8 +92,11 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root = {
-      data: { age: Field(30), name: Bytes32.fromString('Alice') },
+    const root: DataInputs<typeof spec.inputs> = {
+      data: {
+        owner,
+        data: { age: Field(30), name: Bytes32.fromString('Alice') },
+      },
       targetAge: Field(18),
       targetName: Bytes32.fromString('Alice'),
     };
@@ -105,7 +112,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        data: Input.private(InputData),
+        data: Credential.none(InputData),
         targetAge: Input.claim(Field),
         targetName: Input.claim(Bytes32),
       },
@@ -118,8 +125,11 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root = {
-      data: { age: Field(30), name: Bytes32.fromString('Alice') },
+    const root: DataInputs<typeof spec.inputs> = {
+      data: {
+        owner,
+        data: { age: Field(30), name: Bytes32.fromString('Alice') },
+      },
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
     };
@@ -137,7 +147,7 @@ test(' Spec and Node operations', async (t) => {
 
     const spec = Spec(
       {
-        data: Input.private(NestedInputData),
+        data: Credential.none(NestedInputData),
         targetAge: Input.claim(Field),
         targetPoints: Input.claim(Field),
       },
@@ -153,10 +163,13 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root = {
+    const root: DataInputs<typeof spec.inputs> = {
       data: {
-        person: { age: Field(25), name: Bytes32.fromString('Bob') },
-        points: Field(100),
+        owner,
+        data: {
+          person: { age: Field(25), name: Bytes32.fromString('Bob') },
+          points: Field(100),
+        },
       },
       targetAge: Field(25),
       targetPoints: Field(100),
@@ -173,7 +186,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        data: Input.private(InputData),
+        data: Credential.none(InputData),
         constAge: Input.constant(Field, Field(25)),
       },
       ({ data, constAge }) => ({
@@ -182,8 +195,11 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root = {
-      data: { age: Field(25), name: Bytes32.fromString('Charlie') },
+    const root: DataInputs<typeof spec.inputs> = {
+      data: {
+        owner,
+        data: { age: Field(25), name: Bytes32.fromString('Charlie') },
+      },
       constAge: Field(25),
     };
 
