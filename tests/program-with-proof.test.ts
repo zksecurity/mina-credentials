@@ -57,7 +57,7 @@ await describe('program with proof credential', async () => {
     assert(proof, 'Proof should be generated');
 
     assert.deepStrictEqual(
-      proof.publicInput.targetAge,
+      proof.publicInput.claims.targetAge,
       Field(18),
       'Public input should match'
     );
@@ -105,7 +105,11 @@ async function createInvalidProofCredential(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let proof = await ProvedData.dummyProof({ owner }, { owner, data });
+  let context = Field(0);
+  let proof = await ProvedData.dummyProof(
+    { context, claims: { owner } },
+    { owner, data }
+  );
   return {
     credential: proof.publicOutput,
     private: { vk: inputVk, proof },

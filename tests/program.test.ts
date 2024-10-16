@@ -41,7 +41,7 @@ test('program with simple spec and signature credential', async (t) => {
     assert(proof, 'Proof should be generated');
 
     assert.deepStrictEqual(
-      proof.publicInput.targetAge,
+      proof.publicInput.claims.targetAge,
       Field(18),
       'Public input should match'
     );

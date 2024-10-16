@@ -1,4 +1,4 @@
-import { Proof, VerificationKey, ZkProgram } from 'o1js';
+import { Field, Proof, Signature, VerificationKey, ZkProgram } from 'o1js';
 import {
   Input,
   Node,
@@ -47,7 +47,13 @@ function createProgram<S extends Spec>(
     methods: {
       run: {
         privateInputs: [PrivateInput],
-        method(publicInput, privateInput) {
+        method(
+          publicInput: { context: Field; claims: Record<string, any> },
+          privateInput: {
+            ownerSignature: Signature;
+            privateCredentialInputs: Record<string, any>;
+          }
+        ) {
           let credentials = extractCredentialInputs(
             spec,
             publicInput,

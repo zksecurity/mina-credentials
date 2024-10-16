@@ -341,9 +341,10 @@ function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
 
 // helpers to extract/recombine portions of the spec inputs
 
-function publicInputTypes<S extends Spec>({
-  inputs,
-}: S): Record<string, NestedProvablePure> {
+function publicInputTypes({ inputs }: Spec): NestedProvablePureFor<{
+  context: Field;
+  claims: Record<string, any>;
+}> {
   let result: Record<string, NestedProvablePure> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
@@ -351,12 +352,16 @@ function publicInputTypes<S extends Spec>({
       result[key] = input.data;
     }
   });
-  return result;
+  return {
+    context: Field,
+    claims: result,
+  };
 }
 
-function privateInputTypes<S extends Spec>({
-  inputs,
-}: S): Record<string, NestedProvable> {
+function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
+  ownerSignature: Signature;
+  privateCredentialInputs: Record<string, any>;
+}> {
   let result: Record<string, NestedProvable> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
@@ -370,7 +375,10 @@ function privateInputTypes<S extends Spec>({
       result[key] = input.data;
     }
   });
-  return result;
+  return {
+    ownerSignature: Signature,
+    privateCredentialInputs: result,
+  };
 }
 
 function publicOutputType<S extends Spec>(spec: S): ProvablePure<any> {
@@ -403,46 +411,50 @@ function splitUserInputs<S extends Spec>(
 function splitUserInputs<S extends Spec>(
   spec: S,
   userInputs: Record<string, any>
-): { publicInput: Record<string, any>; privateInput: Record<string, any> } {
-  let publicInput: Record<string, any> = {};
-  let privateInput: Record<string, any> = {};
+) {
+  let claims: Record<string, any> = {};
+  let privateCredentialInputs: Record<string, any> = {};
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      privateInput[key] = {
+      privateCredentialInputs[key] = {
         credential: userInputs[key].credential,
         private: userInputs[key].private,
       };
     }
     if (input.type === 'claim') {
-      publicInput[key] = userInputs[key];
+      claims[key] = userInputs[key];
     }
     if (input.type === 'private') {
-      privateInput[key] = userInputs[key];
+      privateCredentialInputs[key] = userInputs[key];
     }
     if (input.type === 'constant') {
       // do nothing
     }
   });
-  return { publicInput, privateInput };
-}
 
-function extractCredentialInputs<S extends Spec>(
-  spec: S,
-  publicInputs: Record<string, any>,
-  privateInputs: Record<string, any>
-): CredentialInputs {
-  // TODO take context from public inputs
+  // TODO take context from user inputs
   let context = Field(0);
 
-  // TODO take ownerSignature from private inputs
+  // TODO take ownerSignature from user inputs
   let ownerSignature = Signature.empty();
 
+  return {
+    publicInput: { context, claims },
+    privateInput: { ownerSignature, privateCredentialInputs },
+  };
+}
+
+function extractCredentialInputs(
+  spec: Spec,
+  { context }: PublicInputs<any>,
+  { ownerSignature, privateCredentialInputs }: PrivateInputs<any>
+): CredentialInputs {
   let credentials: CredentialInputs['credentials'] = [];
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      let value = privateInputs[key];
+      let value: any = privateCredentialInputs[key];
       credentials.push({
         credentialType: input,
         credential: value.credential,
@@ -456,25 +468,25 @@ function extractCredentialInputs<S extends Spec>(
 
 function recombineDataInputs<S extends Spec>(
   spec: S,
-  publicInputs: Record<string, any>,
-  privateInputs: Record<string, any>
+  publicInputs: PublicInputs<any>,
+  privateInputs: PrivateInputs<any>
 ): DataInputs<S['inputs']>;
 function recombineDataInputs<S extends Spec>(
   spec: S,
-  publicInputs: Record<string, any>,
-  privateInputs: Record<string, any>
+  { claims }: PublicInputs<any>,
+  { privateCredentialInputs }: PrivateInputs<any>
 ): Record<string, any> {
   let result: Record<string, any> = {};
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = privateInputs[key].credential;
+      result[key] = (privateCredentialInputs[key] as any).credential;
     }
     if (input.type === 'claim') {
-      result[key] = publicInputs[key];
+      result[key] = claims[key];
     }
     if (input.type === 'private') {
-      result[key] = privateInputs[key];
+      result[key] = privateCredentialInputs[key];
     }
     if (input.type === 'constant') {
       result[key] = input.value;
@@ -483,15 +495,15 @@ function recombineDataInputs<S extends Spec>(
   return result;
 }
 
-type PublicInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
-  MapToPublic<Inputs>,
-  never
->;
+type PublicInputs<Inputs extends Record<string, Input>> = {
+  context: Field;
+  claims: ExcludeFromRecord<MapToClaim<Inputs>, never>;
+};
 
-type PrivateInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
-  MapToPrivate<Inputs>,
-  never
->;
+type PrivateInputs<Inputs extends Record<string, Input>> = {
+  ownerSignature: Signature;
+  privateCredentialInputs: ExcludeFromRecord<MapToPrivate<Inputs>, never>;
+};
 
 type UserInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   MapToUserInput<Inputs>,
@@ -503,8 +515,8 @@ type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   never
 >;
 
-type MapToPublic<T extends Record<string, Input>> = {
-  [K in keyof T]: ToPublic<T[K]>;
+type MapToClaim<T extends Record<string, Input>> = {
+  [K in keyof T]: ToClaim<T[K]>;
 };
 
 type MapToPrivate<T extends Record<string, Input>> = {
@@ -519,7 +531,7 @@ type MapToDataInput<T extends Record<string, Input>> = {
   [K in keyof T]: ToDataInput<T[K]>;
 };
 
-type ToPublic<T extends Input> = T extends Claim<infer Data> ? Data : never;
+type ToClaim<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
 type ToPrivate<T extends Input> = T extends CredentialType<
   CredentialId,
