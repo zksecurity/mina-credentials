@@ -228,6 +228,161 @@ test('Serialize Nodes', async (t) => {
     assert.deepStrictEqual(serialized, expected);
   });
 
+  await t.test('should serialize or Node', () => {
+    const orNode: Node<Bool> = Operation.or(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Bool(false) }
+    );
+
+    const serialized = serializeNode(orNode);
+
+    const expected = {
+      type: 'or',
+      left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+      right: { type: 'constant', data: { type: 'Bool', value: 'false' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize add Node', () => {
+    const addNode: Node<Field> = Operation.add(
+      { type: 'constant', data: Field(5) },
+      { type: 'constant', data: Field(10) }
+    );
+
+    const serialized = serializeNode(addNode);
+
+    const expected = {
+      type: 'add',
+      left: { type: 'constant', data: { type: 'Field', value: '5' } },
+      right: { type: 'constant', data: { type: 'Field', value: '10' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize sub Node', () => {
+    const subNode: Node<Field> = Operation.sub(
+      { type: 'constant', data: Field(15) },
+      { type: 'constant', data: Field(7) }
+    );
+
+    const serialized = serializeNode(subNode);
+
+    const expected = {
+      type: 'sub',
+      left: { type: 'constant', data: { type: 'Field', value: '15' } },
+      right: { type: 'constant', data: { type: 'Field', value: '7' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize mul Node', () => {
+    const mulNode: Node<Field> = Operation.mul(
+      { type: 'constant', data: Field(3) },
+      { type: 'constant', data: Field(4) }
+    );
+
+    const serialized = serializeNode(mulNode);
+
+    const expected = {
+      type: 'mul',
+      left: { type: 'constant', data: { type: 'Field', value: '3' } },
+      right: { type: 'constant', data: { type: 'Field', value: '4' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize div Node', () => {
+    const divNode: Node<Field> = Operation.div(
+      { type: 'constant', data: Field(20) },
+      { type: 'constant', data: Field(5) }
+    );
+
+    const serialized = serializeNode(divNode);
+
+    const expected = {
+      type: 'div',
+      left: { type: 'constant', data: { type: 'Field', value: '20' } },
+      right: { type: 'constant', data: { type: 'Field', value: '5' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize not Node', () => {
+    const notNode: Node<Bool> = Operation.not({
+      type: 'constant',
+      data: Bool(true),
+    });
+
+    const serialized = serializeNode(notNode);
+
+    const expected = {
+      type: 'not',
+      inner: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize hash Node', () => {
+    const hashNode: Node<Field> = Operation.hash({
+      type: 'constant',
+      data: Field(123),
+    });
+
+    const serialized = serializeNode(hashNode);
+
+    const expected = {
+      type: 'hash',
+      inner: { type: 'constant', data: { type: 'Field', value: '123' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize ifThenElse Node', () => {
+    const ifThenElseNode: Node<Field> = Operation.ifThenElse(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Field(1) },
+      { type: 'constant', data: Field(0) }
+    );
+
+    const serialized = serializeNode(ifThenElseNode);
+
+    const expected = {
+      type: 'ifThenElse',
+      condition: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+      thenNode: { type: 'constant', data: { type: 'Field', value: '1' } },
+      elseNode: { type: 'constant', data: { type: 'Field', value: '0' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize record Node', () => {
+    const recordNode: Node = Operation.record({
+      field1: { type: 'constant', data: Field(123) },
+      field2: { type: 'constant', data: Bool(true) },
+    });
+
+    const serialized = serializeNode(recordNode);
+
+    const expected = {
+      type: 'record',
+      data: {
+        field1: { type: 'constant', data: { type: 'Field', value: '123' } },
+        field2: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+      },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
   await t.test('should serialize nested Nodes', () => {
     const nestedNode: Node<Bool> = Operation.and(
       Operation.lessThan(

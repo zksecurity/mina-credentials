@@ -6,6 +6,7 @@ import {
   Field,
   Provable,
   type ProvablePure,
+  Poseidon,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -111,7 +112,15 @@ const Operation = {
   equals,
   lessThan,
   lessThanEq,
+  add,
+  sub,
+  mul,
+  div,
   and,
+  or,
+  not,
+  hash,
+  ifThenElse,
 };
 
 type Constant<Data> = {
@@ -134,9 +143,22 @@ type Node<Data = any> =
   | { type: 'property'; key: string; inner: Node }
   | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
-  | { type: 'lessThan'; left: Node; right: Node }
-  | { type: 'lessThanEq'; left: Node; right: Node }
-  | { type: 'and'; left: Node<Bool>; right: Node<Bool> };
+  | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'sub'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'mul'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'div'; left: Node<NumericType>; right: Node<NumericType> }
+  | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
+  | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
+  | { type: 'not'; inner: Node<Bool> }
+  | { type: 'hash'; inner: Node }
+  | {
+      type: 'ifThenElse';
+      condition: Node<Bool>;
+      thenNode: Node;
+      elseNode: Node;
+    };
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
@@ -179,11 +201,64 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'lessThan':
     case 'lessThanEq':
       return compareNodes(root, node, node.type === 'lessThanEq') as Data;
+    case 'add':
+    case 'sub':
+    case 'mul':
+    case 'div':
+      return arithmeticOperation(root, node) as Data;
     case 'and': {
       let left = evalNode(root, node.left);
       let right = evalNode(root, node.right);
       return left.and(right) as Data;
     }
+    case 'or': {
+      let left = evalNode(root, node.left);
+      let right = evalNode(root, node.right);
+      return left.or(right) as Data;
+    }
+    case 'not': {
+      let inner = evalNode(root, node.inner);
+      return inner.not() as Data;
+    }
+    // TODO: handle composite types
+    case 'hash': {
+      let inner = evalNode(root, node.inner);
+      let innerFields = inner.toFields();
+      let hash = Poseidon.hash(innerFields);
+      return hash as Data;
+    }
+    case 'ifThenElse': {
+      let condition = evalNode(root, node.condition);
+      let thenNode = evalNode(root, node.thenNode);
+      let elseNode = evalNode(root, node.elseNode);
+      let result = Provable.if(condition, thenNode, elseNode);
+      return result as Data;
+    }
+  }
+}
+
+function arithmeticOperation(
+  root: object,
+  node: {
+    type: 'add' | 'sub' | 'mul' | 'div';
+    left: Node<NumericType>;
+    right: Node<NumericType>;
+  }
+): NumericType {
+  let left = evalNode(root, node.left);
+  let right = evalNode(root, node.right);
+
+  const [leftConverted, rightConverted] = convertNodes(left, right);
+
+  switch (node.type) {
+    case 'add':
+      return leftConverted.add(rightConverted as any);
+    case 'sub':
+      return leftConverted.sub(rightConverted as any);
+    case 'mul':
+      return leftConverted.mul(rightConverted as any);
+    case 'div':
+      return leftConverted.div(rightConverted as any);
   }
 }
 
@@ -192,11 +267,17 @@ function compareNodes(
   node: { left: Node<any>; right: Node<any> },
   allowEqual: boolean
 ): Bool {
-  const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
-
   let left = evalNode(root, node.left);
   let right = evalNode(root, node.right);
 
+  const [leftConverted, rightConverted] = convertNodes(left, right);
+
+  return allowEqual
+    ? leftConverted.lessThanOrEqual(rightConverted as any)
+    : leftConverted.lessThan(rightConverted as any);
+}
+
+function convertNodes(left: any, right: any): [NumericType, NumericType] {
   const leftTypeIndex = numericTypeOrder.findIndex(
     (type) => left instanceof type
   );
@@ -204,27 +285,27 @@ function compareNodes(
     (type) => right instanceof type
   );
 
+  const resultType = numericTypeOrder[Math.max(leftTypeIndex, rightTypeIndex)];
+
   const leftConverted =
     leftTypeIndex < rightTypeIndex
-      ? right instanceof Field
+      ? resultType === Field
         ? left.toField()
-        : right instanceof UInt64
+        : resultType === UInt64
         ? left.toUInt64()
         : left.toUInt32()
       : left;
 
   const rightConverted =
     leftTypeIndex > rightTypeIndex
-      ? left instanceof Field
+      ? resultType === Field
         ? right.toField()
-        : left instanceof UInt64
+        : resultType === UInt64
         ? right.toUInt64()
         : right.toUInt32()
       : right;
 
-  return allowEqual
-    ? leftConverted.lessThanOrEqual(rightConverted)
-    : leftConverted.lessThan(rightConverted);
+  return [leftConverted, rightConverted];
 }
 
 function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
@@ -247,6 +328,22 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
       // case 2: inner is a record of provable types
       return inner[node.key] as any;
     }
+    case 'equals':
+    case 'lessThan':
+    case 'lessThanEq':
+    case 'and':
+    case 'or':
+    case 'not':
+      return Bool;
+    case 'hash':
+      return Field;
+    case 'add':
+    case 'sub':
+    case 'mul':
+    case 'div':
+      return ArithmeticOperationType(rootType, node);
+    case 'ifThenElse':
+      return Node as any;
     case 'record': {
       let result: Record<string, NestedProvable> = {};
       for (let key in node.data) {
@@ -254,19 +351,20 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
       }
       return result;
     }
-    case 'equals': {
-      return Bool;
-    }
-    case 'lessThan': {
-      return Bool;
-    }
-    case 'lessThanEq': {
-      return Bool;
-    }
-    case 'and': {
-      return Bool;
-    }
   }
+}
+
+function ArithmeticOperationType(
+  rootType: NestedProvable,
+  node: { left: Node<NumericType>; right: Node<NumericType> }
+): NestedProvable {
+  const leftType = evalNodeType(rootType, node.left);
+  const rightType = evalNodeType(rootType, node.right);
+  const leftTypeIndex = numericTypeOrder.findIndex((type) => leftType === type);
+  const rightTypeIndex = numericTypeOrder.findIndex(
+    (type) => rightType === type
+  );
+  return numericTypeOrder[Math.max(leftTypeIndex, rightTypeIndex)] as any;
 }
 
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
@@ -319,6 +417,8 @@ function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
 
 type NumericType = Field | UInt64 | UInt32 | UInt8;
 
+const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
+
 function lessThan<Left extends NumericType, Right extends NumericType>(
   left: Node<Left>,
   right: Node<Right>
@@ -333,10 +433,57 @@ function lessThanEq<Left extends NumericType, Right extends NumericType>(
   return { type: 'lessThanEq', left, right };
 }
 
+function add<Left extends NumericType, Right extends NumericType>(
+  left: Node<Left>,
+  right: Node<Right>
+): Node<Left | Right> {
+  return { type: 'add', left, right };
+}
+
+function sub<Left extends NumericType, Right extends NumericType>(
+  left: Node<Left>,
+  right: Node<Right>
+): Node<Left | Right> {
+  return { type: 'sub', left, right };
+}
+
+function mul<Left extends NumericType, Right extends NumericType>(
+  left: Node<Left>,
+  right: Node<Right>
+): Node<Left | Right> {
+  return { type: 'mul', left, right };
+}
+
+function div<Left extends NumericType, Right extends NumericType>(
+  left: Node<Left>,
+  right: Node<Right>
+): Node<Left | Right> {
+  return { type: 'div', left, right };
+}
+
 function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
   return { type: 'and', left, right };
 }
 
+function or(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
+  return { type: 'or', left, right };
+}
+
+function not(inner: Node<Bool>): Node<Bool> {
+  return { type: 'not', inner };
+}
+
+function hash(inner: Node): Node<Field> {
+  return { type: 'hash', inner };
+}
+
+function ifThenElse<Data>(
+  condition: Node<Bool>,
+  thenNode: Node<Data>,
+  elseNode: Node<Data>
+): Node<Data> {
+  return { type: 'ifThenElse', condition, thenNode, elseNode };
+}
 // helpers to extract portions of the spec
 
 function publicInputTypes<S extends Spec>({
