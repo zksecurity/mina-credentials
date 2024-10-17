@@ -1,6 +1,6 @@
 import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
-import { Spec, Input, Node } from './program-spec.ts';
+import { Spec, type Input, Node } from './program-spec.ts';
 import {
   Field,
   Bool,

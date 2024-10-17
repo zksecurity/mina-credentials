@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Input, Operation, Spec, Node } from '../src/program-spec.ts';
+import { Operation, Spec, Node, Claim, Constant } from '../src/program-spec.ts';
 import {
   serializeProvableType,
   serializeNestedProvable,
@@ -129,7 +129,7 @@ test('Serialize Nodes', async (t) => {
       type: 'root',
       input: {
         age: Credential.none(Field),
-        isAdmin: Input.claim(Bool),
+        isAdmin: Claim(Bool),
       },
     };
 
@@ -148,7 +148,7 @@ test('Serialize Nodes', async (t) => {
         type: 'root',
         input: {
           age: Credential.none(Field),
-          isAdmin: Input.claim(Bool),
+          isAdmin: Claim(Bool),
         },
       },
     };
@@ -417,7 +417,7 @@ test('Serialize Nodes', async (t) => {
 
 test('serializeInput', async (t) => {
   await t.test('should serialize constant input', () => {
-    const input = Input.constant(Field, Field(42));
+    const input = Constant(Field, Field(42));
 
     const serialized = serializeInput(input);
 
@@ -431,7 +431,7 @@ test('serializeInput', async (t) => {
   });
 
   await t.test('should serialize public input', () => {
-    const input = Input.claim(Field);
+    const input = Claim(Field);
 
     const serialized = serializeInput(input);
 
@@ -521,8 +521,8 @@ test('convertSpecToSerializable', async (t) => {
     const spec = Spec(
       {
         age: Credential.none(Field),
-        isAdmin: Input.claim(Bool),
-        maxAge: Input.constant(Field, Field(100)),
+        isAdmin: Claim(Bool),
+        maxAge: Constant(Field, Field(100)),
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
@@ -588,7 +588,7 @@ test('convertSpecToSerializable', async (t) => {
     const spec = Spec(
       {
         signedData: Credential.signature({ field: Field }),
-        zeroField: Input.constant(Field, Field(0)),
+        zeroField: Constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
         assert: Operation.equals(
@@ -656,7 +656,7 @@ test('convertSpecToSerializable', async (t) => {
       {
         field1: Credential.none(Field),
         field2: Credential.none(Field),
-        zeroField: Input.constant(Field, Field(0)),
+        zeroField: Constant(Field, Field(0)),
       },
       ({ field1, field2, zeroField }) => ({
         assert: Operation.and(
@@ -745,8 +745,8 @@ test('Serialize and deserialize spec with hash', async (t) => {
   const spec = Spec(
     {
       age: Credential.none(Field),
-      isAdmin: Input.claim(Bool),
-      ageLimit: Input.constant(Field, Field(100)),
+      isAdmin: Claim(Bool),
+      ageLimit: Constant(Field, Field(100)),
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),

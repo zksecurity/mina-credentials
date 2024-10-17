@@ -10,7 +10,7 @@ import {
   type ProvablePure,
   assert,
 } from 'o1js';
-import { Input, Node, Operation, Spec } from './program-spec.ts';
+import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
@@ -61,12 +61,12 @@ function deserializeInputs(inputs: Record<string, any>): Record<string, Input> {
 function deserializeInput(input: any): Input {
   switch (input.type) {
     case 'constant':
-      return Input.constant(
+      return Constant(
         deserializeProvableType(input.data),
         deserializeProvable(input.data.type, input.value)
       );
     case 'public':
-      return Input.claim(deserializeNestedProvablePure(input.data));
+      return Claim(deserializeNestedProvablePure(input.data));
     case 'credential': {
       let id: CredentialId = input.id;
       let data = deserializeNestedProvablePure(input.data);

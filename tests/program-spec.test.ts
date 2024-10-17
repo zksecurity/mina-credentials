@@ -3,13 +3,14 @@ import assert from 'node:assert';
 import { Bool, Bytes, Field, Poseidon, UInt32, UInt64, UInt8 } from 'o1js';
 import {
   Spec,
-  Input,
   Operation,
   Node,
   type UserInputs,
   splitUserInputs,
   recombineDataInputs,
   type DataInputs,
+  Claim,
+  Constant,
 } from '../src/program-spec.ts';
 import { createSignatureCredential, owner } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
@@ -26,7 +27,7 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
+        targetAge: Claim(Field),
       },
       ({ data, targetAge }) => ({
         assert: Operation.equals(Operation.property(data, 'age'), targetAge),
@@ -56,8 +57,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -86,8 +87,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.or(
@@ -116,8 +117,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.or(
@@ -148,8 +149,8 @@ test(' Spec and Node operations', async (t) => {
       const spec = Spec(
         {
           data: Credential.none(InputData),
-          targetAge: Input.claim(Field),
-          targetName: Input.claim(Bytes32),
+          targetAge: Claim(Field),
+          targetName: Claim(Bytes32),
         },
         ({ data, targetAge, targetName }) => ({
           assert: Operation.or(
@@ -178,8 +179,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -210,7 +211,7 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        expectedHash: Input.claim(Field),
+        expectedHash: Claim(Field),
       },
       ({ data, expectedHash }) => ({
         assert: Operation.equals(
@@ -241,8 +242,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -271,8 +272,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ data, targetAge, targetName }) => ({
         assert: Operation.and(
@@ -301,7 +302,7 @@ test(' Spec and Node operations', async (t) => {
       {
         value1: Credential.none(UInt32),
         value2: Credential.none(UInt64),
-        sum: Input.claim(UInt64),
+        sum: Claim(UInt64),
       },
       ({ value1, value2, sum }) => ({
         assert: Operation.equals(Operation.add(value1, value2), sum),
@@ -327,7 +328,7 @@ test(' Spec and Node operations', async (t) => {
       {
         value1: Credential.none(UInt32),
         value2: Credential.none(UInt8),
-        difference: Input.claim(UInt32),
+        difference: Claim(UInt32),
       },
       ({ value1, value2, difference }) => ({
         assert: Operation.equals(Operation.sub(value1, value2), difference),
@@ -353,7 +354,7 @@ test(' Spec and Node operations', async (t) => {
       {
         value1: Credential.none(UInt32),
         value2: Credential.none(UInt64),
-        product: Input.claim(UInt64),
+        product: Claim(UInt64),
       },
       ({ value1, value2, product }) => ({
         assert: Operation.equals(Operation.mul(value1, value2), product),
@@ -379,7 +380,7 @@ test(' Spec and Node operations', async (t) => {
       {
         value1: Credential.none(UInt64),
         value2: Credential.none(UInt32),
-        quotient: Input.claim(UInt64),
+        quotient: Claim(UInt64),
       },
       ({ value1, value2, quotient }) => ({
         assert: Operation.equals(Operation.div(value1, value2), quotient),
@@ -405,8 +406,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        threshold: Input.claim(Field),
-        zero: Input.constant(Field, Field(0)),
+        threshold: Claim(Field),
+        zero: Constant(Field, Field(0)),
       },
       ({ data, threshold, zero }) => ({
         assert: Node.constant(Bool(true)),
@@ -444,9 +445,9 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        threshold: Input.claim(Field),
-        lowLimit: Input.constant(Field, Field(10)),
-        highLimit: Input.constant(Field, Field(20)),
+        threshold: Claim(Field),
+        lowLimit: Constant(Field, Field(10)),
+        highLimit: Constant(Field, Field(20)),
       },
       ({ data, threshold, lowLimit, highLimit }) => ({
         assert: Operation.ifThenElse(
@@ -510,9 +511,9 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        threshold: Input.claim(Field),
-        lowLimit: Input.constant(Field, Field(10)),
-        highLimit: Input.constant(Field, Field(20)),
+        threshold: Claim(Field),
+        lowLimit: Constant(Field, Field(10)),
+        highLimit: Constant(Field, Field(20)),
       },
       ({ data, threshold, lowLimit, highLimit }) => ({
         assert: Operation.and(
@@ -579,8 +580,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(NestedInputData),
-        targetAge: Input.claim(Field),
-        targetPoints: Input.claim(Field),
+        targetAge: Claim(Field),
+        targetPoints: Claim(Field),
       },
       ({ data, targetAge, targetPoints }) => ({
         assert: Operation.and(
@@ -615,7 +616,7 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         data: Credential.none(InputData),
-        constAge: Input.constant(Field, Field(25)),
+        constAge: Constant(Field, Field(25)),
       },
       ({ data, constAge }) => ({
         assert: Operation.equals(Operation.property(data, 'age'), constAge),
@@ -640,8 +641,8 @@ test(' Spec and Node operations', async (t) => {
     const spec = Spec(
       {
         signedData: Credential.signature(InputData),
-        targetAge: Input.claim(Field),
-        targetName: Input.claim(Bytes32),
+        targetAge: Claim(Field),
+        targetName: Claim(Bytes32),
       },
       ({ signedData, targetAge, targetName }) => ({
         assert: Operation.and(

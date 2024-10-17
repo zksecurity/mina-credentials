@@ -3,7 +3,8 @@ import assert from 'node:assert';
 import { Field, Bytes, PublicKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
-  Input,
+  Claim,
+  Constant,
   Operation,
   Spec,
   type UserInputs,
@@ -19,7 +20,7 @@ let context = Field(0);
 
 // simple spec to create a proof credential that's used recursively
 const inputProofSpec = Spec(
-  { owner: Input.claim(PublicKey), data: Input.claim(InputData) },
+  { owner: Claim(PublicKey), data: Claim(InputData) },
   ({ owner, data }) => ({
     data: Operation.record({ owner, data }),
   })
@@ -32,8 +33,8 @@ const ProvedData = await Credential.proofFromProgram(inputProgram);
 const spec = Spec(
   {
     provedData: ProvedData,
-    targetAge: Input.claim(Field),
-    targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
+    targetAge: Claim(Field),
+    targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
   },
   ({ provedData, targetAge, targetName }) => ({
     assert: Operation.and(

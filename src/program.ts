@@ -1,6 +1,6 @@
 import { Field, Proof, Signature, VerificationKey, ZkProgram } from 'o1js';
 import {
-  Input,
+  type Input,
   Node,
   privateInputTypes,
   publicInputTypes,

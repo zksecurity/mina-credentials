@@ -30,12 +30,13 @@ import {
   type CredentialInputs,
 } from './credentials.ts';
 
-export type { PublicInputs, UserInputs, DataInputs, ToCredential };
+export type { PublicInputs, UserInputs, DataInputs, ToCredential, Input };
 export {
   Spec,
   Node,
+  Claim,
+  Constant,
   Operation,
-  Input,
   publicInputTypes,
   publicOutputType,
   privateInputTypes,
@@ -101,8 +102,6 @@ function Spec<Data, Inputs extends Record<string, Input>>(
 
   return { inputs, logic: { assert, data } };
 }
-
-const Input = { claim, constant };
 
 const Operation = {
   property,
@@ -365,14 +364,14 @@ function ArithmeticOperationType(
 
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
-function constant<DataType extends ProvableType>(
+function Constant<DataType extends ProvableType>(
   data: DataType,
   value: InferProvableType<DataType>
 ): Constant<InferProvableType<DataType>> {
   return { type: 'constant', data, value };
 }
 
-function claim<DataType extends NestedProvablePure>(
+function Claim<DataType extends NestedProvablePure>(
   data: DataType
 ): Claim<InferNestedProvable<DataType>> {
   return { type: 'claim', data: data as any };

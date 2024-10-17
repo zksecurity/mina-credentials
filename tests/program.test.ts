@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
-import { Input, Operation, Spec } from '../src/program-spec.ts';
+import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
 import {
   createOwnerSignature,
   createSignatureCredential,
@@ -20,8 +20,8 @@ test('program with simple spec and signature credential', async (t) => {
   const spec = Spec(
     {
       signedData: SignedData,
-      targetAge: Input.claim(Field),
-      targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },
     ({ signedData, targetAge, targetName }) => ({
       assert: Operation.and(
