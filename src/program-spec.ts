@@ -8,6 +8,7 @@ import {
   type ProvablePure,
   Poseidon,
   Signature,
+  PublicKey,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -106,6 +107,8 @@ function Spec<Data, Inputs extends Record<string, Input>>(
 const Input = { claim, constant };
 
 const Operation = {
+  owner,
+  issuer,
   property,
   record,
   equals,
@@ -135,6 +138,8 @@ type Input<Data = any> =
   | Claim<Data>;
 
 type Node<Data = any> =
+  | { type: 'owner' }
+  | { type: 'issuer'; credentialKey: string }
   | { type: 'constant'; data: Data }
   | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
@@ -173,14 +178,25 @@ const Node = {
 
 function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
+    case 'owner':
+      return (root as any).owner;
+    case 'issuer':
+      assertHasProperty(root, node.credentialKey);
+      const credential = (root as any)[node.credentialKey];
+      return credential.issuer;
     case 'constant':
       return node.data;
     case 'root':
       return root as any;
     case 'property': {
       let inner = evalNode<unknown>(root, node.inner);
-      assertHasProperty(inner, node.key);
-      return inner[node.key] as Data;
+      if (inner && typeof inner === 'object' && 'credential' in inner) {
+        assertHasProperty(inner.credential, node.key);
+        return inner.credential[node.key] as Data;
+      } else {
+        assertHasProperty(inner, node.key);
+        return inner[node.key] as Data;
+      }
     }
     case 'record': {
       let result: Record<string, any> = {};
@@ -332,7 +348,10 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
     case 'or':
     case 'not':
       return Bool;
+    case 'owner':
+      return PublicKey;
     case 'hash':
+    case 'issuer':
       return Field;
     case 'add':
     case 'sub':
@@ -466,6 +485,14 @@ function not(inner: Node<Bool>): Node<Bool> {
 
 function hash(inner: Node): Node<Field> {
   return { type: 'hash', inner };
+}
+
+function owner(): Node<PublicKey> {
+  return { type: 'owner' };
+}
+
+function issuer(credentialKey: string): Node<Field> {
+  return { type: 'issuer', credentialKey };
 }
 
 function ifThenElse<Data>(
