@@ -30,7 +30,7 @@ import {
   type CredentialInputs,
 } from './credentials.ts';
 
-export type { PublicInputs, UserInputs, DataInputs };
+export type { PublicInputs, UserInputs, DataInputs, ToCredential };
 export {
   Spec,
   Node,

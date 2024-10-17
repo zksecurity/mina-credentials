@@ -467,12 +467,8 @@ test('serializeInput', async (t) => {
       type: 'credential',
       id: 'signature-native',
       private: {
-        issuerPublicKey: {
-          type: 'PublicKey',
-        },
-        issuerSignature: {
-          type: 'Signature',
-        },
+        issuer: { type: 'PublicKey' },
+        issuerSignature: { type: 'Signature' },
       },
       data: {
         age: { type: 'Field' },
@@ -610,12 +606,8 @@ test('convertSpecToSerializable', async (t) => {
           type: 'credential',
           id: 'signature-native',
           private: {
-            issuerPublicKey: {
-              type: 'PublicKey',
-            },
-            issuerSignature: {
-              type: 'Signature',
-            },
+            issuer: { type: 'PublicKey' },
+            issuerSignature: { type: 'Signature' },
           },
           data: {
             field: { type: 'Field' },

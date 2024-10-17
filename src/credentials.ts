@@ -216,22 +216,19 @@ const None = defineCredential({
 const Signed = defineCredential({
   id: 'signature-native',
   private: {
-    issuerPublicKey: PublicKey,
+    issuer: PublicKey,
     issuerSignature: Signature,
   },
 
   // verify the signature
-  verify({ issuerPublicKey, issuerSignature }, credHash) {
-    let ok = issuerSignature.verify(issuerPublicKey, [credHash.hash]);
+  verify({ issuer, issuerSignature }, credHash) {
+    let ok = issuerSignature.verify(issuer, [credHash.hash]);
     assert(ok, 'Invalid signature');
   },
 
   // issuer == issuer public key
-  issuer({ issuerPublicKey }) {
-    return Poseidon.hashWithPrefix(
-      'mina-cred:v0:simple',
-      issuerPublicKey.toFields()
-    );
+  issuer({ issuer }) {
+    return Poseidon.hashWithPrefix('mina-cred:v0:simple', issuer.toFields());
   },
 });
 
@@ -254,6 +251,7 @@ function Proved<
   // TODO annoying that this cast doesn't work without overriding the type
   let data: NestedProvablePureFor<Data> = dataType as any;
   const credentialType = HashableCredential(data);
+
   return {
     type: 'credential',
     id: 'proof',
