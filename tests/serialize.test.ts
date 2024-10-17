@@ -128,7 +128,7 @@ test('Serialize Nodes', async (t) => {
     const rootNode: Node = {
       type: 'root',
       input: {
-        age: Input.private(Field),
+        age: Credential.none(Field),
         isAdmin: Input.claim(Bool),
       },
     };
@@ -140,14 +140,14 @@ test('Serialize Nodes', async (t) => {
     assert.deepStrictEqual(serialized, expected);
   });
 
-  await t.test('should serialize propery Node', () => {
+  await t.test('should serialize property Node', () => {
     const propertyNode: Node = {
       type: 'property',
       key: 'age',
       inner: {
         type: 'root',
         input: {
-          age: Input.private(Field),
+          age: Credential.none(Field),
           isAdmin: Input.claim(Bool),
         },
       },
@@ -444,12 +444,14 @@ test('serializeInput', async (t) => {
   });
 
   await t.test('should serialize private input', () => {
-    const input = Input.private(Field);
+    const input = Credential.none(Field);
 
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'private',
+      type: 'credential',
+      id: 'none',
+      private: { type: 'Undefined' },
       data: { type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
@@ -489,12 +491,14 @@ test('serializeInput', async (t) => {
       },
       score: UInt32,
     };
-    const input = Input.private(NestedInputData);
+    const input = Credential.none(NestedInputData);
 
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'private',
+      type: 'credential',
+      id: 'none',
+      private: { type: 'Undefined' },
       data: {
         personal: {
           age: { type: 'Field' },
@@ -520,7 +524,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a simple Spec', () => {
     const spec = Spec(
       {
-        age: Input.private(Field),
+        age: Credential.none(Field),
         isAdmin: Input.claim(Bool),
         maxAge: Input.constant(Field, Field(100)),
       },
@@ -534,7 +538,12 @@ test('convertSpecToSerializable', async (t) => {
 
     const expected = {
       inputs: {
-        age: { type: 'private', data: { type: 'Field' } },
+        age: {
+          type: 'credential',
+          id: 'none',
+          private: { type: 'Undefined' },
+          data: { type: 'Field' },
+        },
         isAdmin: { type: 'public', data: { type: 'Bool' } },
         maxAge: { type: 'constant', data: { type: 'Field' }, value: '100' },
       },
@@ -545,8 +554,12 @@ test('convertSpecToSerializable', async (t) => {
             type: 'lessThan',
             left: {
               type: 'property',
-              key: 'age',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'age',
+                inner: { type: 'root' },
+              },
             },
             right: {
               type: 'property',
@@ -562,8 +575,12 @@ test('convertSpecToSerializable', async (t) => {
         },
         data: {
           type: 'property',
-          key: 'age',
-          inner: { type: 'root' },
+          key: 'data',
+          inner: {
+            type: 'property',
+            key: 'age',
+            inner: { type: 'root' },
+          },
         },
       },
     };
@@ -645,8 +662,8 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with nested operations', () => {
     const spec = Spec(
       {
-        field1: Input.private(Field),
-        field2: Input.private(Field),
+        field1: Credential.none(Field),
+        field2: Credential.none(Field),
         zeroField: Input.constant(Field, Field(0)),
       },
       ({ field1, field2, zeroField }) => ({
@@ -661,8 +678,18 @@ test('convertSpecToSerializable', async (t) => {
     const serialized = convertSpecToSerializable(spec);
     const expected = {
       inputs: {
-        field1: { type: 'private', data: { type: 'Field' } },
-        field2: { type: 'private', data: { type: 'Field' } },
+        field1: {
+          type: 'credential',
+          id: 'none',
+          private: { type: 'Undefined' },
+          data: { type: 'Field' },
+        },
+        field2: {
+          type: 'credential',
+          id: 'none',
+          private: { type: 'Undefined' },
+          data: { type: 'Field' },
+        },
         zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
       },
       logic: {
@@ -672,21 +699,33 @@ test('convertSpecToSerializable', async (t) => {
             type: 'lessThan',
             left: {
               type: 'property',
-              key: 'field1',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'field1',
+                inner: { type: 'root' },
+              },
             },
             right: {
               type: 'property',
-              key: 'field2',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'field2',
+                inner: { type: 'root' },
+              },
             },
           },
           right: {
             type: 'equals',
             left: {
               type: 'property',
-              key: 'field1',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'field1',
+                inner: { type: 'root' },
+              },
             },
             right: {
               type: 'property',
@@ -697,8 +736,12 @@ test('convertSpecToSerializable', async (t) => {
         },
         data: {
           type: 'property',
-          key: 'field2',
-          inner: { type: 'root' },
+          key: 'data',
+          inner: {
+            type: 'property',
+            key: 'field2',
+            inner: { type: 'root' },
+          },
         },
       },
     };
@@ -709,7 +752,7 @@ test('convertSpecToSerializable', async (t) => {
 test('Serialize and deserialize spec with hash', async (t) => {
   const spec = Spec(
     {
-      age: Input.private(Field),
+      age: Credential.none(Field),
       isAdmin: Input.claim(Bool),
       ageLimit: Input.constant(Field, Field(100)),
     },

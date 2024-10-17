@@ -67,8 +67,6 @@ function deserializeInput(input: any): Input {
       );
     case 'public':
       return Input.claim(deserializeNestedProvablePure(input.data));
-    case 'private':
-      return Input.private(deserializeNestedProvable(input.data));
     case 'credential': {
       let id: CredentialId = input.id;
       let data = deserializeNestedProvablePure(input.data);

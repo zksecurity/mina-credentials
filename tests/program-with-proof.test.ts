@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, PublicKey } from 'o1js';
+import { Field, Bytes, PublicKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import {
   Input,
@@ -9,14 +9,17 @@ import {
   type UserInputs,
 } from '../src/program-spec.ts';
 import { Credential } from '../src/credentials.ts';
-import { owner } from './test-utils.ts';
+import { createOwnerSignature, owner } from './test-utils.ts';
 
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
 
+// TODO
+let context = Field(0);
+
 // simple spec to create a proof credential that's used recursively
 const inputProofSpec = Spec(
-  { owner: Input.claim(PublicKey), data: Input.private(InputData) },
+  { owner: Input.claim(PublicKey), data: Input.claim(InputData) },
   ({ owner, data }) => ({
     data: Operation.record({ owner, data }),
   })
@@ -42,6 +45,7 @@ const spec = Spec(
 );
 
 const program = createProgram(spec);
+let data = { age: Field(18), name: Bytes32.fromString('Alice') };
 
 await describe('program with proof credential', async () => {
   await test('compile program', async () => {
@@ -49,15 +53,23 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with valid inputs', async () => {
-    let data = { age: Field(18), name: Bytes32.fromString('Alice') };
     let provedData = await createProofCredential(data);
+    let ownerSignature = createOwnerSignature(context, [
+      ProvedData,
+      provedData,
+    ]);
 
-    const proof = await program.run({ provedData, targetAge: Field(18) });
+    const proof = await program.run({
+      context,
+      ownerSignature,
+      credentials: { provedData },
+      claims: { targetAge: Field(18) },
+    });
 
     assert(proof, 'Proof should be generated');
 
     assert.deepStrictEqual(
-      proof.publicInput.targetAge,
+      proof.publicInput.claims.targetAge,
       Field(18),
       'Public input should match'
     );
@@ -69,11 +81,20 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with invalid proof', async () => {
-    const data = { age: Field(18), name: Bytes32.fromString('Alice') };
     let provedData = await createInvalidProofCredential(data);
+    let ownerSignature = createOwnerSignature(context, [
+      ProvedData,
+      provedData,
+    ]);
 
     await assert.rejects(
-      async () => await program.run({ provedData, targetAge: Field(18) }),
+      async () =>
+        await program.run({
+          context,
+          ownerSignature,
+          credentials: { provedData },
+          claims: { targetAge: Field(18) },
+        }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
         assert(
@@ -85,6 +106,34 @@ await describe('program with proof credential', async () => {
       'Program should fail with invalid input'
     );
   });
+
+  await test('run program with invalid signature', async () => {
+    let provedData = await createProofCredential(data);
+    // changing the context makes the signature invalid
+    let invalidContext = context.add(1);
+    let ownerSignature = createOwnerSignature(invalidContext, [
+      ProvedData,
+      provedData,
+    ]);
+
+    await assert.rejects(
+      async () =>
+        await program.run({
+          context,
+          ownerSignature,
+          credentials: { provedData },
+          claims: { targetAge: Field(18) },
+        }),
+      (err) => {
+        assert(err instanceof Error, 'Should throw an Error');
+        assert(
+          err.message.includes('Invalid owner signature'),
+          'Error message should include unsatisfied constraint'
+        );
+        return true;
+      }
+    );
+  });
 });
 
 // helpers
@@ -92,8 +141,14 @@ await describe('program with proof credential', async () => {
 async function createProofCredential(data: {
   age: Field;
   name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let inputProof = await inputProgram.run({ owner, data });
+}): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
+  let inputProof = await inputProgram.run({
+    context,
+    // there is no credential, so no signature verification
+    ownerSignature: Signature.empty(),
+    claims: { owner, data },
+    credentials: {},
+  });
   let proof = ProvedData.fromProof(inputProof);
   return {
     credential: inputProof.publicOutput,
@@ -104,8 +159,12 @@ async function createProofCredential(data: {
 async function createInvalidProofCredential(data: {
   age: Field;
   name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['provedData']> {
-  let proof = await ProvedData.dummyProof({ owner }, { owner, data });
+}): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
+  let context = Field(0);
+  let proof = await ProvedData.dummyProof(
+    { context, claims: { owner, data } },
+    { owner, data }
+  );
   return {
     credential: proof.publicOutput,
     private: { vk: inputVk, proof },

@@ -1,4 +1,4 @@
-import { Proof, VerificationKey, ZkProgram } from 'o1js';
+import { Field, Proof, Signature, VerificationKey, ZkProgram } from 'o1js';
 import {
   Input,
   Node,
@@ -8,12 +8,13 @@ import {
   recombineDataInputs,
   Spec,
   splitUserInputs,
-  verifyCredentials,
+  extractCredentialInputs,
   type PublicInputs,
   type UserInputs,
 } from './program-spec.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
+import { verifyCredentials } from './credentials.ts';
 
 export { createProgram };
 
@@ -46,8 +47,20 @@ function createProgram<S extends Spec>(
     methods: {
       run: {
         privateInputs: [PrivateInput],
-        method(publicInput, privateInput) {
-          verifyCredentials(spec, publicInput, privateInput);
+        method(
+          publicInput: { context: Field; claims: Record<string, any> },
+          privateInput: {
+            ownerSignature: Signature;
+            privateCredentialInputs: Record<string, any>;
+          }
+        ) {
+          let credentials = extractCredentialInputs(
+            spec,
+            publicInput,
+            privateInput
+          );
+          // TODO return issuers from this function and pass it to app logic
+          verifyCredentials(credentials);
 
           let root = recombineDataInputs(spec, publicInput, privateInput);
           let assertion = Node.eval(root, spec.logic.assert);
@@ -65,7 +78,7 @@ function createProgram<S extends Spec>(
       return result.verificationKey;
     },
     async run(input) {
-      let { publicInput, privateInput } = splitUserInputs(spec, input);
+      let { publicInput, privateInput } = splitUserInputs(input);
       let result = await program.run(publicInput, privateInput);
       return result as any;
     },
