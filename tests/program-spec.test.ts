@@ -639,7 +639,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        signedData: Credential.signatureNative(InputData),
+        signedData: Credential.signature(InputData),
         targetAge: Input.claim(Field),
         targetName: Input.claim(Bytes32),
       },

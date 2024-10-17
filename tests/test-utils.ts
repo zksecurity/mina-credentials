@@ -15,7 +15,7 @@ const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
 function createSignatureCredential<Data>(
   type: NestedProvableFor<Data>,
   data: Data
-): ToCredential<ReturnType<typeof Credential.signatureNative>> {
+): ToCredential<ReturnType<typeof Credential.signature>> {
   let issuer = PrivateKey.randomKeypair();
   let credHash = HashedCredential(type).hash({ owner, data });
   let signature = Signature.create(issuer.privateKey, [credHash.hash]);

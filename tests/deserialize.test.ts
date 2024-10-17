@@ -210,7 +210,7 @@ test('deserializeInput', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
 
-    const input = Credential.signatureNative(InputData);
+    const input = Credential.signature(InputData);
 
     const serialized = serializeInput(input);
 
@@ -281,7 +281,7 @@ test('deserializeInputs', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
     const inputs = {
-      credential: Credential.signatureNative(InputData),
+      credential: Credential.signature(InputData),
     };
 
     const serialized = Object.fromEntries(
@@ -305,7 +305,7 @@ test('deserializeInputs', async (t) => {
       privateField: Credential.none(Field),
       publicBool: Input.claim(Bool),
       constantUint: Input.constant(UInt32, UInt32.from(42)),
-      credential: Credential.signatureNative({ score: UInt64 }),
+      credential: Credential.signature({ score: UInt64 }),
     };
 
     const serialized = Object.fromEntries(
@@ -575,7 +575,7 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          signedData: Credential.signatureNative({ field: Field }),
+          signedData: Credential.signature({ field: Field }),
           zeroField: Input.constant(Field, Field(0)),
         },
         ({ signedData, zeroField }) => ({

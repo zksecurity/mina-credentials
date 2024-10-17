@@ -459,7 +459,7 @@ test('serializeInput', async (t) => {
 
   await t.test('should serialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Credential.signatureNative(InputData);
+    const input = Credential.signature(InputData);
 
     const serialized = serializeInput(input);
 
@@ -587,7 +587,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with an credential', () => {
     const spec = Spec(
       {
-        signedData: Credential.signatureNative({ field: Field }),
+        signedData: Credential.signature({ field: Field }),
         zeroField: Input.constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({

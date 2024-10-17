@@ -337,7 +337,7 @@ const Credential = {
   none: None,
   proof: Proved,
   proofFromProgram: ProvedFromProgram,
-  signatureNative: Signed,
+  signature: Signed,
 
   // type layout of a credential
   withOwner<DataType extends NestedProvable>(data: DataType) {
