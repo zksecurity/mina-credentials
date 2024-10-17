@@ -29,6 +29,7 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 import { zip } from './util.ts';
+import { prefixes } from './constants.ts';
 
 export {
   Credential,
@@ -228,7 +229,7 @@ const Signed = defineCredential({
 
   // issuer == issuer public key
   issuer({ issuer }) {
-    return Poseidon.hashWithPrefix('mina-cred:v0:simple', issuer.toFields());
+    return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
   },
 });
 
@@ -270,7 +271,7 @@ function Proved<
       let credIdent = Poseidon.hash(
         Proof.publicInputType.toFields(proof.publicInput)
       );
-      return Poseidon.hashWithPrefix('mina-cred:v0:recursive', [
+      return Poseidon.hashWithPrefix(prefixes.issuerRecursive, [
         vk.hash,
         credIdent,
       ]);
