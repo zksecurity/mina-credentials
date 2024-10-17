@@ -28,6 +28,7 @@ import {
   type CredentialId,
   Credential,
   type CredentialInputs,
+  type CredentialOutputs,
 } from './credentials.ts';
 
 export type { PublicInputs, UserInputs, DataInputs };
@@ -576,18 +577,26 @@ function extractCredentialInputs(
 function recombineDataInputs<S extends Spec>(
   spec: S,
   publicInputs: PublicInputs<any>,
-  privateInputs: PrivateInputs<any>
+  privateInputs: PrivateInputs<any>,
+  credentialOutputs: CredentialOutputs
 ): DataInputs<S['inputs']>;
 function recombineDataInputs<S extends Spec>(
   spec: S,
   { claims }: PublicInputs<any>,
-  { privateCredentialInputs }: PrivateInputs<any>
+  { privateCredentialInputs }: PrivateInputs<any>,
+  credentialOutputs: CredentialOutputs
 ): Record<string, any> {
   let result: Record<string, any> = {};
 
+  let i = 0;
+
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = (privateCredentialInputs[key] as any).credential;
+      result[key] = {
+        credential: (privateCredentialInputs[key] as any).credential,
+        issuer: credentialOutputs.credentials[i]!.issuer,
+      };
+      i++;
     }
     if (input.type === 'claim') {
       result[key] = claims[key];
@@ -596,6 +605,7 @@ function recombineDataInputs<S extends Spec>(
       result[key] = input.value;
     }
   });
+  result.owner = credentialOutputs.owner;
   return result;
 }
 
