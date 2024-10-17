@@ -14,6 +14,10 @@ import {
 import { createSignatureCredential, owner } from './test-utils.ts';
 import { Credential } from '../src/credentials.ts';
 
+function cred<D>(data: D): Credential<D> {
+  return { owner, data };
+}
+
 test(' Spec and Node operations', async (t) => {
   const Bytes32 = Bytes(32);
 
@@ -31,7 +35,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: { owner, data: { age: Field(25) } },
+      data: cred({ age: Field(25) }),
       targetAge: Field(25),
     };
 
@@ -42,10 +46,10 @@ test(' Spec and Node operations', async (t) => {
     assert.deepStrictEqual(dataResult, Field(25));
   });
 
-  const data: Credential<{ age: Field; name: Bytes }> = {
-    owner,
-    data: { age: Field(30), name: Bytes32.fromString('Alice') },
-  };
+  const data: Credential<{ age: Field; name: Bytes }> = cred({
+    age: Field(30),
+    name: Bytes32.fromString('Alice'),
+  });
 
   await t.test('Spec with multiple assertions - and', () => {
     const InputData = { age: Field, name: Bytes32 };
@@ -155,12 +159,8 @@ test(' Spec and Node operations', async (t) => {
           data: Operation.property(data, 'age'),
         })
       );
-
       const root: DataInputs<typeof spec.inputs> = {
-        data: {
-          owner,
-          data: { age: Field(11), name: Bytes32.fromString('Alice') },
-        },
+        data: cred({ age: Field(11), name: Bytes32.fromString('Alice') }),
         targetAge: Field(30),
         targetName: Bytes32.fromString('Alice'),
       };
@@ -193,10 +193,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: {
-        owner,
-        data: { age: Field(11), name: Bytes32.fromString('Alice') },
-      },
+      data: cred({ age: Field(11), name: Bytes32.fromString('Alice') }),
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
     };
@@ -228,7 +225,7 @@ test(' Spec and Node operations', async (t) => {
     const expectedHashValue = Poseidon.hash([inputValue]);
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: { owner, data: { value: inputValue } },
+      data: cred({ value: inputValue }),
       expectedHash: expectedHashValue,
     };
 
@@ -257,10 +254,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: {
-        owner,
-        data: { age: Field(30), name: Bytes32.fromString('Alice') },
-      },
+      data: cred({ age: Field(30), name: Bytes32.fromString('Alice') }),
       targetAge: Field(18),
       targetName: Bytes32.fromString('Alice'),
     };
@@ -290,10 +284,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: {
-        owner,
-        data: { age: Field(30), name: Bytes32.fromString('Alice') },
-      },
+      data: cred({ age: Field(30), name: Bytes32.fromString('Alice') }),
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
     };
@@ -319,8 +310,8 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      value1: { owner, data: UInt32.from(1000000) },
-      value2: { owner, data: UInt64.from(1000000) },
+      value1: cred(UInt32.from(1000000)),
+      value2: cred(UInt64.from(1000000)),
       sum: UInt64.from(2000000),
     };
 
@@ -345,8 +336,8 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      value1: { owner, data: UInt32.from(1000) },
-      value2: { owner, data: UInt8.from(200) },
+      value1: cred(UInt32.from(1000)),
+      value2: cred(UInt8.from(200)),
       difference: UInt32.from(800),
     };
 
@@ -371,8 +362,8 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      value1: { owner, data: UInt32.from(1000) },
-      value2: { owner, data: UInt64.from(2000) },
+      value1: cred(UInt32.from(1000)),
+      value2: cred(UInt64.from(2000)),
       product: UInt64.from(2000000),
     };
 
@@ -397,8 +388,8 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      value1: { owner, data: UInt64.from(1000000) },
-      value2: { owner, data: UInt32.from(1000) },
+      value1: cred(UInt64.from(1000000)),
+      value2: cred(UInt32.from(1000)),
       quotient: UInt64.from(1000),
     };
 
@@ -429,7 +420,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value < threshold
     const root1 = {
-      data: { owner, data: { value: Field(5) } },
+      data: cred({ value: Field(5) }),
       threshold: Field(10),
       zero: Field(0),
     };
@@ -439,7 +430,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value >= threshold
     const root2 = {
-      data: { owner, data: { value: Field(15) } },
+      data: cred({ value: Field(15) }),
       threshold: Field(10),
       zero: Field(0),
     };
@@ -471,7 +462,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value < threshold and < lowLimit (should pass)
     const root1 = {
-      data: { owner, data: { value: Field(5) } },
+      data: cred({ value: Field(5) }),
       threshold: Field(15),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -482,7 +473,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value >= threshold and >= highLimit (should pass)
     const root2 = {
-      data: { owner, data: { value: Field(25) } },
+      data: cred({ value: Field(25) }),
       threshold: Field(15),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -493,7 +484,7 @@ test(' Spec and Node operations', async (t) => {
 
     // lowLimit <= value < threshold (should fail)
     const root3 = {
-      data: { owner, data: { value: Field(12) } },
+      data: cred({ value: Field(12) }),
       threshold: Field(15),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -504,7 +495,7 @@ test(' Spec and Node operations', async (t) => {
 
     // threshold <= value < highLimit (should fail)
     const root4 = {
-      data: { owner, data: { value: Field(18) } },
+      data: cred({ value: Field(18) }),
       threshold: Field(15),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -538,7 +529,7 @@ test(' Spec and Node operations', async (t) => {
 
     // 10 < value < threshold < highLimit (should pass)
     const root1 = {
-      data: { owner, data: { value: Field(15) } },
+      data: cred({ value: Field(15) }),
       threshold: Field(18),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -549,7 +540,7 @@ test(' Spec and Node operations', async (t) => {
 
     // 10 < threshold <= value = highLimit (should pass)
     const root2 = {
-      data: { owner, data: { value: Field(20) } },
+      data: cred({ value: Field(20) }),
       threshold: Field(18),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -560,7 +551,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value <= lowLimit (should fail)
     const root3 = {
-      data: { owner, data: { value: Field(10) } },
+      data: cred({ value: Field(10) }),
       threshold: Field(18),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -571,7 +562,7 @@ test(' Spec and Node operations', async (t) => {
 
     // 10 < threshold <= value < highLimit (should fail)
     const root4 = {
-      data: { owner, data: { value: Field(19) } },
+      data: cred({ value: Field(19) }),
       threshold: Field(18),
       lowLimit: Field(10),
       highLimit: Field(20),
@@ -604,13 +595,10 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: {
-        owner,
-        data: {
-          person: { age: Field(25), name: Bytes32.fromString('Bob') },
-          points: Field(100),
-        },
-      },
+      data: cred({
+        person: { age: Field(25), name: Bytes32.fromString('Bob') },
+        points: Field(100),
+      }),
       targetAge: Field(25),
       targetPoints: Field(100),
     };
@@ -636,10 +624,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const root: DataInputs<typeof spec.inputs> = {
-      data: {
-        owner,
-        data: { age: Field(25), name: Bytes32.fromString('Charlie') },
-      },
+      data: cred({ age: Field(25), name: Bytes32.fromString('Charlie') }),
       constAge: Field(25),
     };
 
@@ -682,7 +667,7 @@ test(' Spec and Node operations', async (t) => {
     let root = recombineDataInputs(spec, publicInput, privateInput);
 
     assert.deepStrictEqual(root, {
-      signedData: { owner, data },
+      signedData: cred(data),
       targetAge: Field(30),
       targetName: Bytes32.fromString('David'),
     });
