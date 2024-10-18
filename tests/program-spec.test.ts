@@ -659,7 +659,7 @@ test(' Spec and Node operations', async (t) => {
     let userInputs: UserInputs<typeof spec.inputs> = {
       context: Field(0),
       // TODO actual owner signature
-      ownerSignature: signedData.private.issuerSignature,
+      ownerSignature: signedData.witness.issuerSignature,
       credentials: { signedData },
       claims: { targetAge: Field(30), targetName: Bytes32.fromString('David') },
     };

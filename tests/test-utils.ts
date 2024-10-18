@@ -21,17 +21,17 @@ function createSignatureCredential<Data>(
   let signature = Signature.create(issuer.privateKey, [credHash.hash]);
   return {
     credential: { owner, data },
-    private: { issuer: issuer.publicKey, issuerSignature: signature },
+    witness: { issuer: issuer.publicKey, issuerSignature: signature },
   };
 }
 
-function createOwnerSignature<Private, Data>(
+function createOwnerSignature<Witness, Data>(
   context: Field,
   ...credentials: [
-    CredentialType<any, Private, Data>,
+    CredentialType<any, Witness, Data>,
     {
       credential: { owner: PublicKey; data: Data };
-      private: Private;
+      witness: Witness;
     }
   ][]
 ) {
@@ -41,6 +41,6 @@ function createOwnerSignature<Private, Data>(
     context,
     credentialType: credentialType,
     credential: credential.credential,
-    privateInput: credential.private,
+    witness: credential.witness,
   });
 }

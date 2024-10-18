@@ -153,7 +153,7 @@ async function createProofCredential(data: {
   let proof = ProvedData.fromProof(inputProof);
   return {
     credential: inputProof.publicOutput,
-    private: { vk: inputVk, proof },
+    witness: { vk: inputVk, proof },
   };
 }
 
@@ -168,6 +168,6 @@ async function createInvalidProofCredential(data: {
   );
   return {
     credential: proof.publicOutput,
-    private: { vk: inputVk, proof },
+    witness: { vk: inputVk, proof },
   };
 }

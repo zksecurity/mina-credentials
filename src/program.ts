@@ -51,7 +51,7 @@ function createProgram<S extends Spec>(
           publicInput: { context: Field; claims: Record<string, any> },
           privateInput: {
             ownerSignature: Signature;
-            privateCredentialInputs: Record<string, any>;
+            credentials: Record<string, any>;
           }
         ) {
           let credentials = extractCredentialInputs(

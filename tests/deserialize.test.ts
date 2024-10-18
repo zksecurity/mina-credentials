@@ -605,8 +605,8 @@ test('deserializeSpec', async (t) => {
       );
 
       assert.deepStrictEqual(
-        deserialized.inputs.signedData.private,
-        originalSpec.inputs.signedData.private
+        deserialized.inputs.signedData.witness,
+        originalSpec.inputs.signedData.witness
       );
       assert.deepStrictEqual(
         deserialized.inputs.signedData.data,

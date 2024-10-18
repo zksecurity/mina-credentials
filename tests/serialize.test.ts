@@ -451,7 +451,7 @@ test('serializeInput', async (t) => {
     const expected = {
       type: 'credential',
       id: 'none',
-      private: { type: 'Undefined' },
+      witness: { type: 'Undefined' },
       data: { type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
@@ -466,7 +466,7 @@ test('serializeInput', async (t) => {
     const expected = {
       type: 'credential',
       id: 'signature-native',
-      private: {
+      witness: {
         issuer: { type: 'PublicKey' },
         issuerSignature: { type: 'Signature' },
       },
@@ -494,7 +494,7 @@ test('serializeInput', async (t) => {
     const expected = {
       type: 'credential',
       id: 'none',
-      private: { type: 'Undefined' },
+      witness: { type: 'Undefined' },
       data: {
         personal: {
           age: { type: 'Field' },
@@ -537,7 +537,7 @@ test('convertSpecToSerializable', async (t) => {
         age: {
           type: 'credential',
           id: 'none',
-          private: { type: 'Undefined' },
+          witness: { type: 'Undefined' },
           data: { type: 'Field' },
         },
         isAdmin: { type: 'public', data: { type: 'Bool' } },
@@ -605,7 +605,7 @@ test('convertSpecToSerializable', async (t) => {
         signedData: {
           type: 'credential',
           id: 'signature-native',
-          private: {
+          witness: {
             issuer: { type: 'PublicKey' },
             issuerSignature: { type: 'Signature' },
           },
@@ -673,13 +673,13 @@ test('convertSpecToSerializable', async (t) => {
         field1: {
           type: 'credential',
           id: 'none',
-          private: { type: 'Undefined' },
+          witness: { type: 'Undefined' },
           data: { type: 'Field' },
         },
         field2: {
           type: 'credential',
           id: 'none',
-          private: { type: 'Undefined' },
+          witness: { type: 'Undefined' },
           data: { type: 'Field' },
         },
         zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },

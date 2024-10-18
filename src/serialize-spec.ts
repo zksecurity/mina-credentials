@@ -93,7 +93,7 @@ function serializeInput(input: Input): any {
         return {
           type: 'credential',
           id: input.id,
-          private: serializeNestedProvable(input.private),
+          witness: serializeNestedProvable(input.witness),
           data: serializeNestedProvable(input.data),
         };
       }

@@ -62,17 +62,17 @@ type CredentialId = 'none' | 'signature-native' | 'proof';
  */
 type CredentialType<
   Id extends CredentialId = CredentialId,
-  Private = any,
+  Witness = any,
   Data = any
 > = {
   type: 'credential';
   id: Id;
-  private: NestedProvableFor<Private>;
+  witness: NestedProvableFor<Witness>;
   data: NestedProvablePureFor<Data>;
 
-  verify(privateInput: Private, credHash: Hashed<Credential<Data>>): void;
+  verify(witness: Witness, credHash: Hashed<Credential<Data>>): void;
 
-  issuer(privateInput: Private): Field;
+  issuer(witness: Witness): Field;
 };
 
 /**
@@ -85,7 +85,7 @@ type CredentialInputs = {
   credentials: {
     credentialType: CredentialType;
     credential: Credential<any>;
-    privateInput: any;
+    witness: any;
   }[];
 };
 
@@ -112,14 +112,15 @@ function verifyCredentials({
 
   // verify each credential using its own verification method
   zip(credentials, credHashes).forEach(
-    ([{ credentialType, privateInput }, credHash]) => {
-      credentialType.verify(privateInput, credHash);
+    ([{ credentialType, witness }, credHash]) => {
+      credentialType.verify(witness, credHash);
     }
   );
 
+  // create issuer hashes for each credential
   // TODO would be nice to make this a `Hashed<Issuer>` over a more informative `Issuer` type, for easier use in the app circuit
-  let issuers = credentials.map(({ credentialType, privateInput }) =>
-    credentialType.issuer(privateInput)
+  let issuers = credentials.map(({ credentialType, witness }) =>
+    credentialType.issuer(witness)
   );
 
   // assert that all credentials have the same owner, and determine that owner
@@ -158,12 +159,12 @@ function signCredential<Private, Data>(
     credentialType: CredentialType<any, Private, Data>;
     context: Field;
     credential: Credential<Data>;
-    privateInput: Private;
+    witness: Private;
   }
 ) {
-  let { credentialType, context, credential, privateInput } = inputs;
+  let { credentialType, context, credential, witness } = inputs;
   let credHash = HashedCredential(credentialType.data).hash(credential);
-  let issuer = credentialType.issuer(privateInput);
+  let issuer = credentialType.issuer(witness);
   return Signature.create(ownerKey, [context, credHash.hash, issuer]);
 }
 
@@ -172,14 +173,14 @@ function defineCredential<
   PrivateType extends NestedProvable
 >(config: {
   id: Id;
-  private: PrivateType;
+  witness: PrivateType;
 
   verify<Data>(
-    privateInput: InferNestedProvable<PrivateType>,
+    witness: InferNestedProvable<PrivateType>,
     credHash: Hashed<Credential<Data>>
   ): void;
 
-  issuer(privateInput: InferNestedProvable<PrivateType>): Field;
+  issuer(witness: InferNestedProvable<PrivateType>): Field;
 }) {
   return function credential<DataType extends NestedProvablePure>(
     dataType: DataType
@@ -191,7 +192,7 @@ function defineCredential<
     return {
       type: 'credential',
       id: config.id,
-      private: config.private as any,
+      witness: config.witness as any,
       data: dataType as any,
       verify: config.verify,
       issuer: config.issuer,
@@ -202,7 +203,7 @@ function defineCredential<
 // dummy credential with no proof attached
 const None = defineCredential({
   id: 'none',
-  private: Undefined,
+  witness: Undefined,
 
   // do nothing
   verify() {},
@@ -216,7 +217,7 @@ const None = defineCredential({
 // native signature
 const Signed = defineCredential({
   id: 'signature-native',
-  private: {
+  witness: {
     issuer: PublicKey,
     issuerSignature: Signature,
   },
@@ -256,7 +257,7 @@ function Proved<
   return {
     type: 'credential',
     id: 'proof',
-    private: { vk: VerificationKey, proof: Proof },
+    witness: { vk: VerificationKey, proof: Proof },
     data: NestedProvable.get(data),
 
     // verify the proof, check that its public output is exactly the credential
