@@ -16,7 +16,7 @@ import {
   type InferProvableType,
   ProvableType,
 } from './o1js-missing.ts';
-import { assertHasProperty } from './util.ts';
+import { assert, assertHasProperty } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
@@ -88,6 +88,11 @@ function Spec<Data, Inputs extends Record<string, Input>>(
   let inputNodes: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   } = {} as any;
+  // some special keys are used internally and must not be used as input keys
+  ['owner'].forEach((key) =>
+    assert(!(key in inputs), `"${key}" is reserved, can't be used in inputs`)
+  );
+
   for (let key in inputs) {
     if (inputs[key]!.type === 'credential') {
       let credential = property(rootNode, key) as any;
@@ -98,10 +103,10 @@ function Spec<Data, Inputs extends Record<string, Input>>(
     }
   }
   let logic = spec(inputNodes);
-  let assert = logic.assert ?? Node.constant(Bool(true));
+  let assertNode = logic.assert ?? Node.constant(Bool(true));
   let data: Node<Data> = logic.data ?? (Node.constant(undefined) as any);
 
-  return { inputs, logic: { assert, data } };
+  return { inputs, logic: { assert: assertNode, data } };
 }
 
 const Input = { claim, constant };
