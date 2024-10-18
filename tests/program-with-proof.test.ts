@@ -2,13 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes, PublicKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
-import {
-  Claim,
-  Constant,
-  Operation,
-  Spec,
-  type UserInputs,
-} from '../src/program-spec.ts';
+import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { createOwnerSignature, owner } from './test-utils.ts';
 
@@ -19,20 +13,32 @@ const InputData = { age: Field, name: Bytes32 };
 let context = Field(0);
 
 // simple spec to create a proof credential that's used recursively
+// TODO create a more interesting input proof
 const inputProofSpec = Spec(
   { owner: Claim(PublicKey), data: Claim(InputData) },
   ({ owner, data }) => ({
     data: Operation.record({ owner, data }),
   })
 );
-const inputProgram = createProgram(inputProofSpec);
 
-const ProvedData = await Credential.RecursiveFromProgram(inputProgram);
-await ProvedData.compile();
+// create recursive credential
+const Recursive = await Credential.RecursiveFromProgram(
+  createProgram(inputProofSpec)
+);
+let data = { age: Field(18), name: Bytes32.fromString('Alice') };
+let provedData = await Recursive.create({
+  claims: { owner, data },
+  credentials: {},
+  // dummy context
+  context: Field(0),
+  // there is no credential, so no signature verification
+  ownerSignature: Signature.empty(),
+});
 
+// define presentation spec
 const spec = Spec(
   {
-    provedData: ProvedData,
+    provedData: Recursive,
     targetAge: Claim(Field),
     targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
   },
@@ -46,7 +52,6 @@ const spec = Spec(
 );
 
 const program = createProgram(spec);
-let data = { age: Field(18), name: Bytes32.fromString('Alice') };
 
 await describe('program with proof credential', async () => {
   await test('compile program', async () => {
@@ -54,11 +59,7 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with valid inputs', async () => {
-    let provedData = await createProofCredential(data);
-    let ownerSignature = createOwnerSignature(context, [
-      ProvedData,
-      provedData,
-    ]);
+    let ownerSignature = createOwnerSignature(context, [Recursive, provedData]);
 
     const proof = await program.run({
       context,
@@ -82,11 +83,8 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with invalid proof', async () => {
-    let provedData = await ProvedData.dummy({ owner, data });
-    let ownerSignature = createOwnerSignature(context, [
-      ProvedData,
-      provedData,
-    ]);
+    let provedData = await Recursive.dummy({ owner, data });
+    let ownerSignature = createOwnerSignature(context, [Recursive, provedData]);
 
     await assert.rejects(
       async () =>
@@ -109,11 +107,10 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with invalid signature', async () => {
-    let provedData = await createProofCredential(data);
     // changing the context makes the signature invalid
     let invalidContext = context.add(1);
     let ownerSignature = createOwnerSignature(invalidContext, [
-      ProvedData,
+      Recursive,
       provedData,
     ]);
 
@@ -136,24 +133,3 @@ await describe('program with proof credential', async () => {
     );
   });
 });
-
-// helpers
-
-async function createProofCredential(data: {
-  age: Field;
-  name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
-  let vk = await ProvedData.compile();
-  let inputProof = await inputProgram.run({
-    context,
-    // there is no credential, so no signature verification
-    ownerSignature: Signature.empty(),
-    claims: { owner, data },
-    credentials: {},
-  });
-  let proof = ProvedData.fromProof(inputProof);
-  return {
-    credential: inputProof.publicOutput,
-    witness: { vk, proof },
-  };
-}

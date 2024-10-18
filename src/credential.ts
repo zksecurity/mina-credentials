@@ -310,7 +310,8 @@ async function ProvedFromProgram<
   DataType extends ProvablePure<any>,
   InputType extends ProvablePure<any>,
   Data extends InferNestedProvable<DataType>,
-  Input extends InferProvable<InputType>
+  Input extends InferProvable<InputType>,
+  AllInputs
 >(
   programWrapper: {
     program: {
@@ -321,7 +322,7 @@ async function ProvedFromProgram<
       }>;
     };
     compile(): Promise<VerificationKey>;
-    run(inputs: Input): Promise<Proof<Input, Credential<Data>>>;
+    run(inputs: AllInputs): Promise<Proof<Input, Credential<Data>>>;
   },
   // TODO this needs to be exposed on the program!!
   maxProofsVerified: 0 | 1 | 2 = 0
@@ -347,17 +348,31 @@ async function ProvedFromProgram<
     Proved<ProvablePure<Data>, InputType, Data, Input>(InputProof, dataType),
     {
       program,
+
+      async create(inputs: AllInputs): Promise<Proved<Data, Input>> {
+        let vk = await this.compile();
+        let proof = await programWrapper.run(inputs);
+        return {
+          version: 'v0',
+          metadata: undefined,
+          credential: proof.publicOutput,
+          witness: { vk, proof: InputProof.fromProof(proof) },
+        };
+      },
+
       async compile() {
         if (isCompiled) return vk!;
         vk = await programWrapper.compile();
         isCompiled = true;
         return vk;
       },
+
       fromProof(
         proof: Proof<Input, Credential<Data>>
       ): DynamicProof<Input, Credential<Data>> {
         return InputProof.fromProof(proof as any);
       },
+
       async dummy(credential: Credential<Data>): Promise<Proved<Data, Input>> {
         let input = ProvableType.synthesize(program.publicInputType);
         let vk = await this.compile();
