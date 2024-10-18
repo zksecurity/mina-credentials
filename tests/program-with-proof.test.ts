@@ -29,10 +29,8 @@ let data = { age: Field(18), name: Bytes32.fromString('Alice') };
 let provedData = await Recursive.create({
   claims: { owner, data },
   credentials: {},
-  // dummy context
-  context: Field(0),
-  // there is no credential, so no signature verification
-  ownerSignature: Signature.empty(),
+  context: Field(0), // dummy context
+  ownerSignature: Signature.empty(), // no credential => no signature verification
 });
 
 // define presentation spec
