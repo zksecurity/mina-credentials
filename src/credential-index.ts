@@ -1,5 +1,8 @@
 import { None, Proved, ProvedFromProgram } from './credentials.ts';
-import { SignedCredential } from './credential-issuance.ts';
+import {
+  createSignedCredential,
+  SignedCredential,
+} from './credential-issuance.ts';
 import { type PublicKey } from 'o1js';
 
 export { Credential };
@@ -14,4 +17,9 @@ const Credential = {
   proof: Proved,
   proofFromProgram: ProvedFromProgram,
   signature: SignedCredential,
+
+  /**
+   * Issue a signed credential.
+   */
+  sign: createSignedCredential,
 };

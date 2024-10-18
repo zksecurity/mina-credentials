@@ -12,7 +12,7 @@ import {
   Claim,
   Constant,
 } from '../src/program-spec.ts';
-import { createSignatureCredential, owner } from './test-utils.ts';
+import { issuerKey, owner } from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 
 function cred<D>(data: D): Credential<D> {
@@ -654,7 +654,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const data = { age: Field(30), name: Bytes32.fromString('David') };
-    const signedData = createSignatureCredential(InputData, data);
+    const signedData = Credential.sign(issuerKey, { owner, data });
 
     let userInputs: UserInputs<typeof spec.inputs> = {
       context: Field(0),

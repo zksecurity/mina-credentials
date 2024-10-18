@@ -1,33 +1,10 @@
-import { Field, PrivateKey, PublicKey, Signature } from 'o1js';
-import { type NestedProvableFor } from '../src/nested.ts';
-import {
-  type CredentialType,
-  HashedCredential,
-  signCredential,
-} from '../src/credentials.ts';
-import { Credential } from '../src/credential-index.ts';
-import { type ToCredential } from '../src/program-spec.ts';
+import { Field, PrivateKey, PublicKey } from 'o1js';
+import { type CredentialType, signCredential } from '../src/credentials.ts';
 
-export { createSignatureCredential, createOwnerSignature, owner, ownerKey };
+export { createOwnerSignature, owner, ownerKey, issuer, issuerKey };
 
 const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
-
-function createSignatureCredential<Data>(
-  type: NestedProvableFor<Data>,
-  data: Data
-): ToCredential<ReturnType<typeof Credential.signature>> {
-  let issuer = PrivateKey.randomKeypair();
-  let credHash = HashedCredential(type).hash({ owner, data });
-  let signature = Signature.create(issuer.privateKey, [credHash.hash]);
-  return {
-    credential: { owner, data },
-    witness: {
-      type: 'simple',
-      issuer: issuer.publicKey,
-      issuerSignature: signature,
-    },
-  };
-}
+const { publicKey: issuer, privateKey: issuerKey } = PrivateKey.randomKeypair();
 
 function createOwnerSignature<Witness, Data>(
   context: Field,
