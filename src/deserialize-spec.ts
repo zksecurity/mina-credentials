@@ -21,7 +21,9 @@ import {
   supportedTypes,
   type O1jsTypeName,
 } from './serialize-spec.ts';
-import { Credential, type CredentialId } from './credentials.ts';
+import { type CredentialId } from './credentials.ts';
+import { Credential } from './credential-index.ts';
+import { ProvableType } from './o1js-missing.ts';
 
 export {
   deserializeSpec,
@@ -147,7 +149,12 @@ function deserializeNode(input: any, node: any): Node {
   }
 }
 
-function deserializeProvableType(type: { type: O1jsTypeName }): Provable<any> {
+function deserializeProvableType(type: {
+  type: O1jsTypeName | 'Constant';
+}): Provable<any> {
+  if (type.type === 'Constant') {
+    return ProvableType.constant((type as any).value);
+  }
   let result = supportedTypes[type.type];
   assert(result !== undefined, `Unsupported provable type: ${type.type}`);
   return result;

@@ -13,7 +13,7 @@ import {
   Constant,
 } from '../src/program-spec.ts';
 import { createSignatureCredential, owner } from './test-utils.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 
 function cred<D>(data: D): Credential<D> {
   return { owner, data };

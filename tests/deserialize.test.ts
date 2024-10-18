@@ -25,7 +25,7 @@ import {
   deserializeProvableType,
   deserializeProvable,
 } from '../src/deserialize-spec.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {

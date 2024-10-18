@@ -7,7 +7,7 @@ import {
   createOwnerSignature,
   createSignatureCredential,
 } from './test-utils.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 
 // TODO
 let context = Field(0);

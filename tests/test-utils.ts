@@ -2,10 +2,10 @@ import { Field, PrivateKey, PublicKey, Signature } from 'o1js';
 import { type NestedProvableFor } from '../src/nested.ts';
 import {
   type CredentialType,
-  Credential,
   HashedCredential,
   signCredential,
 } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 import { type ToCredential } from '../src/program-spec.ts';
 
 export { createSignatureCredential, createOwnerSignature, owner, ownerKey };
@@ -21,7 +21,11 @@ function createSignatureCredential<Data>(
   let signature = Signature.create(issuer.privateKey, [credHash.hash]);
   return {
     credential: { owner, data },
-    witness: { issuer: issuer.publicKey, issuerSignature: signature },
+    witness: {
+      type: 'simple',
+      issuer: issuer.publicKey,
+      issuerSignature: signature,
+    },
   };
 }
 

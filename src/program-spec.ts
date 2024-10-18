@@ -27,8 +27,9 @@ import {
 import {
   type CredentialType,
   type CredentialId,
-  Credential,
+  type Credential,
   type CredentialInputs,
+  withOwner,
 } from './credentials.ts';
 
 export type { PublicInputs, UserInputs, DataInputs, ToCredential, Input };
@@ -505,7 +506,7 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
       credentials[key] = {
-        credential: Credential.withOwner(input.data),
+        credential: withOwner(input.data),
         witness: input.witness,
       };
     }
@@ -525,7 +526,7 @@ function dataInputTypes({ inputs }: Spec): NestedProvable {
   let result: Record<string, NestedProvable> = {};
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = Credential.withOwner(input.data);
+      result[key] = withOwner(input.data);
     } else {
       result[key] = input.data;
     }

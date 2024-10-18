@@ -174,6 +174,9 @@ function serializeNode(node: Node): any {
 }
 
 function serializeProvableType(type: ProvableType<any>): Record<string, any> {
+  if ('serialize' in type && typeof type.serialize === 'function') {
+    return type.serialize();
+  }
   // TODO: handle case when type is a Struct
   const typeName = mapProvableTypeToName.get(type);
   if (typeName === undefined) {

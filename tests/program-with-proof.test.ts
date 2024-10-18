@@ -9,7 +9,7 @@ import {
   Spec,
   type UserInputs,
 } from '../src/program-spec.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 import { createOwnerSignature, owner } from './test-utils.ts';
 
 const Bytes32 = Bytes(32);

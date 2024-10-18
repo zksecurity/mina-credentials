@@ -12,7 +12,7 @@ import {
 } from '../src/serialize-spec.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
 import { deserializeSpec } from '../src/deserialize-spec.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
@@ -467,6 +467,7 @@ test('serializeInput', async (t) => {
       type: 'credential',
       id: 'signature-native',
       witness: {
+        type: { type: 'Constant', value: 'simple' },
         issuer: { type: 'PublicKey' },
         issuerSignature: { type: 'Signature' },
       },
@@ -606,6 +607,7 @@ test('convertSpecToSerializable', async (t) => {
           type: 'credential',
           id: 'signature-native',
           witness: {
+            type: { type: 'Constant', value: 'simple' },
             issuer: { type: 'PublicKey' },
             issuerSignature: { type: 'Signature' },
           },
