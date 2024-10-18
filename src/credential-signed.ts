@@ -12,12 +12,7 @@ import { NestedProvable } from './nested.ts';
 import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';
 
-export {
-  SignedCredential,
-  createSignedCredential,
-  type Witness,
-  type Metadata,
-};
+export { Signed, createSigned, type Witness, type Metadata };
 
 type Witness = {
   type: 'simple';
@@ -28,9 +23,9 @@ type Witness = {
 // TODO
 type Metadata = undefined;
 
-type SignedCredential<Data> = StoredCredential<Data, Witness, Metadata>;
+type Signed<Data> = StoredCredential<Data, Witness, Metadata>;
 
-const SignedCredential = defineCredential({
+const Signed = defineCredential({
   id: 'signature-native',
   witness: {
     type: ProvableType.constant('simple' as const),
@@ -50,10 +45,10 @@ const SignedCredential = defineCredential({
   },
 });
 
-function createSignedCredential<Data>(
+function createSigned<Data>(
   issuerPrivateKey: PrivateKey,
   credential: Credential<Data>
-): SignedCredential<Data> {
+): Signed<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
   let dataType = NestedProvable.fromValue(credential.data);
   let credHash = hashCredential(dataType, credential);

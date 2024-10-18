@@ -28,7 +28,7 @@ const inputProofSpec = Spec(
 const inputProgram = createProgram(inputProofSpec);
 let inputVk = await inputProgram.compile();
 
-const ProvedData = await Credential.proofFromProgram(inputProgram);
+const ProvedData = await Credential.RecursiveFromProgram(inputProgram);
 
 const spec = Spec(
   {

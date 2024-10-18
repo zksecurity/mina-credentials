@@ -15,6 +15,7 @@ import {
   Hashed,
   Poseidon,
   PrivateKey,
+  Group,
 } from 'o1js';
 import {
   assertPure,
@@ -42,7 +43,9 @@ export {
   type StoredCredential,
   defineCredential,
   withOwner,
-  None,
+  Unsigned,
+  unsafeMissingOwner,
+  createUnsigned,
   Proved,
   ProvedFromProgram,
 };
@@ -223,7 +226,9 @@ function defineCredential<
 }
 
 // dummy credential with no proof attached
-const None = defineCredential({
+type Unsigned<Data> = StoredCredential<Data, undefined, undefined>;
+
+const Unsigned = defineCredential({
   id: 'none',
   witness: Undefined,
 
@@ -235,6 +240,19 @@ const None = defineCredential({
     return Field(0);
   },
 });
+
+function unsafeMissingOwner(): PublicKey {
+  return PublicKey.fromGroup(Group.generator);
+}
+
+function createUnsigned<Data>(data: Data): Unsigned<Data> {
+  return {
+    version: 'v0',
+    metadata: undefined,
+    credential: { owner: unsafeMissingOwner(), data },
+    witness: undefined,
+  };
+}
 
 function Proved<
   DataType extends NestedProvablePure,

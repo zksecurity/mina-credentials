@@ -1,8 +1,10 @@
-import { None, Proved, ProvedFromProgram } from './credential.ts';
 import {
-  createSignedCredential,
-  SignedCredential,
-} from './credential-signed.ts';
+  createUnsigned,
+  Unsigned,
+  Proved,
+  ProvedFromProgram,
+} from './credential.ts';
+import { createSigned, Signed } from './credential-signed.ts';
 import { type PublicKey } from 'o1js';
 
 export { Credential };
@@ -13,13 +15,18 @@ export { Credential };
 type Credential<Data> = { owner: PublicKey; data: Data };
 
 const Credential = {
-  none: None,
-  proof: Proved,
-  proofFromProgram: ProvedFromProgram,
-  signature: SignedCredential,
+  Unsigned,
+  Simple: Signed,
+  Recursive: Proved,
+  RecursiveFromProgram: ProvedFromProgram,
 
   /**
-   * Issue a signed credential.
+   * Issue a "simple" signed credential.
    */
-  sign: createSignedCredential,
+  sign: createSigned,
+
+  /**
+   * Create a dummy credential with no owner and no signature.
+   */
+  unsigned: createUnsigned,
 };

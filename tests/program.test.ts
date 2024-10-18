@@ -12,7 +12,7 @@ let context = Field(0);
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
   const InputData = { age: Field, name: Bytes32 };
-  const SignedData = Credential.signature(InputData);
+  const SignedData = Credential.Simple(InputData);
 
   const spec = Spec(
     {

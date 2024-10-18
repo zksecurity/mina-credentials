@@ -74,9 +74,9 @@ function deserializeInput(input: any): Input {
       let data = deserializeNestedProvablePure(input.data);
       switch (id) {
         case 'signature-native':
-          return Credential.signature(data);
+          return Credential.Simple(data);
         case 'none':
-          return Credential.none(data);
+          return Credential.Unsigned(data);
         case 'proof':
           throw Error('Serializing proof credential is not supported yet');
         default:

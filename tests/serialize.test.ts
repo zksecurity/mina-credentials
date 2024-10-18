@@ -128,7 +128,7 @@ test('Serialize Nodes', async (t) => {
     const rootNode: Node = {
       type: 'root',
       input: {
-        age: Credential.none(Field),
+        age: Credential.Unsigned(Field),
         isAdmin: Claim(Bool),
       },
     };
@@ -147,7 +147,7 @@ test('Serialize Nodes', async (t) => {
       inner: {
         type: 'root',
         input: {
-          age: Credential.none(Field),
+          age: Credential.Unsigned(Field),
           isAdmin: Claim(Bool),
         },
       },
@@ -444,7 +444,7 @@ test('serializeInput', async (t) => {
   });
 
   await t.test('should serialize private input', () => {
-    const input = Credential.none(Field);
+    const input = Credential.Unsigned(Field);
 
     const serialized = serializeInput(input);
 
@@ -459,7 +459,7 @@ test('serializeInput', async (t) => {
 
   await t.test('should serialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Credential.signature(InputData);
+    const input = Credential.Simple(InputData);
 
     const serialized = serializeInput(input);
 
@@ -488,7 +488,7 @@ test('serializeInput', async (t) => {
       },
       score: UInt32,
     };
-    const input = Credential.none(NestedInputData);
+    const input = Credential.Unsigned(NestedInputData);
 
     const serialized = serializeInput(input);
 
@@ -521,7 +521,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a simple Spec', () => {
     const spec = Spec(
       {
-        age: Credential.none(Field),
+        age: Credential.Unsigned(Field),
         isAdmin: Claim(Bool),
         maxAge: Constant(Field, Field(100)),
       },
@@ -588,7 +588,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with an credential', () => {
     const spec = Spec(
       {
-        signedData: Credential.signature({ field: Field }),
+        signedData: Credential.Simple({ field: Field }),
         zeroField: Constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
@@ -656,8 +656,8 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with nested operations', () => {
     const spec = Spec(
       {
-        field1: Credential.none(Field),
-        field2: Credential.none(Field),
+        field1: Credential.Unsigned(Field),
+        field2: Credential.Unsigned(Field),
         zeroField: Constant(Field, Field(0)),
       },
       ({ field1, field2, zeroField }) => ({
@@ -746,7 +746,7 @@ test('convertSpecToSerializable', async (t) => {
 test('Serialize and deserialize spec with hash', async (t) => {
   const spec = Spec(
     {
-      age: Credential.none(Field),
+      age: Credential.Unsigned(Field),
       isAdmin: Claim(Bool),
       ageLimit: Constant(Field, Field(100)),
     },

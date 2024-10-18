@@ -200,7 +200,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize private input', () => {
-    const input = Credential.none(Signature);
+    const input = Credential.Unsigned(Signature);
     const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
@@ -210,7 +210,7 @@ test('deserializeInput', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
 
-    const input = Credential.signature(InputData);
+    const input = Credential.Simple(InputData);
 
     const serialized = serializeInput(input);
 
@@ -229,7 +229,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize nested input', () => {
-    const input = Credential.none({
+    const input = Credential.Unsigned({
       personal: {
         age: Field,
         id: UInt64,
@@ -258,10 +258,10 @@ test('deserializeInput', async (t) => {
 test('deserializeInputs', async (t) => {
   await t.test('should deserialize inputs with various type', () => {
     const inputs = {
-      field: Credential.none(Field),
+      field: Credential.Unsigned(Field),
       bool: Claim(Bool),
       uint: Constant(UInt64, UInt64.from(42)),
-      nested: Credential.none({
+      nested: Credential.Unsigned({
         inner: Field,
         deep: {
           value: Bool,
@@ -281,7 +281,7 @@ test('deserializeInputs', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
     const inputs = {
-      credential: Credential.signature(InputData),
+      credential: Credential.Simple(InputData),
     };
 
     const serialized = Object.fromEntries(
@@ -302,10 +302,10 @@ test('deserializeInputs', async (t) => {
 
   await t.test('should handle mixed input types', () => {
     const inputs = {
-      privateField: Credential.none(Field),
+      privateField: Credential.Unsigned(Field),
       publicBool: Claim(Bool),
       constantUint: Constant(UInt32, UInt32.from(42)),
-      credential: Credential.signature({ score: UInt64 }),
+      credential: Credential.Simple({ score: UInt64 }),
     };
 
     const serialized = Object.fromEntries(
@@ -341,7 +341,7 @@ test('deserializeNode', async (t) => {
 
   await t.test('should deserialize root node', () => {
     let input = {
-      age: Credential.none(Field),
+      age: Credential.Unsigned(Field),
       isAdmin: Claim(Bool),
     };
     const node: Node = { type: 'root', input };
@@ -352,7 +352,7 @@ test('deserializeNode', async (t) => {
 
   await t.test('should deserialize property node', () => {
     let input = {
-      age: Credential.none(Field),
+      age: Credential.Unsigned(Field),
       isAdmin: Claim(Bool),
     };
     const node: Node = {
@@ -552,7 +552,7 @@ test('deserializeSpec', async (t) => {
   await t.test('should correctly deserialize a simple Spec', async () => {
     const originalSpec = Spec(
       {
-        age: Credential.none(Field),
+        age: Credential.Unsigned(Field),
         isAdmin: Claim(Bool),
         maxAge: Constant(Field, Field(100)),
       },
@@ -575,7 +575,7 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          signedData: Credential.signature({ field: Field }),
+          signedData: Credential.Simple({ field: Field }),
           zeroField: Constant(Field, Field(0)),
         },
         ({ signedData, zeroField }) => ({
@@ -620,8 +620,8 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          field1: Credential.none(Field),
-          field2: Credential.none(Field),
+          field1: Credential.Unsigned(Field),
+          field2: Credential.Unsigned(Field),
           threshold: Claim(UInt64),
         },
         ({ field1, field2, threshold }) => ({
