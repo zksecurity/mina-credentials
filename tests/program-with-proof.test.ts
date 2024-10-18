@@ -26,9 +26,9 @@ const inputProofSpec = Spec(
   })
 );
 const inputProgram = createProgram(inputProofSpec);
-let inputVk = await inputProgram.compile();
 
 const ProvedData = await Credential.RecursiveFromProgram(inputProgram);
+await ProvedData.compile();
 
 const spec = Spec(
   {
@@ -82,7 +82,7 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with invalid proof', async () => {
-    let provedData = await createInvalidProofCredential(data);
+    let provedData = await ProvedData.dummy({ owner, data });
     let ownerSignature = createOwnerSignature(context, [
       ProvedData,
       provedData,
@@ -143,6 +143,7 @@ async function createProofCredential(data: {
   age: Field;
   name: Bytes;
 }): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
+  let vk = await ProvedData.compile();
   let inputProof = await inputProgram.run({
     context,
     // there is no credential, so no signature verification
@@ -153,21 +154,6 @@ async function createProofCredential(data: {
   let proof = ProvedData.fromProof(inputProof);
   return {
     credential: inputProof.publicOutput,
-    witness: { vk: inputVk, proof },
-  };
-}
-
-async function createInvalidProofCredential(data: {
-  age: Field;
-  name: Bytes;
-}): Promise<UserInputs<typeof spec.inputs>['credentials']['provedData']> {
-  let context = Field(0);
-  let proof = await ProvedData.dummyProof(
-    { context, claims: { owner, data } },
-    { owner, data }
-  );
-  return {
-    credential: proof.publicOutput,
-    witness: { vk: inputVk, proof },
+    witness: { vk, proof },
   };
 }

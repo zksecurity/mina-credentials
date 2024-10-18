@@ -254,6 +254,12 @@ function createUnsigned<Data>(data: Data): Unsigned<Data> {
   };
 }
 
+type Proved<Data, Input> = StoredCredential<
+  Data,
+  { vk: VerificationKey; proof: DynamicProof<Input, Credential<Data>> },
+  undefined
+>;
+
 function Proved<
   DataType extends NestedProvablePure,
   InputType extends ProvablePureType,
@@ -306,20 +312,21 @@ async function ProvedFromProgram<
   Data extends InferNestedProvable<DataType>,
   Input extends InferProvable<InputType>
 >(
-  {
-    program,
-  }: {
+  programWrapper: {
     program: {
       publicInputType: InputType;
       publicOutputType: ProvablePure<Credential<Data>>;
-      analyzeMethods: () => Promise<{
+      analyzeMethods(): Promise<{
         [I in keyof any]: any;
       }>;
     };
+    compile(): Promise<VerificationKey>;
+    run(inputs: Input): Promise<Proof<Input, Credential<Data>>>;
   },
   // TODO this needs to be exposed on the program!!
   maxProofsVerified: 0 | 1 | 2 = 0
 ) {
+  let { program } = programWrapper;
   const featureFlags = await FeatureFlags.fromZkProgram(program);
 
   class InputProof extends DynamicProof<Input, Credential<Data>> {
@@ -333,23 +340,39 @@ async function ProvedFromProgram<
   let dataType = NestedProvable.get(NestedProvable.fromValue(data));
   assertPure(dataType);
 
+  let isCompiled = false;
+  let vk: VerificationKey | undefined;
+
   return Object.assign(
     Proved<ProvablePure<Data>, InputType, Data, Input>(InputProof, dataType),
     {
+      program,
+      async compile() {
+        if (isCompiled) return vk!;
+        vk = await programWrapper.compile();
+        isCompiled = true;
+        return vk;
+      },
       fromProof(
         proof: Proof<Input, Credential<Data>>
       ): DynamicProof<Input, Credential<Data>> {
         return InputProof.fromProof(proof as any);
       },
-      dummyProof(
-        publicInput: Input,
-        publicOutput: Credential<Data>
-      ): Promise<DynamicProof<Input, Credential<Data>>> {
-        return InputProof.dummy(
-          publicInput,
-          publicOutput as any,
+      async dummy(credential: Credential<Data>): Promise<Proved<Data, Input>> {
+        let input = ProvableType.synthesize(program.publicInputType);
+        let vk = await this.compile();
+
+        let dummyProof = await InputProof.dummy(
+          input,
+          credential,
           maxProofsVerified
         );
+        return {
+          version: 'v0',
+          metadata: undefined,
+          credential,
+          witness: { vk, proof: dummyProof },
+        };
       },
     }
   );
