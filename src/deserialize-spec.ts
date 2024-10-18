@@ -21,7 +21,7 @@ import {
   supportedTypes,
   type O1jsTypeName,
 } from './serialize-spec.ts';
-import { type CredentialId } from './credentials.ts';
+import { type CredentialId } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { ProvableType } from './o1js-missing.ts';
 

@@ -7,7 +7,7 @@ import {
   type Credential,
   defineCredential,
   hashCredential,
-} from './credentials.ts';
+} from './credential.ts';
 import { NestedProvable } from './nested.ts';
 import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';

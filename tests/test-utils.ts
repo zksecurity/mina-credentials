@@ -1,5 +1,5 @@
 import { Field, PrivateKey, PublicKey } from 'o1js';
-import { type CredentialType, signCredential } from '../src/credentials.ts';
+import { type CredentialType, signCredential } from '../src/credential.ts';
 
 export { createOwnerSignature, owner, ownerKey, issuer, issuerKey };
 

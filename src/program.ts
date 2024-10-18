@@ -14,7 +14,7 @@ import {
 } from './program-spec.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
-import { verifyCredentials } from './credentials.ts';
+import { verifyCredentials } from './credential.ts';
 
 export { createProgram };
 

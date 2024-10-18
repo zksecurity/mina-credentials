@@ -1,8 +1,8 @@
-import { None, Proved, ProvedFromProgram } from './credentials.ts';
+import { None, Proved, ProvedFromProgram } from './credential.ts';
 import {
   createSignedCredential,
   SignedCredential,
-} from './credential-issuance.ts';
+} from './credential-signed.ts';
 import { type PublicKey } from 'o1js';
 
 export { Credential };

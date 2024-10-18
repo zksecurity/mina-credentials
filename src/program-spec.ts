@@ -30,7 +30,7 @@ import {
   type Credential,
   type CredentialInputs,
   withOwner,
-} from './credentials.ts';
+} from './credential.ts';
 
 export type { PublicInputs, UserInputs, DataInputs, ToCredential, Input };
 export {
