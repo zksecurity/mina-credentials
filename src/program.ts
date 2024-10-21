@@ -18,15 +18,15 @@ import { verifyCredentials } from './credential.ts';
 
 export { createProgram };
 
-type Program<Data, Inputs extends Record<string, Input>> = {
+type Program<Output, Inputs extends Record<string, Input>> = {
   compile(): Promise<VerificationKey>;
 
-  run(input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Data>>;
+  run(input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Output>>;
 
   program: ZkProgram<
     {
       publicInput: ProvablePureType<PublicInputs<Inputs>>;
-      publicOutput: ProvablePureType<Data>;
+      publicOutput: ProvablePureType<Output>;
     },
     any
   >;

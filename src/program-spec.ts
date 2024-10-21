@@ -32,7 +32,14 @@ import {
   withOwner,
 } from './credential.ts';
 
-export type { PublicInputs, UserInputs, DataInputs, ToCredential, Input };
+export type {
+  PublicInputs,
+  UserInputs,
+  DataInputs,
+  ToCredential,
+  Input,
+  Claims,
+};
 export {
   Spec,
   Node,
@@ -48,25 +55,25 @@ export {
 };
 
 type Spec<
-  Data = any,
+  Output = any,
   Inputs extends Record<string, Input> = Record<string, Input>
 > = {
   inputs: Inputs;
-  logic: Required<OutputNode<Data>>;
+  logic: Required<OutputNode<Output>>;
 };
 
 /**
  * Specify a ZkProgram that verifies and selectively discloses data
  */
-function Spec<Data, Inputs extends Record<string, Input>>(
+function Spec<Output, Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => {
     assert?: Node<Bool>;
-    data: Node<Data>;
+    data: Node<Output>;
   }
-): Spec<Data, Inputs>;
+): Spec<Output, Inputs>;
 
 // variant without data output
 function Spec<Inputs extends Record<string, Input>>(
@@ -599,9 +606,14 @@ function recombineDataInputs<S extends Spec>(
   return result;
 }
 
+type Claims<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToClaims<Inputs>,
+  never
+>;
+
 type PublicInputs<Inputs extends Record<string, Input>> = {
   context: Field;
-  claims: ExcludeFromRecord<MapToClaims<Inputs>, never>;
+  claims: Claims<Inputs>;
 };
 
 type PrivateInputs<Inputs extends Record<string, Input>> = {
