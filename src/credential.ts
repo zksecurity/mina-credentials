@@ -70,7 +70,7 @@ type CredentialType<
 /**
  * Credential in stored form, including the witness and metadata.
  */
-type StoredCredential<Data, Witness, Metadata> = {
+type StoredCredential<Data = any, Witness = any, Metadata = any> = {
   version: 'v0';
   witness: Witness;
   metadata: Metadata;

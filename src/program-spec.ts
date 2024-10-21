@@ -616,9 +616,14 @@ type PublicInputs<Inputs extends Record<string, Input>> = {
   claims: Claims<Inputs>;
 };
 
+type Credentials<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+  MapToCredentials<Inputs>,
+  never
+>;
+
 type PrivateInputs<Inputs extends Record<string, Input>> = {
   ownerSignature: Signature;
-  credentials: ExcludeFromRecord<MapToCredentials<Inputs>, never>;
+  credentials: Credentials<Inputs>;
 };
 
 type UserInputs<Inputs extends Record<string, Input>> = {

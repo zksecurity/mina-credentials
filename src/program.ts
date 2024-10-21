@@ -72,10 +72,16 @@ function createProgram<S extends Spec>(
     },
   });
 
+  let isCompiled = false;
+  let verificationKey: VerificationKey | undefined;
+
   return {
     async compile() {
-      const result = await program.compile();
-      return result.verificationKey;
+      if (isCompiled) return verificationKey!;
+      let result = await program.compile();
+      isCompiled = true;
+      verificationKey = result.verificationKey;
+      return verificationKey;
     },
     async run(input) {
       let { publicInput, privateInput } = splitUserInputs(input);
