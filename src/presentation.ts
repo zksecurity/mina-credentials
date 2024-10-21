@@ -1,11 +1,11 @@
-import { Field, PrivateKey, Proof, PublicKey } from 'o1js';
+import { Field, PrivateKey, Proof } from 'o1js';
 import {
   Spec,
   type Input,
   type Claims,
   type PublicInputs,
 } from './program-spec.ts';
-import { createProgram } from './program.ts';
+import { createProgram, type Program } from './program.ts';
 import {
   signCredentials,
   type CredentialType,
@@ -48,7 +48,19 @@ type Presentation<Output, Inputs extends Record<string, Input>> = {
   proof: Proof<PublicInputs<Inputs>, Output>;
 };
 
+type Output<R> = R extends PresentationRequest<infer O> ? O : never;
+type Inputs<R> = R extends PresentationRequest<any, infer I> ? I : never;
+
 const Presentation = {
+  async compile<R extends PresentationRequest>(
+    request: R
+  ): Promise<R & { program: Program<Output<R>, Inputs<R>> }> {
+    let program: Program<Output<R>, Inputs<R>> = (request as any).program ??
+    createProgram(request.programSpec);
+    await program.compile();
+    return { ...request, program };
+  },
+
   create: createPresentation,
 };
 
@@ -70,8 +82,7 @@ async function createPresentation<
   }
 ): Promise<Presentation<Output, Inputs>> {
   let context = request.deriveContext(walletContext);
-  let program = createProgram(request.programSpec);
-  await program.compile();
+  let { program } = await Presentation.compile(request);
 
   let credentialsNeeded = Object.entries(request.programSpec.inputs).filter(
     (c): c is [string, CredentialType] => c[1].type === 'credential'

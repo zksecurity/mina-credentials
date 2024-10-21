@@ -16,7 +16,7 @@ import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 import { verifyCredentials } from './credential.ts';
 
-export { createProgram };
+export { createProgram, type Program };
 
 type Program<Output, Inputs extends Record<string, Input>> = {
   compile(): Promise<VerificationKey>;
