@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
-import { createProgram } from '../src/program.ts';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
 import { issuerKey, owner, ownerKey } from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
@@ -29,13 +28,16 @@ test('program with simple spec and signature credential', async (t) => {
 
   // presentation request
   // TODO proper context
-  let request = PresentationRequest.noContext(spec, {
+  let requestInitial = PresentationRequest.noContext(spec, {
     targetAge: Field(18),
   });
+  let request = await Presentation.compile(requestInitial);
 
   await t.test('compile program', async () => {
-    const vk = await createProgram(spec).compile();
-    assert(vk, 'Verification key should be generated for zk program');
+    assert(
+      await request.program.compile(),
+      'Verification key should be generated for zk program'
+    );
   });
 
   await t.test('run program with valid input', async () => {
