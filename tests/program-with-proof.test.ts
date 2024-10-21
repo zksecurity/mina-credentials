@@ -22,7 +22,7 @@ const inputProofSpec = Spec(
 );
 
 // create recursive credential
-const Recursive = await Credential.RecursiveFromProgram(
+const Recursive = await Credential.Recursive.fromProgram(
   createProgram(inputProofSpec)
 );
 let data = { age: Field(18), name: Bytes32.fromString('Alice') };
