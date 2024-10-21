@@ -4,7 +4,8 @@ import { Field, Bytes, PublicKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
 import { Credential } from '../src/credential-index.ts';
-import { createOwnerSignature, owner } from './test-utils.ts';
+import { createOwnerSignature, owner, ownerKey } from './test-utils.ts';
+import { Presentation, PresentationRequest } from '../src/presentation.ts';
 
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
@@ -48,22 +49,20 @@ const spec = Spec(
     data: Operation.property(provedData, 'age'),
   })
 );
-
-const program = createProgram(spec);
+let requestInitial = PresentationRequest.noContext(spec, {
+  targetAge: Field(18),
+});
+let request = await Presentation.compile(requestInitial);
 
 await describe('program with proof credential', async () => {
   await test('compile program', async () => {
-    await program.compile();
+    await request.program.compile();
   });
 
   await test('run program with valid inputs', async () => {
-    let ownerSignature = createOwnerSignature(context, [Recursive, provedData]);
-
-    const proof = await program.run({
-      context,
-      ownerSignature,
-      credentials: { provedData },
-      claims: { targetAge: Field(18) },
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      credentials: [provedData],
     });
 
     assert(proof, 'Proof should be generated');
@@ -82,15 +81,12 @@ await describe('program with proof credential', async () => {
 
   await test('run program with invalid proof', async () => {
     let provedData = await Recursive.dummy({ owner, data });
-    let ownerSignature = createOwnerSignature(context, [Recursive, provedData]);
 
     await assert.rejects(
       async () =>
-        await program.run({
-          context,
-          ownerSignature,
-          credentials: { provedData },
-          claims: { targetAge: Field(18) },
+        await Presentation.create(ownerKey, {
+          request,
+          credentials: [provedData],
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -114,7 +110,7 @@ await describe('program with proof credential', async () => {
 
     await assert.rejects(
       async () =>
-        await program.run({
+        await request.program.run({
           context,
           ownerSignature,
           credentials: { provedData },
