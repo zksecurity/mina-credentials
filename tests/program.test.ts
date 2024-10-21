@@ -3,11 +3,9 @@ import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
-import { createOwnerSignature, issuerKey, owner } from './test-utils.ts';
+import { issuerKey, owner, ownerKey } from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
-
-// TODO
-let context = Field(0);
+import { Presentation, PresentationRequest } from '../src/presentation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
@@ -29,10 +27,14 @@ test('program with simple spec and signature credential', async (t) => {
     })
   );
 
-  const program = createProgram(spec);
+  // presentation request
+  // TODO proper context
+  let request = PresentationRequest.noContext(spec, {
+    targetAge: Field(18),
+  });
 
   await t.test('compile program', async () => {
-    const vk = await program.compile();
+    const vk = await createProgram(spec).compile();
     assert(vk, 'Verification key should be generated for zk program');
   });
 
@@ -42,16 +44,9 @@ test('program with simple spec and signature credential', async (t) => {
     let signedData = Credential.sign(issuerKey, { owner, data });
 
     // presentation
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
-
-    const proof = await program.run({
-      context,
-      ownerSignature,
-      credentials: { signedData },
-      claims: { targetAge: Field(18) },
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      credentials: [signedData],
     });
 
     assert(proof, 'Proof should be generated');
@@ -72,18 +67,11 @@ test('program with simple spec and signature credential', async (t) => {
     const data = { age: Field(20), name: Bytes32.fromString('Alice') };
     let signedData = Credential.sign(issuerKey, { owner, data });
 
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
-
     await assert.rejects(
       async () =>
-        await program.run({
-          context,
-          ownerSignature,
-          credentials: { signedData },
-          claims: { targetAge: Field(18) },
+        await Presentation.create(ownerKey, {
+          request,
+          credentials: [signedData],
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -105,18 +93,11 @@ test('program with simple spec and signature credential', async (t) => {
     const data = { age: Field(18), name: Bytes32.fromString('Bob') };
     let signedData = Credential.sign(issuerKey, { owner, data });
 
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
-
     await assert.rejects(
       async () =>
-        await program.run({
-          context,
-          ownerSignature,
-          credentials: { signedData },
-          claims: { targetAge: Field(18) },
+        await Presentation.create(ownerKey, {
+          request,
+          credentials: [signedData],
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');

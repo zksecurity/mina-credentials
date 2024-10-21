@@ -7,24 +7,38 @@ import {
 } from './program-spec.ts';
 import { createProgram } from './program.ts';
 import {
-  signCredential,
+  signCredentials,
   type CredentialType,
   type StoredCredential,
 } from './credential.ts';
 import { assert } from './util.ts';
-import { Tuple } from './types';
+
+export { PresentationRequest, Presentation };
 
 type PresentationRequest<
-  Output,
-  Inputs extends Record<string, Input>,
-  InputContext,
-  WalletContext
+  Output = any,
+  Inputs extends Record<string, Input> = Record<string, Input>,
+  InputContext = any,
+  WalletContext = any
 > = {
   programSpec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext?: InputContext;
 
   deriveContext(walletContext?: WalletContext): Field;
+};
+
+const PresentationRequest = {
+  noContext<Output, Inputs extends Record<string, Input>>(
+    programSpec: Spec<Output, Inputs>,
+    claims: Claims<Inputs>
+  ) {
+    return {
+      programSpec,
+      claims,
+      deriveContext: () => Field(0),
+    } satisfies PresentationRequest;
+  },
 };
 
 type Presentation<Output, Inputs extends Record<string, Input>> = {
@@ -66,12 +80,13 @@ async function createPresentation<
     credentialsNeeded.map(([key]) => key),
     credentials
   );
-  let ownerSignature = createOwnerSignature(
+  let ownerSignature = signCredentials(
     ownerKey,
     context,
-    ...credentialsNeeded.map(
-      ([key, input]) => [input, credentialsUsed[key]!] satisfies Tuple
-    )
+    ...credentialsNeeded.map(([key, input]) => ({
+      ...credentialsUsed[key]!,
+      credentialType: input,
+    }))
   );
 
   let proof = await program.run({
@@ -117,25 +132,4 @@ function pickCredentials(
     `Missing credentials: ${credentialsStillNeeded.join(', ')}`
   );
   return credentialsUsed;
-}
-
-function createOwnerSignature<Witness, Data>(
-  ownerKey: PrivateKey,
-  context: Field,
-  ...credentials: [
-    CredentialType<any, Witness, Data>,
-    {
-      credential: { owner: PublicKey; data: Data };
-      witness: Witness;
-    }
-  ][]
-) {
-  // TODO support many credentials
-  let [credentialType, credential] = credentials[0]!;
-  return signCredential(ownerKey, {
-    context,
-    credentialType: credentialType,
-    credential: credential.credential,
-    witness: credential.witness,
-  });
 }

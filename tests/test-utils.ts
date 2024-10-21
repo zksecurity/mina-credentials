@@ -1,5 +1,9 @@
-import { Field, PrivateKey, PublicKey } from 'o1js';
-import { type CredentialType, signCredential } from '../src/credential.ts';
+import { Field, PrivateKey } from 'o1js';
+import {
+  type Credential,
+  type CredentialType,
+  signCredentials,
+} from '../src/credential.ts';
 
 export { createOwnerSignature, owner, ownerKey, issuer, issuerKey };
 
@@ -10,18 +14,15 @@ function createOwnerSignature<Witness, Data>(
   context: Field,
   ...credentials: [
     CredentialType<any, Witness, Data>,
-    {
-      credential: { owner: PublicKey; data: Data };
-      witness: Witness;
-    }
+    { credential: Credential<Data>; witness: Witness }
   ][]
 ) {
-  // TODO support many credentials
-  let [credentialType, credential] = credentials[0]!;
-  return signCredential(ownerKey, {
+  return signCredentials(
+    ownerKey,
     context,
-    credentialType: credentialType,
-    credential: credential.credential,
-    witness: credential.witness,
-  });
+    ...credentials.map(([credentialType, cred]) => ({
+      ...cred,
+      credentialType,
+    }))
+  );
 }

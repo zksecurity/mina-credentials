@@ -24,7 +24,7 @@ export {
   type CredentialInputs,
   hashCredential,
   verifyCredentials,
-  signCredential,
+  signCredentials,
   type StoredCredential,
   defineCredential,
   withOwner,
@@ -161,20 +161,23 @@ function verifyCredentials({
   };
 }
 
-// TODO support many credentials
-function signCredential<Private, Data>(
+function signCredentials<Private, Data>(
   ownerKey: PrivateKey,
-  inputs: {
+  context: Field,
+  ...credentials: {
     credentialType: CredentialType<any, Private, Data>;
-    context: Field;
     credential: Credential<Data>;
     witness: Private;
-  }
+  }[]
 ) {
-  let { credentialType, context, credential, witness } = inputs;
-  let credHash = HashedCredential(credentialType.data).hash(credential);
-  let issuer = credentialType.issuer(witness);
-  return Signature.create(ownerKey, [context, credHash.hash, issuer]);
+  let hashes = credentials.map(
+    ({ credentialType: { data }, credential }) =>
+      hashCredential(data, credential).hash
+  );
+  let issuers = credentials.map(({ credentialType, witness }) =>
+    credentialType.issuer(witness)
+  );
+  return Signature.create(ownerKey, [context, ...zip(hashes, issuers).flat()]);
 }
 
 function defineCredential<
