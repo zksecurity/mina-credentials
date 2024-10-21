@@ -8,6 +8,7 @@ import {
   type ProvablePure,
   Poseidon,
   Signature,
+  PublicKey,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -474,6 +475,32 @@ function ifThenElse<Data>(
 ): Node<Data> {
   return { type: 'ifThenElse', condition, thenNode, elseNode };
 }
+
+// helpers to create the context
+
+type ContextType = 'zk-app' | 'web-app';
+
+type BaseContext = {
+  type: ContextType;
+  presentationCircuitVKHash: Field;
+  nonce: Field;
+  action: Field;
+  // TODO: Claims might be represented differently, leaving it as Field for now for a Hash
+  claims: Field;
+};
+
+// TODO: They could both be a hash potentially
+type ZkAppContext = BaseContext & {
+  type: 'zk-app';
+  verifierIdentity: PublicKey;
+};
+
+type WebAppContext = BaseContext & {
+  type: 'web-app';
+  verifierIdentity: Field;
+};
+
+type Context = ZkAppContext | WebAppContext;
 
 // helpers to extract/recombine portions of the spec inputs
 
