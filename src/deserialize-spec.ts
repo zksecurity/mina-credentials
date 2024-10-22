@@ -9,6 +9,7 @@ import {
   type ProvablePure,
   assert,
   Bytes,
+  DynamicProof,
 } from 'o1js';
 import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
 import type {
@@ -20,6 +21,7 @@ import {
   validateSpecHash,
   supportedTypes,
   type O1jsTypeName,
+  type SerializedProvableType,
 } from './serialize-spec.ts';
 import { type CredentialId } from './credential.ts';
 import { Credential } from './credential-index.ts';
@@ -65,7 +67,7 @@ function deserializeInput(input: any): Input {
     case 'constant':
       return Constant(
         deserializeProvableType(input.data),
-        deserializeProvable(input.data.type, input.value)
+        deserializeProvable(input.data._type, input.value)
       );
     case 'public':
       return Claim(deserializeNestedProvablePure(input.data));
@@ -78,7 +80,10 @@ function deserializeInput(input: any): Input {
         case 'none':
           return Credential.Unsigned(data);
         case 'proof':
-          throw Error('Serializing proof credential is not supported yet');
+          console.dir(input, { depth: 6 });
+          let proof = deserializeProvableType(input.witness.proof) as any;
+          console.dir(proof, { depth: 6 });
+          return Credential.Recursive(proof, data);
         default:
           throw Error(`Unsupported credential id: ${id}`);
       }
@@ -104,7 +109,7 @@ function deserializeNode(input: any, node: any): Node {
     case 'constant':
       return {
         type: 'constant',
-        data: deserializeProvable(node.data.type, node.data.value),
+        data: deserializeProvable(node.data._type, node.data.value),
       };
     case 'root':
       return { type: 'root', input };
@@ -161,20 +166,28 @@ function deserializeNode(input: any, node: any): Node {
 }
 
 function deserializeProvableType(
-  type:
-    | {
-        type: O1jsTypeName | 'Constant';
-      }
-    | { type: 'Bytes'; size: number }
+  type: SerializedProvableType
 ): ProvableType<any> {
-  if (type.type === 'Constant') {
+  if (type._type === 'Constant') {
     return ProvableType.constant((type as any).value);
   }
-  if (type.type === 'Bytes') {
+  if (type._type === 'Bytes') {
     return Bytes(type.size);
   }
-  let result = supportedTypes[type.type];
-  assert(result !== undefined, `Unsupported provable type: ${type.type}`);
+  if (type._type === 'Proof') {
+    let proof = type.proof;
+    return class Proof extends DynamicProof<any, any> {
+      static publicInputType = deserializeProvablePureType(proof.publicInput);
+      static publicOutputType = deserializeProvablePureType(proof.publicOutput);
+      static maxProofsVerified = proof.maxProofsVerified;
+      static featureFlags = proof.featureFlags;
+    };
+  }
+  if (type._type === 'Struct') {
+    throw Error('Struct not implemented');
+  }
+  let result = supportedTypes[type._type];
+  assert(result !== undefined, `Unsupported provable type: ${type._type}`);
   return result;
 }
 
@@ -202,7 +215,7 @@ function deserializeProvable(type: string, value: string): any {
 }
 
 function deserializeProvablePureType(type: {
-  type: O1jsTypeName;
+  _type: O1jsTypeName;
 }): ProvablePure<any> {
   const provableType = deserializeProvableType(type);
   return provableType as ProvablePure<any>;
@@ -210,7 +223,7 @@ function deserializeProvablePureType(type: {
 
 function deserializeNestedProvable(type: any): NestedProvable {
   if (typeof type === 'object' && type !== null) {
-    if ('type' in type) {
+    if ('_type' in type) {
       // basic provable type
       return deserializeProvableType(type);
     } else {
@@ -227,7 +240,7 @@ function deserializeNestedProvable(type: any): NestedProvable {
 
 function deserializeNestedProvablePure(type: any): NestedProvablePure {
   if (typeof type === 'object' && type !== null) {
-    if ('type' in type) {
+    if ('_type' in type) {
       // basic provable pure type
       return deserializeProvablePureType(type);
     } else {

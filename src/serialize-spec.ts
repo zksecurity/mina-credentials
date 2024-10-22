@@ -9,43 +9,35 @@ import {
   UInt64,
   PublicKey,
   Signature,
-  Provable,
   Undefined,
   Bytes,
+  DynamicProof,
+  VerificationKey,
 } from 'o1js';
+import { assert } from './util.ts';
 
 // Supported o1js base types
-const O1jsType = {
-  Field: 'Field',
-  Bool: 'Bool',
-  UInt8: 'UInt8',
-  UInt32: 'UInt32',
-  UInt64: 'UInt64',
-  PublicKey: 'PublicKey',
-  Signature: 'Signature',
-  Undefined: 'Undefined',
-} as const;
-
-type O1jsTypeName = (typeof O1jsType)[keyof typeof O1jsType];
-
-const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
-  [O1jsType.Field]: Field,
-  [O1jsType.Bool]: Bool,
-  [O1jsType.UInt8]: UInt8,
-  [O1jsType.UInt32]: UInt32,
-  [O1jsType.UInt64]: UInt64,
-  [O1jsType.PublicKey]: PublicKey,
-  [O1jsType.Signature]: Signature,
-  [O1jsType.Undefined]: Undefined,
+const supportedTypes = {
+  Field,
+  Bool,
+  UInt8,
+  UInt32,
+  UInt64,
+  PublicKey,
+  Signature,
+  Undefined,
+  VerificationKey,
 };
+type O1jsTypeName = keyof typeof supportedTypes;
 
-let mapProvableTypeToName = new Map<ProvableType<any>, string>();
+let mapProvableTypeToName = new Map<ProvableType<any>, O1jsTypeName>();
 for (let [key, value] of Object.entries(supportedTypes)) {
-  mapProvableTypeToName.set(value, key);
+  mapProvableTypeToName.set(value, key as O1jsTypeName);
 }
 
 export {
   type O1jsTypeName,
+  type SerializedProvableType,
   supportedTypes,
   serializeProvableType,
   serializeProvable,
@@ -182,36 +174,58 @@ function serializeNode(node: Node): any {
   }
 }
 
+type SerializedProvableType =
+  | { _type: O1jsTypeName }
+  | { _type: 'Struct' } // TODO
+  | { _type: 'Constant'; size: number }
+  | { _type: 'Bytes'; size: number }
+  | { _type: 'Proof'; proof: Record<string, any> };
+
 function serializeProvableType(
   type: ProvableType<any>
-): { type: string } & Record<string, any> {
+): SerializedProvableType {
   if ('serialize' in type && typeof type.serialize === 'function') {
     return type.serialize();
   }
   if ((type as any).prototype instanceof Bytes.Base) {
-    return { type: 'Bytes', size: (type as typeof Bytes.Base).size };
+    return { _type: 'Bytes', size: (type as typeof Bytes.Base).size };
+  }
+  if ((type as any).prototype instanceof DynamicProof) {
+    let { publicInputType, publicOutputType, maxProofsVerified, featureFlags } =
+      type as typeof DynamicProof;
+    let proof = {
+      publicInput: serializeProvableType(publicInputType),
+      publicOutput: serializeProvableType(publicOutputType),
+      maxProofsVerified,
+      featureFlags,
+    };
+    return { _type: 'Proof', proof };
   }
   // TODO: handle case when type is a Struct
-  const typeName = mapProvableTypeToName.get(type);
-  if (typeName === undefined) {
-    throw Error(`serializeProvableType: Unsupported provable type: ${type}`);
+  if ((type as any)._isStruct) {
+    return { _type: 'Struct' };
   }
-  return { type: typeName };
+  let _type = mapProvableTypeToName.get(type);
+  assert(
+    _type !== undefined,
+    `serializeProvableType: Unsupported provable type: ${type}`
+  );
+  return { _type };
 }
 
-function serializeProvable(value: any): { type: string; value: string } {
+function serializeProvable(value: any): { _type: string; value: string } {
   let typeClass = ProvableType.fromValue(value);
-  let { type } = serializeProvableType(typeClass);
-  if (type === 'Bytes') return { type, value: (value as Bytes).toHex() };
+  let { _type } = serializeProvableType(typeClass);
+  if (_type === 'Bytes') return { _type, value: (value as Bytes).toHex() };
   switch (typeClass) {
     case Bool: {
-      return { type, value: value.toJSON().toString() };
+      return { _type, value: value.toJSON().toString() };
     }
     case UInt8: {
-      return { type, value: value.toJSON().value };
+      return { _type, value: value.toJSON().value };
     }
     default: {
-      return { type, value: value.toJSON() };
+      return { _type, value: value.toJSON() };
     }
   }
 }
