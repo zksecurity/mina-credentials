@@ -32,7 +32,6 @@ import {
 } from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
-import { deserialize } from 'node:v8';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {

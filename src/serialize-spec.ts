@@ -1,6 +1,7 @@
 import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { Spec, type Input, Node } from './program-spec.ts';
+import { type PresentationRequest } from './presentation.ts';
 import {
   Field,
   Bool,
@@ -49,7 +50,19 @@ export {
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
+  serializePresentationRequest,
 };
+
+function serializePresentationRequest(request: PresentationRequest) {
+  let spec = convertSpecToSerializable(request.spec);
+  let claims = serializeNestedProvableValue(request.claims);
+  return {
+    type: request.type,
+    spec,
+    claims,
+    inputContext: request.inputContext,
+  };
+}
 
 async function serializeSpec(spec: Spec): Promise<string> {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
@@ -220,7 +233,9 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
 function serializeProvable(value: any): { _type: string; value: string } {
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
-  if (_type === 'Bytes') return { _type, value: (value as Bytes).toHex() };
+  if (_type === 'Bytes') {
+    return { _type, value: (value as Bytes).toHex() };
+  }
   switch (typeClass) {
     case Bool: {
       return { _type, value: value.toJSON().toString() };
@@ -265,7 +280,35 @@ function serializeNestedProvable(type: NestedProvable): SerializedNestedType {
     return serializedObject;
   }
 
-  throw new Error(`Unsupported type in NestedProvable: ${type}`);
+  throw Error(`Unsupported type in NestedProvable: ${type}`);
+}
+
+function serializeNestedProvableValue(value: any): any {
+  let type = NestedProvable.fromValue(value);
+  return serializeNestedProvableTypeAndValue({ type, value });
+}
+
+function serializeNestedProvableTypeAndValue(t: {
+  type: NestedProvable;
+  value: any;
+}): any {
+  if (ProvableType.isProvableType(t.type)) {
+    return serializeProvable(t.value);
+  }
+  return Object.fromEntries(
+    Object.keys(t.type)
+      .sort((a, b) => a.localeCompare(b))
+      .map((key) => {
+        assert(key in t.value, `Missing value for key ${key}`);
+        return [
+          key,
+          serializeNestedProvableTypeAndValue({
+            type: (t.type as any)[key],
+            value: t.value[key],
+          }),
+        ];
+      })
+  );
 }
 
 // `null` is preserved in JSON, but `undefined` is removed
@@ -292,4 +335,15 @@ async function validateSpecHash(
   const { spec, hash } = JSON.parse(serializedSpecWithHash);
   const recomputedHash = await hashSpec(spec);
   return hash === recomputedHash;
+}
+
+function serializeObjectSorted<T, S>(
+  obj: Record<string, T>,
+  serialize: (t: T) => S
+): Record<string, S> {
+  return Object.fromEntries(
+    Object.entries(obj)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, value]) => [key, serialize(value)])
+  );
 }

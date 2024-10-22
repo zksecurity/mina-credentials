@@ -27,6 +27,7 @@ import {
 import { type CredentialId } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { ProvableType } from './o1js-missing.ts';
+import { PresentationRequest } from './presentation.ts';
 
 export {
   deserializeSpec,
@@ -36,7 +37,21 @@ export {
   deserializeProvableType,
   deserializeProvable,
   deserializeNestedProvable,
+  deserializePresentationRequest,
 };
+
+function deserializePresentationRequest(request: any): PresentationRequest {
+  let type = request.type;
+  let spec = convertSpecFromSerializable(request.spec);
+  let claims = deserializeNestedProvableValue(request.claims);
+
+  switch (type) {
+    case 'no-context':
+      return PresentationRequest.noContext(spec, claims);
+    default:
+      throw Error(`Invalid presentation request type: ${type}`);
+  }
+}
 
 async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
   if (!(await validateSpecHash(serializedSpecWithHash))) {
@@ -44,7 +59,10 @@ async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
   }
 
   const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);
-  const parsedSpec = JSON.parse(serializedSpec);
+  return convertSpecFromSerializable(JSON.parse(serializedSpec));
+}
+
+function convertSpecFromSerializable(parsedSpec: any): Spec {
   let inputs = deserializeInputs(parsedSpec.inputs);
   return {
     inputs,
@@ -258,6 +276,22 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
     }
   }
   throw Error(`Invalid type in NestedProvablePure: ${type}`);
+}
+
+function deserializeNestedProvableValue(type: any): any {
+  if (typeof type === 'object' && type !== null) {
+    if ('_type' in type) {
+      // basic provable type
+      return deserializeProvable(type._type, type.value);
+    } else {
+      // nested object
+      const result: Record<string, any> = {};
+      for (const [key, value] of Object.entries(type)) {
+        result[key] = deserializeNestedProvableValue(value);
+      }
+      return result;
+    }
+  }
 }
 
 function replaceNull(obj: Record<string, any>): Record<string, any> {

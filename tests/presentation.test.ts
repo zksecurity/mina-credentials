@@ -8,12 +8,10 @@ import { Presentation, PresentationRequest } from '../src/presentation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
-  const InputData = { age: Field, name: Bytes32 };
-  const SignedData = Credential.Simple(InputData);
 
   const spec = Spec(
     {
-      signedData: SignedData,
+      signedData: Credential.Simple({ age: Field, name: Bytes32 }),
       targetAge: Claim(Field),
       targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },
@@ -31,7 +29,11 @@ test('program with simple spec and signature credential', async (t) => {
   let requestInitial = PresentationRequest.noContext(spec, {
     targetAge: Field(18),
   });
-  let request = await Presentation.compile(requestInitial);
+  let json = PresentationRequest.toJSON(requestInitial);
+
+  // wallet: deserialize and compile request
+  let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
+  let request = await Presentation.compile(deserialized);
 
   await t.test('compile program', async () => {
     assert(
