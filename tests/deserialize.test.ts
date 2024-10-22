@@ -644,4 +644,36 @@ test('deserializeSpec', async (t) => {
       assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
     }
   );
+
+  await t.test(
+    'should correctly deserialize a spec with owner and issuer',
+    async (t) => {
+      const InputData = { age: Field };
+      const SignedData = Credential.signatureNative(InputData);
+
+      const originalSpec = Spec(
+        {
+          signedData: SignedData,
+          targetAge: Input.claim(Field),
+        },
+        ({ signedData, targetAge }) => ({
+          assert: Operation.equals(
+            Operation.property(signedData, 'age'),
+            targetAge
+          ),
+          data: Operation.record({
+            owner: Operation.owner(),
+            issuer: Operation.issuer('signedData'),
+            age: Operation.property(signedData, 'age'),
+          }),
+        })
+      );
+
+      const originalSerialized = await serializeSpec(originalSpec);
+      const deserialized = await deserializeSpec(originalSerialized);
+      const reSerialized = await serializeSpec(deserialized);
+
+      assert.strictEqual(originalSerialized, reSerialized);
+    }
+  );
 });

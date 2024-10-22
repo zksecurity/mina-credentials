@@ -90,6 +90,17 @@ function deserializeInput(input: any): Input {
 
 function deserializeNode(input: any, node: any): Node {
   switch (node.type) {
+    case 'owner': {
+      return {
+        type: 'owner',
+      };
+    }
+    case 'issuer': {
+      return {
+        type: 'issuer',
+        credentialKey: node.credentialKey,
+      };
+    }
     case 'constant':
       return {
         type: 'constant',

@@ -16,7 +16,7 @@ import {
   type InferProvableType,
   ProvableType,
 } from './o1js-missing.ts';
-import { assertHasProperty } from './util.ts';
+import { assert, assertHasProperty } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
@@ -30,6 +30,7 @@ import {
   type Credential,
   type CredentialInputs,
   withOwner,
+  type CredentialOutputs,
 } from './credential.ts';
 
 export type {
@@ -96,6 +97,11 @@ function Spec<Data, Inputs extends Record<string, Input>>(
   let inputNodes: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   } = {} as any;
+  // some special keys are used internally and must not be used as input keys
+  ['owner'].forEach((key) =>
+    assert(!(key in inputs), `"${key}" is reserved, can't be used in inputs`)
+  );
+
   for (let key in inputs) {
     if (inputs[key]!.type === 'credential') {
       let credential = property(rootNode, key) as any;
@@ -106,13 +112,15 @@ function Spec<Data, Inputs extends Record<string, Input>>(
     }
   }
   let logic = spec(inputNodes);
-  let assert = logic.assert ?? Node.constant(Bool(true));
+  let assertNode = logic.assert ?? Node.constant(Bool(true));
   let data: Node<Data> = logic.data ?? (Node.constant(undefined) as any);
 
-  return { inputs, logic: { assert, data } };
+  return { inputs, logic: { assert: assertNode, data } };
 }
 
 const Operation = {
+  owner,
+  issuer,
   property,
   record,
   equals,
@@ -142,6 +150,8 @@ type Input<Data = any> =
   | Claim<Data>;
 
 type Node<Data = any> =
+  | { type: 'owner' }
+  | { type: 'issuer'; credentialKey: string }
   | { type: 'constant'; data: Data }
   | { type: 'root'; input: Record<string, Input> }
   | { type: 'property'; key: string; inner: Node }
@@ -180,14 +190,25 @@ const Node = {
 
 function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
+    case 'owner':
+      return (root as any).owner;
+    case 'issuer':
+      assertHasProperty(root, node.credentialKey);
+      const credential = (root as any)[node.credentialKey];
+      return credential.issuer;
     case 'constant':
       return node.data;
     case 'root':
       return root as any;
     case 'property': {
       let inner = evalNode<unknown>(root, node.inner);
-      assertHasProperty(inner, node.key);
-      return inner[node.key] as Data;
+      if (inner && typeof inner === 'object' && 'credential' in inner) {
+        assertHasProperty(inner.credential, node.key);
+        return inner.credential[node.key] as Data;
+      } else {
+        assertHasProperty(inner, node.key);
+        return inner[node.key] as Data;
+      }
     }
     case 'record': {
       let result: Record<string, any> = {};
@@ -339,7 +360,10 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
     case 'or':
     case 'not':
       return Bool;
+    case 'owner':
+      return PublicKey;
     case 'hash':
+    case 'issuer':
       return Field;
     case 'add':
     case 'sub':
@@ -475,6 +499,14 @@ function hash(inner: Node): Node<Field> {
   return { type: 'hash', inner };
 }
 
+function owner(): Node<PublicKey> {
+  return { type: 'owner' };
+}
+
+function issuer(credentialKey: string): Node<Field> {
+  return { type: 'issuer', credentialKey };
+}
+
 function ifThenElse<Data>(
   condition: Node<Bool>,
   thenNode: Node<Data>,
@@ -583,18 +615,26 @@ function extractCredentialInputs(
 function recombineDataInputs<S extends Spec>(
   spec: S,
   publicInputs: PublicInputs<any>,
-  privateInputs: PrivateInputs<any>
+  privateInputs: PrivateInputs<any>,
+  credentialOutputs: CredentialOutputs
 ): DataInputs<S['inputs']>;
 function recombineDataInputs<S extends Spec>(
   spec: S,
   { claims }: PublicInputs<any>,
-  { credentials }: PrivateInputs<any>
+  { credentials }: PrivateInputs<any>,
+  credentialOutputs: CredentialOutputs
 ): Record<string, any> {
   let result: Record<string, any> = {};
 
+  let i = 0;
+
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = (credentials[key] as any).credential;
+      result[key] = {
+        credential: (credentials[key] as any).credential,
+        issuer: credentialOutputs.credentials[i]!.issuer,
+      };
+      i++;
     }
     if (input.type === 'claim') {
       result[key] = claims[key];
@@ -603,6 +643,7 @@ function recombineDataInputs<S extends Spec>(
       result[key] = input.value;
     }
   });
+  result.owner = credentialOutputs.owner;
   return result;
 }
 

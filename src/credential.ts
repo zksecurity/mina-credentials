@@ -22,6 +22,7 @@ export {
   type CredentialType,
   type CredentialId,
   type CredentialInputs,
+  type CredentialOutputs,
   hashCredential,
   verifyCredentials,
   signCredentials,

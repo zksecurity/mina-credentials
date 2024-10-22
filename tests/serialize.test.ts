@@ -804,3 +804,39 @@ test('Serialize and deserialize spec with hash', async (t) => {
     }
   );
 });
+
+test('Serialize spec with owner and issuer nodes', async (t) => {
+  const InputData = { age: Field };
+  const SignedData = Credential.signatureNative(InputData);
+
+  const spec = Spec(
+    {
+      signedData: SignedData,
+      targetAge: Input.claim(Field),
+    },
+    ({ signedData, targetAge }) => ({
+      assert: Operation.equals(
+        Operation.property(signedData, 'age'),
+        targetAge
+      ),
+      data: Operation.record({
+        owner: Operation.owner(),
+        issuer: Operation.issuer('signedData'),
+        age: Operation.property(signedData, 'age'),
+      }),
+    })
+  );
+
+  const serialized = await serializeSpec(spec);
+  const parsed = JSON.parse(serialized);
+  const serializedSpec = JSON.parse(parsed.spec);
+
+  assert.deepStrictEqual(serializedSpec.logic.data.data.owner, {
+    type: 'owner',
+  });
+
+  assert.deepStrictEqual(serializedSpec.logic.data.data.issuer, {
+    type: 'issuer',
+    credentialKey: 'signedData',
+  });
+});

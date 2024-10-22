@@ -117,3 +117,50 @@ test('program with simple spec and signature credential', async (t) => {
     );
   });
 });
+
+test('program with owner and issuer operations', async (t) => {
+  const InputData = { dummy: Field };
+  const SignedData = Credential.Simple(InputData);
+
+  const spec = Spec(
+    {
+      signedData: SignedData,
+      expectedDummy: Constant(Field, Field(123)),
+    },
+    ({ signedData, expectedDummy }) => ({
+      assert: Operation.equals(
+        Operation.property(signedData, 'dummy'),
+        expectedDummy
+      ),
+      data: Operation.record({
+        owner: Operation.owner(),
+        issuer: Operation.issuer('signedData'),
+        dummy: Operation.property(signedData, 'dummy'),
+      }),
+    })
+  );
+  let requestInitial = PresentationRequest.noContext(spec, {});
+  let request = await Presentation.compile(requestInitial);
+
+  await t.test('compile program', async () => {
+    assert(await request.program.compile(), 'Program should compile');
+  });
+
+  await t.test('run program with valid input', async () => {
+    let dummyData = { dummy: Field(123) };
+    let signedData = Credential.sign(issuerKey, { owner, data: dummyData });
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      credentials: [signedData],
+    });
+
+    assert(proof, 'Proof should be generated');
+
+    assert.deepStrictEqual(proof.publicOutput.owner, owner);
+
+    const expectedIssuerField = SignedData.issuer(signedData.witness);
+    assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
+
+    assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
+  });
+});
