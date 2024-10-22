@@ -255,12 +255,15 @@ function serializeStruct(type: Struct<any>): SerializedType {
 
   for (let key in value) {
     let type = NestedProvable.fromValue(value[key]);
-    properties[key] = serializeNestedProvable(type);
+    properties[key] = serializeNestedProvable(type, false);
   }
   return { _type: 'Struct', properties };
 }
 
-function serializeNestedProvable(type: NestedProvable): SerializedNestedType {
+function serializeNestedProvable(
+  type: NestedProvable,
+  reorderKeys = true
+): SerializedNestedType {
   if (ProvableType.isProvableType(type)) {
     return serializeProvableType(type);
   }
@@ -272,10 +275,11 @@ function serializeNestedProvable(type: NestedProvable): SerializedNestedType {
     const serializedObject: Record<string, any> = {};
     // sort by keys so we always get the same serialization for the same spec
     // will be important for hashing
-    for (const [key, value] of Object.entries(type).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    )) {
-      serializedObject[key] = serializeNestedProvable(value);
+    let keys = Object.keys(type);
+    if (reorderKeys) keys = keys.sort((a, b) => a.localeCompare(b));
+
+    for (const key of keys) {
+      serializedObject[key] = serializeNestedProvable(type[key]!, reorderKeys);
     }
     return serializedObject;
   }

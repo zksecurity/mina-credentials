@@ -56,32 +56,32 @@ let requestInitial = PresentationRequest.noContext(spec, {
 let json = PresentationRequest.toJSON(requestInitial);
 
 // wallet: deserialize and compile request
-// TODO: Information about Recursive program is lost here, this seems to create some problem
 let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
 
-console.log('Original:', requestInitial.spec.inputs.provedData.witness);
-console.log('Deserialized:', deserialized.spec.inputs.provedData.witness);
+// for (let i = 0; i < analyze1.rows; i++) {
+//   assert.deepStrictEqual(
+//     analyze1.gates[i],
+//     analyze2.gates[i],
+//     `Gates should match at row ${i}`
+//   );
+// }
 
-let analyze1 = await createProgram(
-  requestInitial.spec
-).program.analyzeMethods();
-let analyze2 = await createProgram(deserialized.spec).program.analyzeMethods();
-console.log('Original:', analyze1);
-console.log('Deserialized:', analyze2);
-
-assert.deepStrictEqual(
-  deserialized.spec.inputs.provedData.data,
-  requestInitial.spec.inputs.provedData.data
-);
-assert.deepStrictEqual(
-  deserialized.spec.inputs.provedData.witness,
-  requestInitial.spec.inputs.provedData.witness
-);
-assert.deepStrictEqual(deserialized.spec.logic, requestInitial.spec.logic);
-
-let request = await Presentation.compile(requestInitial);
+let request = await Presentation.compile(deserialized);
 
 await describe('program with proof credential', async () => {
+  await test('program is deserialized correctly', async () => {
+    let program1 = createProgram(requestInitial.spec);
+    let analyze1 = await program1.program.analyzeMethods();
+    let program2 = createProgram(deserialized.spec);
+    let analyze2 = await program2.program.analyzeMethods();
+
+    assert.deepStrictEqual(
+      analyze1.run?.digest,
+      analyze2.run?.digest,
+      'Same circuit digest'
+    );
+  });
+
   await test('compile program', async () => {
     await request.program.compile();
   });
