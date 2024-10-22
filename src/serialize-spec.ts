@@ -117,6 +117,17 @@ function serializeInput(input: Input): any {
 
 function serializeNode(node: Node): any {
   switch (node.type) {
+    case 'owner': {
+      return {
+        type: 'owner',
+      };
+    }
+    case 'issuer': {
+      return {
+        type: 'issuer',
+        credentialKey: node.credentialKey,
+      };
+    }
     case 'constant': {
       return {
         type: 'constant',
