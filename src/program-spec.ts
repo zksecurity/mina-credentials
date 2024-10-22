@@ -489,7 +489,8 @@ type BaseContextInput = {
   presentationCircuitVKHash: Field;
   clientNonce: Field;
   serverNonce: Field;
-  // TODO: ask Gregor
+  // TODO: change after Gregor's PR
+  // add a separate output claim or alternatively hash them together to get one Field element
   claims: Field;
 };
 
@@ -497,8 +498,7 @@ type ZkAppContextInput = BaseContextInput & {
   type: 'zk-app';
   // these two will be hashed
   verifierIdentity: PublicKey;
-  // TODO: ask Gregor
-  action: string;
+  action: Field;
 };
 
 type HttpsContextInput = BaseContextInput & {
@@ -538,7 +538,7 @@ function computeContext(input: ContextInput): ContextOutput {
 
   const action =
     type === 'zk-app'
-      ? Poseidon.hash(Bytes.fromString(input.action).toFields())
+      ? input.action
       : Hash.Keccak256.hash(Bytes.fromString(input.action));
 
   const context: ContextOutput = {
