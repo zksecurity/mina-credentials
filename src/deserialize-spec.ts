@@ -6,9 +6,9 @@ import {
   UInt64,
   PublicKey,
   Signature,
-  Provable,
   type ProvablePure,
   assert,
+  Bytes,
 } from 'o1js';
 import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
 import type {
@@ -160,11 +160,18 @@ function deserializeNode(input: any, node: any): Node {
   }
 }
 
-function deserializeProvableType(type: {
-  type: O1jsTypeName | 'Constant';
-}): Provable<any> {
+function deserializeProvableType(
+  type:
+    | {
+        type: O1jsTypeName | 'Constant';
+      }
+    | { type: 'Bytes'; size: number }
+): ProvableType<any> {
   if (type.type === 'Constant') {
     return ProvableType.constant((type as any).value);
+  }
+  if (type.type === 'Bytes') {
+    return Bytes(type.size);
   }
   let result = supportedTypes[type.type];
   assert(result !== undefined, `Unsupported provable type: ${type.type}`);
@@ -187,6 +194,8 @@ function deserializeProvable(type: string, value: string): any {
       return PublicKey.fromJSON(value);
     case 'Signature':
       return Signature.fromJSON(value);
+    case 'Bytes':
+      return Bytes.fromHex(value);
     default:
       throw Error(`Unsupported provable type: ${type}`);
   }

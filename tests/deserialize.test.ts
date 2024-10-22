@@ -9,6 +9,7 @@ import {
   PublicKey,
   Signature,
   PrivateKey,
+  Bytes,
 } from 'o1js';
 import { Spec, Node, Operation, Constant, Claim } from '../src/program-spec.ts';
 import {
@@ -549,25 +550,42 @@ test('deserializeNode', async (t) => {
 });
 
 test('deserializeSpec', async (t) => {
-  await t.test('should correctly deserialize a simple Spec', async () => {
-    const originalSpec = Spec(
-      {
-        age: Credential.Unsigned(Field),
-        isAdmin: Claim(Bool),
-        maxAge: Constant(Field, Field(100)),
-      },
-      ({ age, isAdmin, maxAge }) => ({
-        assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-        data: age,
-      })
-    );
+  await t.test(
+    'should correctly deserialize a simple Spec with Bytes',
+    async () => {
+      const originalSpec = Spec(
+        {
+          age: Credential.Unsigned(Field),
+          isAdmin: Claim(Bool),
+          maxAge: Constant(Field, Field(100)),
+          name: Claim(Bytes(32)),
+          constantName: Constant(Bytes(32), Bytes.fromString('hello')),
+        },
+        ({ age, isAdmin, maxAge }) => ({
+          assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
+          data: age,
+        })
+      );
 
-    const serialized = await serializeSpec(originalSpec);
-    const deserialized = await deserializeSpec(serialized);
+      const serialized = await serializeSpec(originalSpec);
+      const deserialized = await deserializeSpec(serialized);
 
-    assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
-    assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
-  });
+      assert.deepStrictEqual(deserialized.inputs.age, originalSpec.inputs.age);
+      assert.deepStrictEqual(
+        deserialized.inputs.isAdmin,
+        originalSpec.inputs.isAdmin
+      );
+      assert.deepEqual(
+        (deserialized.inputs.name?.data as any).size,
+        (originalSpec.inputs.name.data as any).size
+      );
+      assert.deepStrictEqual(
+        deserialized.inputs.maxAge,
+        originalSpec.inputs.maxAge
+      );
+      assert.deepStrictEqual(serialized, await serializeSpec(deserialized));
+    }
+  );
 
   // it is not possible to directly compare credentials because of the verify function
   await t.test(

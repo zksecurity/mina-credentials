@@ -11,6 +11,7 @@ import {
   Signature,
   Provable,
   Undefined,
+  Bytes,
 } from 'o1js';
 
 // Supported o1js base types
@@ -57,9 +58,6 @@ export {
   validateSpecHash,
 };
 
-// TODO: simplify and unify serialization
-// like maybe instead of data: {type: 'Field'} it can be data: 'Field' idk, will figure out
-// TODO: Bytes?
 async function serializeSpec(spec: Spec): Promise<string> {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
   const hash = await hashSpec(serializedSpec);
@@ -184,9 +182,14 @@ function serializeNode(node: Node): any {
   }
 }
 
-function serializeProvableType(type: ProvableType<any>): Record<string, any> {
+function serializeProvableType(
+  type: ProvableType<any>
+): { type: string } & Record<string, any> {
   if ('serialize' in type && typeof type.serialize === 'function') {
     return type.serialize();
+  }
+  if ((type as any).prototype instanceof Bytes.Base) {
+    return { type: 'Bytes', size: (type as typeof Bytes.Base).size };
   }
   // TODO: handle case when type is a Struct
   const typeName = mapProvableTypeToName.get(type);
@@ -196,21 +199,19 @@ function serializeProvableType(type: ProvableType<any>): Record<string, any> {
   return { type: typeName };
 }
 
-function serializeProvable(value: any): {
-  type: O1jsTypeName;
-  value: string;
-} {
+function serializeProvable(value: any): { type: string; value: string } {
   let typeClass = ProvableType.fromValue(value);
   let { type } = serializeProvableType(typeClass);
+  if (type === 'Bytes') return { type, value: (value as Bytes).toHex() };
   switch (typeClass) {
     case Bool: {
-      return { type: type, value: value.toJSON().toString() };
+      return { type, value: value.toJSON().toString() };
     }
     case UInt8: {
-      return { type: type, value: value.toJSON().value };
+      return { type, value: value.toJSON().value };
     }
     default: {
-      return { type: type, value: value.toJSON() };
+      return { type, value: value.toJSON() };
     }
   }
 }
