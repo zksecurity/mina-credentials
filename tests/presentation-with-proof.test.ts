@@ -58,7 +58,28 @@ let json = PresentationRequest.toJSON(requestInitial);
 // wallet: deserialize and compile request
 // TODO: Information about Recursive program is lost here, this seems to create some problem
 let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
-let request = await Presentation.compile(deserialized);
+
+console.log('Original:', requestInitial.spec.inputs.provedData.witness);
+console.log('Deserialized:', deserialized.spec.inputs.provedData.witness);
+
+let analyze1 = await createProgram(
+  requestInitial.spec
+).program.analyzeMethods();
+let analyze2 = await createProgram(deserialized.spec).program.analyzeMethods();
+console.log('Original:', analyze1);
+console.log('Deserialized:', analyze2);
+
+assert.deepStrictEqual(
+  deserialized.spec.inputs.provedData.data,
+  requestInitial.spec.inputs.provedData.data
+);
+assert.deepStrictEqual(
+  deserialized.spec.inputs.provedData.witness,
+  requestInitial.spec.inputs.provedData.witness
+);
+assert.deepStrictEqual(deserialized.spec.logic, requestInitial.spec.logic);
+
+let request = await Presentation.compile(requestInitial);
 
 await describe('program with proof credential', async () => {
   await test('compile program', async () => {
