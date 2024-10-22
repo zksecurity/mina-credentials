@@ -84,9 +84,9 @@ function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
   return Object.fromEntries(
     // sort by keys so we always get the same serialization for the same spec
     // will be important for hashing
-    Object.entries(inputs)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([key, input]) => [key, serializeInput(input)])
+    Object.keys(inputs)
+      .sort()
+      .map((key) => [key, serializeInput(inputs[key]!)])
   );
 }
 
@@ -276,7 +276,7 @@ function serializeNestedProvable(
     // sort by keys so we always get the same serialization for the same spec
     // will be important for hashing
     let keys = Object.keys(type);
-    if (reorderKeys) keys = keys.sort((a, b) => a.localeCompare(b));
+    if (reorderKeys) keys = keys.sort();
 
     for (const key of keys) {
       serializedObject[key] = serializeNestedProvable(type[key]!, reorderKeys);
@@ -301,7 +301,7 @@ function serializeNestedProvableTypeAndValue(t: {
   }
   return Object.fromEntries(
     Object.keys(t.type)
-      .sort((a, b) => a.localeCompare(b))
+      .sort()
       .map((key) => {
         assert(key in t.value, `Missing value for key ${key}`);
         return [
@@ -339,15 +339,4 @@ async function validateSpecHash(
   const { spec, hash } = JSON.parse(serializedSpecWithHash);
   const recomputedHash = await hashSpec(spec);
   return hash === recomputedHash;
-}
-
-function serializeObjectSorted<T, S>(
-  obj: Record<string, T>,
-  serialize: (t: T) => S
-): Record<string, S> {
-  return Object.fromEntries(
-    Object.entries(obj)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([key, value]) => [key, serialize(value)])
-  );
 }
