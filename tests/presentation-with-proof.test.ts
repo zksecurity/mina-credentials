@@ -57,15 +57,6 @@ let json = PresentationRequest.toJSON(requestInitial);
 
 // wallet: deserialize and compile request
 let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
-
-// for (let i = 0; i < analyze1.rows; i++) {
-//   assert.deepStrictEqual(
-//     analyze1.gates[i],
-//     analyze2.gates[i],
-//     `Gates should match at row ${i}`
-//   );
-// }
-
 let request = await Presentation.compile(deserialized);
 
 await describe('program with proof credential', async () => {
