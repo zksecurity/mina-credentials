@@ -649,12 +649,12 @@ test('deserializeSpec', async (t) => {
     'should correctly deserialize a spec with owner and issuer',
     async (t) => {
       const InputData = { age: Field };
-      const SignedData = Credential.signatureNative(InputData);
+      const SignedData = Credential.Simple(InputData);
 
       const originalSpec = Spec(
         {
           signedData: SignedData,
-          targetAge: Input.claim(Field),
+          targetAge: Claim(Field),
         },
         ({ signedData, targetAge }) => ({
           assert: Operation.equals(

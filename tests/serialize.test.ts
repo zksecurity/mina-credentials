@@ -807,12 +807,12 @@ test('Serialize and deserialize spec with hash', async (t) => {
 
 test('Serialize spec with owner and issuer nodes', async (t) => {
   const InputData = { age: Field };
-  const SignedData = Credential.signatureNative(InputData);
+  const SignedData = Credential.Simple(InputData);
 
   const spec = Spec(
     {
       signedData: SignedData,
-      targetAge: Input.claim(Field),
+      targetAge: Claim(Field),
     },
     ({ signedData, targetAge }) => ({
       assert: Operation.equals(
