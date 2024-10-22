@@ -503,8 +503,12 @@ function owner(): Node<PublicKey> {
   return { type: 'owner' };
 }
 
-function issuer(credentialKey: string): Node<Field> {
-  return { type: 'issuer', credentialKey };
+function issuer(credentialNode: Node): Node<Field> {
+  let msg = 'Can only get issuer for a credential';
+  assert(credentialNode.type === 'property', msg);
+  assert(credentialNode.key === 'data', msg);
+  assert(credentialNode.inner.type === 'property');
+  return { type: 'issuer', credentialKey: credentialNode.inner.key };
 }
 
 function ifThenElse<Data>(
