@@ -10,7 +10,7 @@ import {
   type ProvablePure,
   assert,
 } from 'o1js';
-import { Input, Node, Operation, Spec } from './program-spec.ts';
+import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
 import type {
   NestedProvable,
   NestedProvableFor,
@@ -21,7 +21,9 @@ import {
   supportedTypes,
   type O1jsTypeName,
 } from './serialize-spec.ts';
-import { Credential, type CredentialId } from './credentials.ts';
+import { type CredentialId } from './credential.ts';
+import { Credential } from './credential-index.ts';
+import { ProvableType } from './o1js-missing.ts';
 
 export {
   deserializeSpec,
@@ -61,20 +63,20 @@ function deserializeInputs(inputs: Record<string, any>): Record<string, Input> {
 function deserializeInput(input: any): Input {
   switch (input.type) {
     case 'constant':
-      return Input.constant(
+      return Constant(
         deserializeProvableType(input.data),
         deserializeProvable(input.data.type, input.value)
       );
     case 'public':
-      return Input.claim(deserializeNestedProvablePure(input.data));
+      return Claim(deserializeNestedProvablePure(input.data));
     case 'credential': {
       let id: CredentialId = input.id;
       let data = deserializeNestedProvablePure(input.data);
       switch (id) {
         case 'signature-native':
-          return Credential.signatureNative(data);
+          return Credential.Simple(data);
         case 'none':
-          return Credential.none(data);
+          return Credential.Unsigned(data);
         case 'proof':
           throw Error('Serializing proof credential is not supported yet');
         default:
@@ -158,7 +160,12 @@ function deserializeNode(input: any, node: any): Node {
   }
 }
 
-function deserializeProvableType(type: { type: O1jsTypeName }): Provable<any> {
+function deserializeProvableType(type: {
+  type: O1jsTypeName | 'Constant';
+}): Provable<any> {
+  if (type.type === 'Constant') {
+    return ProvableType.constant((type as any).value);
+  }
   let result = supportedTypes[type.type];
   assert(result !== undefined, `Unsupported provable type: ${type.type}`);
   return result;

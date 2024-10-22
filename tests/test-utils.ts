@@ -1,44 +1,28 @@
-import { Field, PrivateKey, PublicKey, Signature } from 'o1js';
-import { type NestedProvableFor } from '../src/nested.ts';
+import { Field, PrivateKey } from 'o1js';
 import {
+  type Credential,
   type CredentialType,
-  HashedCredential,
-  signCredential,
-} from '../src/credentials.ts';
+  signCredentials,
+} from '../src/credential.ts';
 
-export { createSignatureCredential, createOwnerSignature, owner, ownerKey };
+export { createOwnerSignature, owner, ownerKey, issuer, issuerKey };
 
 const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
+const { publicKey: issuer, privateKey: issuerKey } = PrivateKey.randomKeypair();
 
-function createSignatureCredential<Data>(
-  type: NestedProvableFor<Data>,
-  data: Data
-) {
-  let issuer = PrivateKey.randomKeypair();
-  let credHash = HashedCredential(type).hash({ owner, data });
-  let signature = Signature.create(issuer.privateKey, [credHash.hash]);
-  return {
-    credential: { owner, data },
-    private: { issuerPublicKey: issuer.publicKey, issuerSignature: signature },
-  };
-}
-
-function createOwnerSignature<Private, Data>(
+function createOwnerSignature<Witness, Data>(
   context: Field,
   ...credentials: [
-    CredentialType<any, Private, Data>,
-    {
-      credential: { owner: PublicKey; data: Data };
-      private: Private;
-    }
+    CredentialType<any, Witness, Data>,
+    { credential: Credential<Data>; witness: Witness }
   ][]
 ) {
-  // TODO support many credentials
-  let [credentialType, credential] = credentials[0]!;
-  return signCredential(ownerKey, {
+  return signCredentials(
+    ownerKey,
     context,
-    credentialType: credentialType,
-    credential: credential.credential,
-    privateInput: credential.private,
-  });
+    ...credentials.map(([credentialType, cred]) => ({
+      ...cred,
+      credentialType,
+    }))
+  );
 }

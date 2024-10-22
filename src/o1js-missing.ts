@@ -57,6 +57,21 @@ const ProvableType = {
     let type_ = ProvableType.get(type);
     return hasProperty(type_, 'toFields') && hasProperty(type_, 'fromFields');
   },
+
+  constant<T>(value: T): ProvablePure<T, T> & { serialize(): any } {
+    return {
+      serialize() {
+        return { type: 'Constant', value };
+      },
+      sizeInFields: () => 0,
+      toFields: () => [],
+      fromFields: () => value,
+      toValue: (v) => v,
+      fromValue: (v) => v,
+      toAuxiliary: () => [],
+      check() {},
+    };
+  },
 };
 
 function assertPure<T>(type_: Provable<T>): asserts type_ is ProvablePure<T>;

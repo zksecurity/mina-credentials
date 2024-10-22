@@ -1,28 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, PrivateKey } from 'o1js';
-import { createProgram } from '../src/program.ts';
-import { Input, Operation, Spec } from '../src/program-spec.ts';
-import {
-  createOwnerSignature,
-  createSignatureCredential,
-  owner,
-} from './test-utils.ts';
-import { Credential } from '../src/credentials.ts';
-
-// TODO
-let context = Field(0);
+import { Field, Bytes } from 'o1js';
+import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
+import { issuerKey, owner, ownerKey } from './test-utils.ts';
+import { Credential } from '../src/credential-index.ts';
+import { Presentation, PresentationRequest } from '../src/presentation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
   const InputData = { age: Field, name: Bytes32 };
-  const SignedData = Credential.signatureNative(InputData);
+  const SignedData = Credential.Simple(InputData);
 
   const spec = Spec(
     {
       signedData: SignedData,
-      targetAge: Input.claim(Field),
-      targetName: Input.constant(Bytes32, Bytes32.fromString('Alice')),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },
     ({ signedData, targetAge, targetName }) => ({
       assert: Operation.and(
@@ -33,26 +26,29 @@ test('program with simple spec and signature credential', async (t) => {
     })
   );
 
-  const program = createProgram(spec);
+  // presentation request
+  // TODO proper context
+  let requestInitial = PresentationRequest.noContext(spec, {
+    targetAge: Field(18),
+  });
+  let request = await Presentation.compile(requestInitial);
 
   await t.test('compile program', async () => {
-    const vk = await program.compile();
-    assert(vk, 'Verification key should be generated for zk program');
+    assert(
+      await request.program.compile(),
+      'Verification key should be generated for zk program'
+    );
   });
 
   await t.test('run program with valid input', async () => {
+    // issuance
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    let signedData = createSignatureCredential(InputData, data);
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
+    let signedData = Credential.sign(issuerKey, { owner, data });
 
-    const proof = await program.run({
-      context,
-      ownerSignature,
-      credentials: { signedData },
-      claims: { targetAge: Field(18) },
+    // presentation
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      credentials: [signedData],
     });
 
     assert(proof, 'Proof should be generated');
@@ -71,19 +67,13 @@ test('program with simple spec and signature credential', async (t) => {
 
   await t.test('run program with invalid age input', async () => {
     const data = { age: Field(20), name: Bytes32.fromString('Alice') };
-    const signedData = createSignatureCredential(InputData, data);
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
+    let signedData = Credential.sign(issuerKey, { owner, data });
 
     await assert.rejects(
       async () =>
-        await program.run({
-          context,
-          ownerSignature,
-          credentials: { signedData },
-          claims: { targetAge: Field(18) },
+        await Presentation.create(ownerKey, {
+          request,
+          credentials: [signedData],
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -103,19 +93,13 @@ test('program with simple spec and signature credential', async (t) => {
 
   await t.test('run program with invalid name input', async () => {
     const data = { age: Field(18), name: Bytes32.fromString('Bob') };
-    const signedData = createSignatureCredential(InputData, data);
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
+    let signedData = Credential.sign(issuerKey, { owner, data });
 
     await assert.rejects(
       async () =>
-        await program.run({
-          context,
-          ownerSignature,
-          credentials: { signedData },
-          claims: { targetAge: Field(18) },
+        await Presentation.create(ownerKey, {
+          request,
+          credentials: [signedData],
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -136,12 +120,12 @@ test('program with simple spec and signature credential', async (t) => {
 
 test('program with owner and issuer operations', async (t) => {
   const InputData = { dummy: Field };
-  const SignedData = Credential.signatureNative(InputData);
+  const SignedData = Credential.Simple(InputData);
 
   const spec = Spec(
     {
       signedData: SignedData,
-      expectedDummy: Input.constant(Field, Field(123)),
+      expectedDummy: Constant(Field, Field(123)),
     },
     ({ signedData, expectedDummy }) => ({
       assert: Operation.equals(
@@ -155,34 +139,26 @@ test('program with owner and issuer operations', async (t) => {
       }),
     })
   );
-
-  const program = createProgram(spec);
+  let requestInitial = PresentationRequest.noContext(spec, {});
+  let request = await Presentation.compile(requestInitial);
 
   await t.test('compile program', async () => {
-    const vk = await program.compile();
-    assert(vk, 'Verification key should be generated for zk program');
+    assert(await request.program.compile(), 'Program should compile');
   });
 
   await t.test('run program with valid input', async () => {
-    const dummyData = { dummy: Field(123) };
-    const signedData = createSignatureCredential(InputData, dummyData);
-    let ownerSignature = createOwnerSignature(context, [
-      SignedData,
-      signedData,
-    ]);
-
-    const proof = await program.run({
-      context,
-      ownerSignature,
-      credentials: { signedData },
-      claims: {},
+    let dummyData = { dummy: Field(123) };
+    let signedData = Credential.sign(issuerKey, { owner, data: dummyData });
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      credentials: [signedData],
     });
 
     assert(proof, 'Proof should be generated');
 
     assert.deepStrictEqual(proof.publicOutput.owner, owner);
 
-    const expectedIssuerField = SignedData.issuer(signedData.private);
+    const expectedIssuerField = SignedData.issuer(signedData.witness);
     assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
 
     assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
