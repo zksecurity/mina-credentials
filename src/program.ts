@@ -1,6 +1,6 @@
 import { Field, Proof, Signature, VerificationKey, ZkProgram } from 'o1js';
 import {
-  Input,
+  type Input,
   Node,
   privateInputTypes,
   publicInputTypes,
@@ -14,19 +14,20 @@ import {
 } from './program-spec.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
-import { verifyCredentials } from './credentials.ts';
+import { verifyCredentials } from './credential.ts';
 
-export { createProgram };
+export { createProgram, type Program };
 
-type Program<Data, Inputs extends Record<string, Input>> = {
+type Program<Output, Inputs extends Record<string, Input>> = {
   compile(): Promise<VerificationKey>;
 
-  run(input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Data>>;
+  run(input: UserInputs<Inputs>): Promise<Proof<PublicInputs<Inputs>, Output>>;
 
   program: ZkProgram<
     {
       publicInput: ProvablePureType<PublicInputs<Inputs>>;
-      publicOutput: ProvablePureType<Data>;
+      publicOutput: ProvablePureType<Output>;
+      methods: any;
     },
     any
   >;
@@ -47,11 +48,11 @@ function createProgram<S extends Spec>(
     methods: {
       run: {
         privateInputs: [PrivateInput],
-        method(
+        async method(
           publicInput: { context: Field; claims: Record<string, any> },
           privateInput: {
             ownerSignature: Signature;
-            privateCredentialInputs: Record<string, any>;
+            credentials: Record<string, any>;
           }
         ) {
           let credentials = extractCredentialInputs(
@@ -60,27 +61,38 @@ function createProgram<S extends Spec>(
             privateInput
           );
           // TODO return issuers from this function and pass it to app logic
-          verifyCredentials(credentials);
+          let credentialOutputs = verifyCredentials(credentials);
 
-          let root = recombineDataInputs(spec, publicInput, privateInput);
+          let root = recombineDataInputs(
+            spec,
+            publicInput,
+            privateInput,
+            credentialOutputs
+          );
           let assertion = Node.eval(root, spec.logic.assert);
           let output = Node.eval(root, spec.logic.data);
           assertion.assertTrue('Program assertion failed!');
-          return output;
+          return { publicOutput: output };
         },
       },
     },
   });
 
+  let isCompiled = false;
+  let verificationKey: VerificationKey | undefined;
+
   return {
     async compile() {
-      const result = await program.compile();
-      return result.verificationKey;
+      if (isCompiled) return verificationKey!;
+      let result = await program.compile();
+      isCompiled = true;
+      verificationKey = result.verificationKey;
+      return verificationKey;
     },
     async run(input) {
       let { publicInput, privateInput } = splitUserInputs(input);
       let result = await program.run(publicInput, privateInput);
-      return result as any;
+      return result.proof as any;
     },
     program: program as any,
   };

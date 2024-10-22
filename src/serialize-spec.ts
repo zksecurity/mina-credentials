@@ -1,6 +1,6 @@
 import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
-import { Spec, Input, Node } from './program-spec.ts';
+import { Spec, type Input, Node } from './program-spec.ts';
 import {
   Field,
   Bool,
@@ -93,7 +93,7 @@ function serializeInput(input: Input): any {
         return {
           type: 'credential',
           id: input.id,
-          private: serializeNestedProvable(input.private),
+          witness: serializeNestedProvable(input.witness),
           data: serializeNestedProvable(input.data),
         };
       }
@@ -117,6 +117,17 @@ function serializeInput(input: Input): any {
 
 function serializeNode(node: Node): any {
   switch (node.type) {
+    case 'owner': {
+      return {
+        type: 'owner',
+      };
+    }
+    case 'issuer': {
+      return {
+        type: 'issuer',
+        credentialKey: node.credentialKey,
+      };
+    }
     case 'constant': {
       return {
         type: 'constant',
@@ -174,6 +185,9 @@ function serializeNode(node: Node): any {
 }
 
 function serializeProvableType(type: ProvableType<any>): Record<string, any> {
+  if ('serialize' in type && typeof type.serialize === 'function') {
+    return type.serialize();
+  }
   // TODO: handle case when type is a Struct
   const typeName = mapProvableTypeToName.get(type);
   if (typeName === undefined) {

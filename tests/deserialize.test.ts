@@ -10,7 +10,7 @@ import {
   Signature,
   PrivateKey,
 } from 'o1js';
-import { Spec, Input, Node, Operation } from '../src/program-spec.ts';
+import { Spec, Node, Operation, Constant, Claim } from '../src/program-spec.ts';
 import {
   serializeProvable,
   serializeNode,
@@ -25,7 +25,7 @@ import {
   deserializeProvableType,
   deserializeProvable,
 } from '../src/deserialize-spec.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -184,7 +184,7 @@ test('deserializeProvableType', async (t) => {
 
 test('deserializeInput', async (t) => {
   await t.test('should deserialize constant input', () => {
-    const input = Input.constant(Field, Field(42));
+    const input = Constant(Field, Field(42));
     const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
@@ -192,7 +192,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize public input', () => {
-    const input = Input.claim(Field);
+    const input = Claim(Field);
     const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
@@ -200,7 +200,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize private input', () => {
-    const input = Credential.none(Signature);
+    const input = Credential.Unsigned(Signature);
     const serialized = serializeInput(input);
     const deserialized = deserializeInput(serialized);
 
@@ -210,7 +210,7 @@ test('deserializeInput', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
 
-    const input = Credential.signatureNative(InputData);
+    const input = Credential.Simple(InputData);
 
     const serialized = serializeInput(input);
 
@@ -229,7 +229,7 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should deserialize nested input', () => {
-    const input = Credential.none({
+    const input = Credential.Unsigned({
       personal: {
         age: Field,
         id: UInt64,
@@ -258,10 +258,10 @@ test('deserializeInput', async (t) => {
 test('deserializeInputs', async (t) => {
   await t.test('should deserialize inputs with various type', () => {
     const inputs = {
-      field: Credential.none(Field),
-      bool: Input.claim(Bool),
-      uint: Input.constant(UInt64, UInt64.from(42)),
-      nested: Credential.none({
+      field: Credential.Unsigned(Field),
+      bool: Claim(Bool),
+      uint: Constant(UInt64, UInt64.from(42)),
+      nested: Credential.Unsigned({
         inner: Field,
         deep: {
           value: Bool,
@@ -281,7 +281,7 @@ test('deserializeInputs', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
     const inputs = {
-      credential: Credential.signatureNative(InputData),
+      credential: Credential.Simple(InputData),
     };
 
     const serialized = Object.fromEntries(
@@ -302,10 +302,10 @@ test('deserializeInputs', async (t) => {
 
   await t.test('should handle mixed input types', () => {
     const inputs = {
-      privateField: Credential.none(Field),
-      publicBool: Input.claim(Bool),
-      constantUint: Input.constant(UInt32, UInt32.from(42)),
-      credential: Credential.signatureNative({ score: UInt64 }),
+      privateField: Credential.Unsigned(Field),
+      publicBool: Claim(Bool),
+      constantUint: Constant(UInt32, UInt32.from(42)),
+      credential: Credential.Simple({ score: UInt64 }),
     };
 
     const serialized = Object.fromEntries(
@@ -341,8 +341,8 @@ test('deserializeNode', async (t) => {
 
   await t.test('should deserialize root node', () => {
     let input = {
-      age: Credential.none(Field),
-      isAdmin: Input.claim(Bool),
+      age: Credential.Unsigned(Field),
+      isAdmin: Claim(Bool),
     };
     const node: Node = { type: 'root', input };
     const serialized = serializeNode(node);
@@ -352,8 +352,8 @@ test('deserializeNode', async (t) => {
 
   await t.test('should deserialize property node', () => {
     let input = {
-      age: Credential.none(Field),
-      isAdmin: Input.claim(Bool),
+      age: Credential.Unsigned(Field),
+      isAdmin: Claim(Bool),
     };
     const node: Node = {
       type: 'property',
@@ -552,9 +552,9 @@ test('deserializeSpec', async (t) => {
   await t.test('should correctly deserialize a simple Spec', async () => {
     const originalSpec = Spec(
       {
-        age: Credential.none(Field),
-        isAdmin: Input.claim(Bool),
-        maxAge: Input.constant(Field, Field(100)),
+        age: Credential.Unsigned(Field),
+        isAdmin: Claim(Bool),
+        maxAge: Constant(Field, Field(100)),
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
@@ -575,8 +575,8 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          signedData: Credential.signatureNative({ field: Field }),
-          zeroField: Input.constant(Field, Field(0)),
+          signedData: Credential.Simple({ field: Field }),
+          zeroField: Constant(Field, Field(0)),
         },
         ({ signedData, zeroField }) => ({
           assert: Operation.equals(
@@ -605,8 +605,8 @@ test('deserializeSpec', async (t) => {
       );
 
       assert.deepStrictEqual(
-        deserialized.inputs.signedData.private,
-        originalSpec.inputs.signedData.private
+        deserialized.inputs.signedData.witness,
+        originalSpec.inputs.signedData.witness
       );
       assert.deepStrictEqual(
         deserialized.inputs.signedData.data,
@@ -620,9 +620,9 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          field1: Credential.none(Field),
-          field2: Credential.none(Field),
-          threshold: Input.claim(UInt64),
+          field1: Credential.Unsigned(Field),
+          field2: Credential.Unsigned(Field),
+          threshold: Claim(UInt64),
         },
         ({ field1, field2, threshold }) => ({
           assert: Operation.and(
@@ -642,6 +642,38 @@ test('deserializeSpec', async (t) => {
 
       assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
       assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
+    }
+  );
+
+  await t.test(
+    'should correctly deserialize a spec with owner and issuer',
+    async (t) => {
+      const InputData = { age: Field };
+      const SignedData = Credential.Simple(InputData);
+
+      const originalSpec = Spec(
+        {
+          signedData: SignedData,
+          targetAge: Claim(Field),
+        },
+        ({ signedData, targetAge }) => ({
+          assert: Operation.equals(
+            Operation.property(signedData, 'age'),
+            targetAge
+          ),
+          data: Operation.record({
+            owner: Operation.owner(),
+            issuer: Operation.issuer('signedData'),
+            age: Operation.property(signedData, 'age'),
+          }),
+        })
+      );
+
+      const originalSerialized = await serializeSpec(originalSpec);
+      const deserialized = await deserializeSpec(originalSerialized);
+      const reSerialized = await serializeSpec(deserialized);
+
+      assert.strictEqual(originalSerialized, reSerialized);
     }
   );
 });
