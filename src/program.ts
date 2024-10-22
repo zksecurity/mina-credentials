@@ -27,6 +27,7 @@ type Program<Output, Inputs extends Record<string, Input>> = {
     {
       publicInput: ProvablePureType<PublicInputs<Inputs>>;
       publicOutput: ProvablePureType<Output>;
+      methods: any;
     },
     any
   >;
@@ -47,7 +48,7 @@ function createProgram<S extends Spec>(
     methods: {
       run: {
         privateInputs: [PrivateInput],
-        method(
+        async method(
           publicInput: { context: Field; claims: Record<string, any> },
           privateInput: {
             ownerSignature: Signature;
@@ -66,7 +67,7 @@ function createProgram<S extends Spec>(
           let assertion = Node.eval(root, spec.logic.assert);
           let output = Node.eval(root, spec.logic.data);
           assertion.assertTrue('Program assertion failed!');
-          return output;
+          return { publicOutput: output };
         },
       },
     },
@@ -86,7 +87,7 @@ function createProgram<S extends Spec>(
     async run(input) {
       let { publicInput, privateInput } = splitUserInputs(input);
       let result = await program.run(publicInput, privateInput);
-      return result as any;
+      return result.proof as any;
     },
     program: program as any,
   };
