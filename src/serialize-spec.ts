@@ -206,11 +206,10 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
     };
     return { _type: 'Proof', proof };
   }
-  // TODO: handle case when type is a Struct
-  if ((type as any)._isStruct) {
+  let _type = mapProvableTypeToName.get(type);
+  if (_type === undefined && (type as any)._isStruct) {
     return serializeStruct(type as Struct<any>);
   }
-  let _type = mapProvableTypeToName.get(type);
   assert(
     _type !== undefined,
     `serializeProvableType: Unsupported provable type: ${type}`
