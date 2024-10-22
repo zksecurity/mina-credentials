@@ -268,8 +268,8 @@ function serializeNestedProvable(
     return serializeProvableType(type);
   }
 
-  if (typeof type === 'string') return String as any;
-  if ((type as any) === String) return { _type: 'String' };
+  if (typeof type === 'string' || (type as any) === String)
+    return { _type: 'String' };
 
   if (typeof type === 'object' && type !== null) {
     const serializedObject: Record<string, any> = {};
