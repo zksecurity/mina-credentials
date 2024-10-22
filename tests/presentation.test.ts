@@ -133,8 +133,8 @@ test('program with owner and issuer operations', async (t) => {
         expectedDummy
       ),
       data: Operation.record({
-        owner: Operation.owner(),
-        issuer: Operation.issuer('signedData'),
+        owner: Operation.owner,
+        issuer: Operation.issuer(signedData),
         dummy: Operation.property(signedData, 'dummy'),
       }),
     })

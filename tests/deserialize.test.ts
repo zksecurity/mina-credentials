@@ -662,8 +662,8 @@ test('deserializeSpec', async (t) => {
             targetAge
           ),
           data: Operation.record({
-            owner: Operation.owner(),
-            issuer: Operation.issuer('signedData'),
+            owner: Operation.owner,
+            issuer: Operation.issuer(signedData),
             age: Operation.property(signedData, 'age'),
           }),
         })
