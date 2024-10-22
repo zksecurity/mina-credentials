@@ -53,7 +53,12 @@ const spec = Spec(
 let requestInitial = PresentationRequest.noContext(spec, {
   targetAge: Field(18),
 });
-let request = await Presentation.compile(requestInitial);
+let json = PresentationRequest.toJSON(requestInitial);
+
+// wallet: deserialize and compile request
+// TODO: Information about Recursive program is lost here, this seems to create some problem
+let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
+let request = await Presentation.compile(deserialized);
 
 await describe('program with proof credential', async () => {
   await test('compile program', async () => {
