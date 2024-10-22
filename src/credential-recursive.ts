@@ -29,9 +29,15 @@ import {
 
 export { Recursive };
 
+type Witness<Data, Input> = {
+  type: 'recursive';
+  vk: VerificationKey;
+  proof: DynamicProof<Input, Credential<Data>>;
+};
+
 type Recursive<Data, Input> = StoredCredential<
   Data,
-  { vk: VerificationKey; proof: DynamicProof<Input, Credential<Data>> },
+  Witness<Data, Input>,
   undefined
 >;
 
@@ -43,14 +49,7 @@ function Recursive<
 >(
   Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): CredentialType<
-  'proof',
-  {
-    vk: VerificationKey;
-    proof: DynamicProof<Input, Credential<Data>>;
-  },
-  Data
-> {
+): CredentialType<'proof', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
   let data: NestedProvablePureFor<Data> = dataType as any;
   const credentialType = HashableCredential(data);
@@ -58,7 +57,11 @@ function Recursive<
   return {
     type: 'credential',
     id: 'proof',
-    witness: { vk: VerificationKey, proof: Proof },
+    witness: {
+      type: ProvableType.constant('recursive' as const),
+      vk: VerificationKey,
+      proof: Proof,
+    },
     data: NestedProvable.get(data),
 
     // verify the proof, check that its public output is exactly the credential
@@ -128,12 +131,12 @@ async function RecursiveFromProgram<
 
       async create(inputs: AllInputs): Promise<Recursive<Data, Input>> {
         let vk = await this.compile();
-        let proof = await programWrapper.run(inputs);
+        let proof = InputProof.fromProof(await programWrapper.run(inputs));
         return {
           version: 'v0',
           metadata: undefined,
           credential: proof.publicOutput,
-          witness: { vk, proof: InputProof.fromProof(proof) },
+          witness: { type: 'recursive', vk, proof },
         };
       },
 
@@ -165,7 +168,7 @@ async function RecursiveFromProgram<
           version: 'v0',
           metadata: undefined,
           credential,
-          witness: { vk, proof: dummyProof },
+          witness: { type: 'recursive', vk, proof: dummyProof },
         };
       },
     }
