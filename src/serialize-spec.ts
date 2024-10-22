@@ -13,6 +13,7 @@ import {
   Bytes,
   DynamicProof,
   VerificationKey,
+  Struct,
 } from 'o1js';
 import { assert } from './util.ts';
 
@@ -37,7 +38,7 @@ for (let [key, value] of Object.entries(supportedTypes)) {
 
 export {
   type O1jsTypeName,
-  type SerializedProvableType,
+  type SerializedType as SerializedProvableType,
   supportedTypes,
   serializeProvableType,
   serializeProvable,
@@ -174,16 +175,19 @@ function serializeNode(node: Node): any {
   }
 }
 
-type SerializedProvableType =
+type SerializedType =
   | { _type: O1jsTypeName }
-  | { _type: 'Struct' } // TODO
+  | { _type: 'Struct'; properties: SerializedNestedType }
   | { _type: 'Constant'; size: number }
   | { _type: 'Bytes'; size: number }
-  | { _type: 'Proof'; proof: Record<string, any> };
+  | { _type: 'Proof'; proof: Record<string, any> }
+  | { _type: 'String' };
 
-function serializeProvableType(
-  type: ProvableType<any>
-): SerializedProvableType {
+type SerializedNestedType =
+  | SerializedType
+  | { [key: string]: SerializedNestedType };
+
+function serializeProvableType(type: ProvableType<any>): SerializedType {
   if ('serialize' in type && typeof type.serialize === 'function') {
     return type.serialize();
   }
@@ -194,16 +198,17 @@ function serializeProvableType(
     let { publicInputType, publicOutputType, maxProofsVerified, featureFlags } =
       type as typeof DynamicProof;
     let proof = {
+      name: (type as typeof DynamicProof).name,
       publicInput: serializeProvableType(publicInputType),
       publicOutput: serializeProvableType(publicOutputType),
       maxProofsVerified,
-      featureFlags,
+      featureFlags: replaceUndefined(featureFlags),
     };
     return { _type: 'Proof', proof };
   }
   // TODO: handle case when type is a Struct
   if ((type as any)._isStruct) {
-    return { _type: 'Struct' };
+    return serializeStruct(type as Struct<any>);
   }
   let _type = mapProvableTypeToName.get(type);
   assert(
@@ -230,10 +235,24 @@ function serializeProvable(value: any): { _type: string; value: string } {
   }
 }
 
-function serializeNestedProvable(type: NestedProvable): Record<string, any> {
+function serializeStruct(type: Struct<any>): SerializedType {
+  let value = type.empty();
+  let properties: SerializedNestedType = {};
+
+  for (let key in value) {
+    let type = NestedProvable.fromValue(value[key]);
+    properties[key] = serializeNestedProvable(type);
+  }
+  return { _type: 'Struct', properties };
+}
+
+function serializeNestedProvable(type: NestedProvable): SerializedNestedType {
   if (ProvableType.isProvableType(type)) {
     return serializeProvableType(type);
   }
+
+  if (typeof type === 'string') return String as any;
+  if ((type as any) === String) return { _type: 'String' };
 
   if (typeof type === 'object' && type !== null) {
     const serializedObject: Record<string, any> = {};
@@ -248,6 +267,16 @@ function serializeNestedProvable(type: NestedProvable): Record<string, any> {
   }
 
   throw new Error(`Unsupported type in NestedProvable: ${type}`);
+}
+
+// `null` is preserved in JSON, but `undefined` is removed
+function replaceUndefined(obj: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [
+      key,
+      value === undefined ? null : value,
+    ])
+  );
 }
 
 async function hashSpec(serializedSpec: string): Promise<string> {

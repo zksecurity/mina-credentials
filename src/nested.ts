@@ -33,6 +33,8 @@ const NestedProvable = {
       return ProvableType.fromValue(value);
     } catch {
       // case 2: value is a record of values from provable types
+      if (typeof value === 'string') return String as any;
+
       assertIsObject(value);
       return Object.fromEntries(
         Object.entries(value).map(([key, value]) => [

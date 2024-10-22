@@ -10,6 +10,7 @@ import {
   assert,
   Bytes,
   DynamicProof,
+  Struct,
 } from 'o1js';
 import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
 import type {
@@ -80,9 +81,7 @@ function deserializeInput(input: any): Input {
         case 'none':
           return Credential.Unsigned(data);
         case 'proof':
-          console.dir(input, { depth: 6 });
           let proof = deserializeProvableType(input.witness.proof) as any;
-          console.dir(proof, { depth: 6 });
           return Credential.Recursive(proof, data);
         default:
           throw Error(`Unsupported credential id: ${id}`);
@@ -176,15 +175,21 @@ function deserializeProvableType(
   }
   if (type._type === 'Proof') {
     let proof = type.proof;
-    return class Proof extends DynamicProof<any, any> {
+    let Proof = class extends DynamicProof<any, any> {
       static publicInputType = deserializeProvablePureType(proof.publicInput);
       static publicOutputType = deserializeProvablePureType(proof.publicOutput);
       static maxProofsVerified = proof.maxProofsVerified;
-      static featureFlags = proof.featureFlags;
+      static featureFlags = replaceNull(proof.featureFlags) as any;
     };
+    Object.defineProperty(Proof, 'name', { value: proof.name });
+    return Proof;
   }
   if (type._type === 'Struct') {
-    throw Error('Struct not implemented');
+    let properties = deserializeNestedProvable(type.properties);
+    return Struct(properties);
+  }
+  if (type._type === 'String') {
+    return String as any;
   }
   let result = supportedTypes[type._type];
   assert(result !== undefined, `Unsupported provable type: ${type._type}`);
@@ -253,4 +258,13 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
     }
   }
   throw Error(`Invalid type in NestedProvablePure: ${type}`);
+}
+
+function replaceNull(obj: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [
+      key,
+      value === null ? undefined : value,
+    ])
+  );
 }

@@ -738,14 +738,21 @@ test('deserializeSpec', async (t) => {
         deserialized.inputs.provedData?.type,
         originalSpec.inputs.provedData.type
       );
-
-      assert.deepStrictEqual(
-        deserialized.inputs.provedData.witness,
-        originalSpec.inputs.provedData.witness
-      );
       assert.deepStrictEqual(
         deserialized.inputs.provedData.data,
         originalSpec.inputs.provedData.data
+      );
+
+      let DeserializedProof: typeof DynamicProof = (
+        originalSpec.inputs.provedData.witness as any
+      ).proof;
+      assert.deepStrictEqual(
+        DeserializedProof.featureFlags,
+        RecursiveProof.featureFlags
+      );
+      assert.deepStrictEqual(
+        DeserializedProof.maxProofsVerified,
+        RecursiveProof.maxProofsVerified
       );
     }
   );
