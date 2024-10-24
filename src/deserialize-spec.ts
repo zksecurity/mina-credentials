@@ -38,6 +38,7 @@ export {
   deserializeProvable,
   deserializeNestedProvable,
   deserializePresentationRequest,
+  deserializeInputContext,
 };
 
 function deserializePresentationRequest(request: any): PresentationRequest {
@@ -48,9 +49,35 @@ function deserializePresentationRequest(request: any): PresentationRequest {
   switch (type) {
     case 'no-context':
       return PresentationRequest.noContext(spec, claims);
+    case 'with-context':
+      const inputContext = deserializeInputContext(request.inputContext);
+      return PresentationRequest.withContext(spec, claims, inputContext);
     default:
       throw Error(`Invalid presentation request type: ${type}`);
   }
+}
+
+function deserializeInputContext(context: {
+  type: string;
+  presentationCircuitVKHash: { _type: string; value: string };
+  action: { _type: string; value: string } | string;
+  serverNonce: { _type: string; value: string };
+}) {
+  return {
+    type: context.type as 'zk-app' | 'https',
+    presentationCircuitVKHash: deserializeProvable(
+      'Field',
+      context.presentationCircuitVKHash.value
+    ),
+    action:
+      context.type === 'zk-app'
+        ? deserializeProvable(
+            'Field',
+            (context.action as { _type: string; value: string }).value
+          )
+        : (context.action as string),
+    serverNonce: deserializeProvable('Field', context.serverNonce.value),
+  };
 }
 
 async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {

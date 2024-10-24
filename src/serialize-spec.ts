@@ -51,6 +51,7 @@ export {
   serializeSpec,
   validateSpecHash,
   serializePresentationRequest,
+  serializeInputContext,
 };
 
 function serializePresentationRequest(request: PresentationRequest) {
@@ -60,7 +61,9 @@ function serializePresentationRequest(request: PresentationRequest) {
     type: request.type,
     spec,
     claims,
-    inputContext: request.inputContext,
+    inputContext: request.inputContext
+      ? serializeInputContext(request.inputContext)
+      : undefined,
   };
 }
 
@@ -186,6 +189,30 @@ function serializeNode(node: Node): any {
       };
     }
   }
+}
+
+function serializeInputContext(context: {
+  type: 'zk-app' | 'https';
+  presentationCircuitVKHash: Field;
+  action: Field | string;
+  serverNonce: Field;
+}): {
+  type: string;
+  presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
+  action: ReturnType<typeof serializeProvable> | string;
+  serverNonce: ReturnType<typeof serializeProvable>;
+} {
+  return {
+    type: context.type,
+    presentationCircuitVKHash: serializeProvable(
+      context.presentationCircuitVKHash
+    ),
+    action:
+      context.type === 'zk-app'
+        ? serializeProvable(context.action as Field)
+        : (context.action as string),
+    serverNonce: serializeProvable(context.serverNonce),
+  };
 }
 
 type SerializedType =

@@ -74,6 +74,7 @@ const PresentationRequest = {
       type: 'with-context',
       spec,
       claims,
+      inputContext,
       deriveContext: (walletContext: WalletContext) => {
         const { verifierIdentity, clientNonce } = walletContext;
 
