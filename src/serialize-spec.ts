@@ -191,7 +191,7 @@ function serializeNode(node: Node): any {
 type SerializedType =
   | { _type: O1jsTypeName }
   | { _type: 'Struct'; properties: SerializedNestedType }
-  | { _type: 'Constant'; size: number }
+  | { _type: 'Constant'; value: unknown }
   | { _type: 'Bytes'; size: number }
   | { _type: 'Proof'; proof: Record<string, any> }
   | { _type: 'String' };
