@@ -187,8 +187,8 @@ class StaticArrayBase<T = any, V = any> {
       if (i0 < this.length) this.array[Number(i0)] = value;
       return;
     }
-    zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], i) => {
-      this.array[i] = Provable.if(equalsIJ, this.innerType, value, t);
+    zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], j) => {
+      this.array[j] = Provable.if(equalsIJ, this.innerType, value, t);
     });
   }
 

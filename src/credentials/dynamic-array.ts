@@ -192,8 +192,8 @@ class DynamicArrayBase<T = any, V = any> {
    * Cost: 1.5(T + 1)N
    */
   setOrDoNothing(i: Field, value: T): void {
-    zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], i) => {
-      this.array[i] = Provable.if(equalsIJ, this.innerType, value, t);
+    zip(this.array, this._indexMask(i)).forEach(([t, equalsIJ], j) => {
+      this.array[j] = Provable.if(equalsIJ, this.innerType, value, t);
     });
   }
 
