@@ -341,6 +341,52 @@ class DynamicArrayBase<T = any, V = any> {
       this.constructor as any as { provable: Provable<any, V[]> }
     ).provable.toValue(this);
   }
+
+  /**
+   * Assert that this array contains the given subarray, and returns the index where it starts.
+   */
+  assertContains(subarray: DynamicArray<T, V>) {
+    let type = this.innerType;
+    assert(subarray.maxLength <= this.maxLength, 'subarray must be smaller');
+
+    // idea: witness an index i and show that the subarray is contained at i
+    let i = Provable.witness(Field, () => {
+      let length = Number(this.length);
+      let sublength = Number(subarray.length);
+      if (sublength === 0) return 0n;
+      for (let i = 0; i < length; i++) {
+        // check if subarray is contained at i
+        let isContained = true;
+        for (let j = 0; j < sublength; j++) {
+          if (i + j >= length) return -1n;
+          isContained &&= Provable.equal(
+            type,
+            this.array[i + j]!,
+            subarray.array[j]!
+          ).toBoolean();
+        }
+        if (isContained) return BigInt(i);
+      }
+      return -1n;
+    });
+
+    // i + subarray.length - 1 < this.length
+    Gadgets.rangeCheck16(i);
+    this.assertIndexInRange(
+      UInt32.Unsafe.fromField(i.add(subarray.length).sub(1))
+    );
+
+    // assert that subarray is contained at i
+    // cost: M*(N*T + O(1))
+    let j = 0;
+    subarray.forEach((si, isDummy) => {
+      let ai = this.getOrUnconstrained(i.add(j));
+      Provable.assertEqualIf(isDummy.not(), type, si, ai);
+      j++;
+    });
+
+    return i;
+  }
 }
 
 /**
