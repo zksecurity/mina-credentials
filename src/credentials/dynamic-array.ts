@@ -390,5 +390,11 @@ function provable<T, V>(
       let raw = PlainArray.empty();
       return new Class(raw.array, raw.length);
     },
+
+    toCanonical(value) {
+      if (PlainArray.toCanonical === undefined) return value;
+      let { array, length } = PlainArray.toCanonical(value);
+      return new Class(array, length);
+    },
   };
 }
