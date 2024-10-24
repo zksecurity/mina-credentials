@@ -9,6 +9,8 @@ import {
   Poseidon,
   Signature,
   PublicKey,
+  Bytes,
+  Hash,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -40,6 +42,7 @@ export type {
   ToCredential,
   Input,
   Claims,
+  ContextInput,
 };
 export {
   Spec,
@@ -53,6 +56,8 @@ export {
   splitUserInputs,
   extractCredentialInputs,
   recombineDataInputs,
+  computeContext,
+  generateContext,
 };
 
 type Spec<
@@ -513,6 +518,100 @@ function ifThenElse<Data>(
   elseNode: Node<Data>
 ): Node<Data> {
   return { type: 'ifThenElse', condition, thenNode, elseNode };
+}
+
+// helpers to create the context
+
+type ContextType = 'zk-app' | 'https';
+
+type BaseContextInput = {
+  type: ContextType;
+  presentationCircuitVKHash: Field;
+  clientNonce: Field;
+  serverNonce: Field;
+  // TODO: change after Gregor's PR
+  // add a separate output claim or alternatively hash them together to get one Field element
+  claims: Field;
+};
+
+type ZkAppContextInput = BaseContextInput & {
+  type: 'zk-app';
+  // these two will be hashed
+  verifierIdentity: PublicKey;
+  action: Field;
+};
+
+type HttpsContextInput = BaseContextInput & {
+  type: 'https';
+  // these two will be hashed
+  verifierIdentity: string;
+  action: string;
+};
+
+type ContextInput = ZkAppContextInput | HttpsContextInput;
+
+type ContextOutput = {
+  type: ContextType;
+  presentationCircuitVKHash: Field;
+  nonce: Field;
+  verifierIdentity: PublicKey | Bytes;
+  action: Field | Bytes;
+  claims: Field;
+};
+
+function computeNonce(serverNonce: Field, clientNonce: Field): Field {
+  return Poseidon.hashWithPrefix('mina-cred:v0:nonce', [
+    serverNonce,
+    clientNonce,
+  ]);
+}
+
+// separated context creation into two functions so the context can be returned and not just the hash
+function computeContext(input: ContextInput): ContextOutput {
+  const nonce = computeNonce(input.serverNonce, input.clientNonce);
+  const type = input.type;
+
+  const verifierIdentity =
+    type === 'zk-app'
+      ? input.verifierIdentity
+      : Hash.Keccak256.hash(Bytes.fromString(input.verifierIdentity));
+
+  const action =
+    type === 'zk-app'
+      ? input.action
+      : Hash.Keccak256.hash(Bytes.fromString(input.action));
+
+  const context: ContextOutput = {
+    type: type,
+    presentationCircuitVKHash: input.presentationCircuitVKHash,
+    nonce: nonce,
+    verifierIdentity: verifierIdentity,
+    action: action,
+    claims: input.claims,
+  };
+
+  return context;
+}
+
+function generateContext(input: ContextOutput): Field {
+  const prefix = `mina-cred:v0:nonce:${input.type}`;
+
+  const verifierIdentity = input.verifierIdentity.toFields().flat();
+
+  const action =
+    input.type === 'zk-app'
+      ? [input.action as Field]
+      : input.action.toFields().flat();
+
+  const context = Poseidon.hashWithPrefix(prefix, [
+    input.presentationCircuitVKHash,
+    input.nonce,
+    ...verifierIdentity,
+    ...action,
+    input.claims,
+  ]);
+
+  return context;
 }
 
 // helpers to extract/recombine portions of the spec inputs

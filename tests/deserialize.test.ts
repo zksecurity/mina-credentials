@@ -32,6 +32,8 @@ import {
 } from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
+import { PresentationRequest } from '../src/presentation.ts';
+import { zkAppVerifierIdentity } from './test-utils.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -755,4 +757,109 @@ test('deserializeSpec', async (t) => {
       );
     }
   );
+});
+
+test('deserializePresentationRequest with context', async (t) => {
+  const Bytes32 = Bytes(32);
+  const InputData = { age: Field, name: Bytes32 };
+
+  const spec = Spec(
+    {
+      signedData: Credential.Simple(InputData),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
+      assert: Operation.and(
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
+      ),
+      data: Operation.property(signedData, 'age'),
+    })
+  );
+
+  await t.test('should deserialize zk-app context correctly', () => {
+    const vkHash = Field(123);
+    const action = Field(456);
+    const serverNonce = Field(789);
+
+    const originalRequest = PresentationRequest.withContext(
+      spec,
+      { targetAge: Field(18) },
+      {
+        type: 'zk-app',
+        presentationCircuitVKHash: vkHash,
+        action,
+        serverNonce,
+      }
+    );
+
+    const serialized = PresentationRequest.toJSON(originalRequest);
+    const deserialized = PresentationRequest.fromJSON(serialized);
+
+    assert.strictEqual(deserialized.type, 'with-context');
+    assert.strictEqual(deserialized.claims.targetAge.toString(), '18');
+
+    const reserialized = PresentationRequest.toJSON(deserialized);
+    assert.deepStrictEqual(reserialized, serialized);
+
+    const context = deserialized.inputContext;
+    assert(context, 'Context should exist');
+    assert.strictEqual(context.type, 'zk-app');
+    assert.deepStrictEqual(context.presentationCircuitVKHash, vkHash);
+    assert.deepStrictEqual(context.action, action);
+    assert.deepStrictEqual(context.serverNonce, serverNonce);
+
+    const walletContext = {
+      verifierIdentity: zkAppVerifierIdentity,
+      clientNonce: Field(999),
+    };
+
+    const originalContext = originalRequest.deriveContext(walletContext);
+    const deserializedContext = deserialized.deriveContext(walletContext);
+    assert.deepStrictEqual(deserializedContext, originalContext);
+  });
+
+  await t.test('should deserialize https context correctly', () => {
+    const vkHash = Field(123);
+    const serverUrl = 'test.com';
+    const action = 'POST /api/verify';
+    const serverNonce = Field(789);
+
+    const originalRequest = PresentationRequest.withContext(
+      spec,
+      { targetAge: Field(18) },
+      {
+        type: 'https',
+        presentationCircuitVKHash: vkHash,
+        action,
+        serverNonce,
+      }
+    );
+
+    const serialized = PresentationRequest.toJSON(originalRequest);
+    const deserialized = PresentationRequest.fromJSON(serialized);
+
+    assert.strictEqual(deserialized.type, 'with-context');
+    assert.strictEqual(deserialized.claims.targetAge.toString(), '18');
+
+    const reserialized = PresentationRequest.toJSON(deserialized);
+    assert.deepStrictEqual(reserialized, serialized);
+
+    const context = deserialized.inputContext;
+    assert(context, 'Context should exist');
+    assert.strictEqual(context.type, 'https');
+    assert.deepStrictEqual(context.presentationCircuitVKHash, vkHash);
+    assert.strictEqual(context.action, action);
+    assert.deepStrictEqual(context.serverNonce, serverNonce);
+
+    const walletContext = {
+      verifierIdentity: serverUrl,
+      clientNonce: Field(999),
+    };
+
+    const originalContext = originalRequest.deriveContext(walletContext);
+    const deserializedContext = deserialized.deriveContext(walletContext);
+    assert.deepStrictEqual(deserializedContext, originalContext);
+  });
 });
