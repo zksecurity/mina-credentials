@@ -30,7 +30,7 @@ const ProvableType = {
   },
 
   // TODO o1js should make sure this is possible for _all_ provable types
-  fromValue<T>(value: T): Provable<T> {
+  fromValue<T>(value: T): ProvableType<T> {
     if (value === undefined) return Undefined as any;
     if (value instanceof Field) return Field as any;
     if (value instanceof Bool) return Bool as any;
@@ -40,9 +40,8 @@ const ProvableType = {
       'Encountered provable value without a constructor: Cannot obtain provable type.'
     );
     let constructor = value.constructor;
-    let type = ProvableType.get(constructor);
-    assertIsProvable(type);
-    return type;
+    assertIsProvable(ProvableType.get(constructor));
+    return constructor as any;
   },
 
   synthesize<T>(type_: ProvableType<T>): T {
@@ -54,6 +53,21 @@ const ProvableType = {
   isProvableType(type: unknown): type is ProvableType {
     let type_ = ProvableType.get(type);
     return hasProperty(type_, 'toFields') && hasProperty(type_, 'fromFields');
+  },
+
+  constant<T>(value: T): ProvablePure<T, T> & { serialize(): any } {
+    return {
+      serialize() {
+        return { type: 'Constant', value };
+      },
+      sizeInFields: () => 0,
+      toFields: () => [],
+      fromFields: () => value,
+      toValue: (v) => v,
+      fromValue: (v) => v,
+      toAuxiliary: () => [],
+      check() {},
+    };
   },
 };
 

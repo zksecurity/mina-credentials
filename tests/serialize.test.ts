@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Input, Operation, Spec, Node } from '../src/program-spec.ts';
+import { Operation, Spec, Node, Claim, Constant } from '../src/program-spec.ts';
 import {
   serializeProvableType,
   serializeNestedProvable,
@@ -12,20 +12,20 @@ import {
 } from '../src/serialize-spec.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
 import { deserializeSpec } from '../src/deserialize-spec.ts';
-import { Credential } from '../src/credentials.ts';
+import { Credential } from '../src/credential-index.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
-    assert.deepStrictEqual(serializeProvableType(Field), { type: 'Field' });
-    assert.deepStrictEqual(serializeProvableType(Bool), { type: 'Bool' });
-    assert.deepStrictEqual(serializeProvableType(UInt8), { type: 'UInt8' });
-    assert.deepStrictEqual(serializeProvableType(UInt32), { type: 'UInt32' });
-    assert.deepStrictEqual(serializeProvableType(UInt64), { type: 'UInt64' });
+    assert.deepStrictEqual(serializeProvableType(Field), { _type: 'Field' });
+    assert.deepStrictEqual(serializeProvableType(Bool), { _type: 'Bool' });
+    assert.deepStrictEqual(serializeProvableType(UInt8), { _type: 'UInt8' });
+    assert.deepStrictEqual(serializeProvableType(UInt32), { _type: 'UInt32' });
+    assert.deepStrictEqual(serializeProvableType(UInt64), { _type: 'UInt64' });
     assert.deepStrictEqual(serializeProvableType(PublicKey), {
-      type: 'PublicKey',
+      _type: 'PublicKey',
     });
     assert.deepStrictEqual(serializeProvableType(Signature), {
-      type: 'Signature',
+      _type: 'Signature',
     });
   });
 
@@ -35,23 +35,21 @@ test('Serialize Inputs', async (t) => {
 
   await t.test('should serialize simple provable types (nested)', () => {
     assert.deepStrictEqual(serializeNestedProvable(Field), {
-      type: 'Field',
+      _type: 'Field',
     });
-    assert.deepStrictEqual(serializeNestedProvable(Bool), { type: 'Bool' });
-    assert.deepStrictEqual(serializeNestedProvable(UInt8), {
-      type: 'UInt8',
-    });
+    assert.deepStrictEqual(serializeNestedProvable(Bool), { _type: 'Bool' });
+    assert.deepStrictEqual(serializeNestedProvable(UInt8), { _type: 'UInt8' });
     assert.deepStrictEqual(serializeNestedProvable(UInt32), {
-      type: 'UInt32',
+      _type: 'UInt32',
     });
     assert.deepStrictEqual(serializeNestedProvable(UInt64), {
-      type: 'UInt64',
+      _type: 'UInt64',
     });
     assert.deepStrictEqual(serializeNestedProvable(PublicKey), {
-      type: 'PublicKey',
+      _type: 'PublicKey',
     });
     assert.deepStrictEqual(serializeNestedProvable(Signature), {
-      type: 'Signature',
+      _type: 'Signature',
     });
   });
 
@@ -65,10 +63,10 @@ test('Serialize Inputs', async (t) => {
     };
 
     assert.deepStrictEqual(serializeNestedProvable(nestedType), {
-      field: { type: 'Field' },
+      field: { _type: 'Field' },
       nested: {
-        bool: { type: 'Bool' },
-        uint: { type: 'UInt32' },
+        bool: { _type: 'Bool' },
+        uint: { _type: 'UInt32' },
       },
     });
   });
@@ -87,22 +85,22 @@ test('Serialize Inputs', async (t) => {
     };
 
     assert.deepStrictEqual(serializeNestedProvable(complexType), {
-      simpleField: { type: 'Field' },
+      simpleField: { _type: 'Field' },
       nestedObject: {
-        publicKey: { type: 'PublicKey' },
-        signature: { type: 'Signature' },
+        publicKey: { _type: 'PublicKey' },
+        signature: { _type: 'Signature' },
         deeplyNested: {
-          bool: { type: 'Bool' },
-          uint64: { type: 'UInt64' },
+          bool: { _type: 'Bool' },
+          uint64: { _type: 'UInt64' },
         },
       },
     });
   });
 
   await t.test('should throw an error for unsupported types', () => {
-    assert.throws(() => serializeNestedProvable('unsupported' as any), {
+    assert.throws(() => serializeNestedProvable(123 as any), {
       name: 'Error',
-      message: 'Unsupported type in NestedProvable: unsupported',
+      message: 'Unsupported type in NestedProvable: 123',
     });
   });
 });
@@ -115,10 +113,7 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'constant',
-      data: {
-        type: 'Field',
-        value: '123',
-      },
+      data: { _type: 'Field', value: '123' },
     };
 
     assert.deepEqual(serialized, expected);
@@ -128,8 +123,8 @@ test('Serialize Nodes', async (t) => {
     const rootNode: Node = {
       type: 'root',
       input: {
-        age: Input.private(Field),
-        isAdmin: Input.claim(Bool),
+        age: Credential.Unsigned(Field),
+        isAdmin: Claim(Bool),
       },
     };
 
@@ -140,15 +135,15 @@ test('Serialize Nodes', async (t) => {
     assert.deepStrictEqual(serialized, expected);
   });
 
-  await t.test('should serialize propery Node', () => {
+  await t.test('should serialize property Node', () => {
     const propertyNode: Node = {
       type: 'property',
       key: 'age',
       inner: {
         type: 'root',
         input: {
-          age: Input.private(Field),
-          isAdmin: Input.claim(Bool),
+          age: Credential.Unsigned(Field),
+          isAdmin: Claim(Bool),
         },
       },
     };
@@ -170,8 +165,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'equals',
-      left: { type: 'constant', data: { type: 'Field', value: '10' } },
-      right: { type: 'constant', data: { type: 'Field', value: '10' } },
+      left: { type: 'constant', data: { _type: 'Field', value: '10' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '10' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -187,8 +182,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'lessThan',
-      left: { type: 'constant', data: { type: 'UInt32', value: '5' } },
-      right: { type: 'constant', data: { type: 'UInt32', value: '10' } },
+      left: { type: 'constant', data: { _type: 'UInt32', value: '5' } },
+      right: { type: 'constant', data: { _type: 'UInt32', value: '10' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -204,8 +199,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'lessThanEq',
-      left: { type: 'constant', data: { type: 'UInt64', value: '15' } },
-      right: { type: 'constant', data: { type: 'UInt64', value: '15' } },
+      left: { type: 'constant', data: { _type: 'UInt64', value: '15' } },
+      right: { type: 'constant', data: { _type: 'UInt64', value: '15' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -221,8 +216,163 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'and',
-      left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
-      right: { type: 'constant', data: { type: 'Bool', value: 'false' } },
+      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize or Node', () => {
+    const orNode: Node<Bool> = Operation.or(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Bool(false) }
+    );
+
+    const serialized = serializeNode(orNode);
+
+    const expected = {
+      type: 'or',
+      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize add Node', () => {
+    const addNode: Node<Field> = Operation.add(
+      { type: 'constant', data: Field(5) },
+      { type: 'constant', data: Field(10) }
+    );
+
+    const serialized = serializeNode(addNode);
+
+    const expected = {
+      type: 'add',
+      left: { type: 'constant', data: { _type: 'Field', value: '5' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '10' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize sub Node', () => {
+    const subNode: Node<Field> = Operation.sub(
+      { type: 'constant', data: Field(15) },
+      { type: 'constant', data: Field(7) }
+    );
+
+    const serialized = serializeNode(subNode);
+
+    const expected = {
+      type: 'sub',
+      left: { type: 'constant', data: { _type: 'Field', value: '15' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '7' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize mul Node', () => {
+    const mulNode: Node<Field> = Operation.mul(
+      { type: 'constant', data: Field(3) },
+      { type: 'constant', data: Field(4) }
+    );
+
+    const serialized = serializeNode(mulNode);
+
+    const expected = {
+      type: 'mul',
+      left: { type: 'constant', data: { _type: 'Field', value: '3' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '4' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize div Node', () => {
+    const divNode: Node<Field> = Operation.div(
+      { type: 'constant', data: Field(20) },
+      { type: 'constant', data: Field(5) }
+    );
+
+    const serialized = serializeNode(divNode);
+
+    const expected = {
+      type: 'div',
+      left: { type: 'constant', data: { _type: 'Field', value: '20' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '5' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize not Node', () => {
+    const notNode: Node<Bool> = Operation.not({
+      type: 'constant',
+      data: Bool(true),
+    });
+
+    const serialized = serializeNode(notNode);
+
+    const expected = {
+      type: 'not',
+      inner: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize hash Node', () => {
+    const hashNode: Node<Field> = Operation.hash({
+      type: 'constant',
+      data: Field(123),
+    });
+
+    const serialized = serializeNode(hashNode);
+
+    const expected = {
+      type: 'hash',
+      inner: { type: 'constant', data: { _type: 'Field', value: '123' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize ifThenElse Node', () => {
+    const ifThenElseNode: Node<Field> = Operation.ifThenElse(
+      { type: 'constant', data: Bool(true) },
+      { type: 'constant', data: Field(1) },
+      { type: 'constant', data: Field(0) }
+    );
+
+    const serialized = serializeNode(ifThenElseNode);
+
+    const expected = {
+      type: 'ifThenElse',
+      condition: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      thenNode: { type: 'constant', data: { _type: 'Field', value: '1' } },
+      elseNode: { type: 'constant', data: { _type: 'Field', value: '0' } },
+    };
+
+    assert.deepStrictEqual(serialized, expected);
+  });
+
+  await t.test('should serialize record Node', () => {
+    const recordNode: Node = Operation.record({
+      field1: { type: 'constant', data: Field(123) },
+      field2: { type: 'constant', data: Bool(true) },
+    });
+
+    const serialized = serializeNode(recordNode);
+
+    const expected = {
+      type: 'record',
+      data: {
+        field1: { type: 'constant', data: { _type: 'Field', value: '123' } },
+        field2: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -246,13 +396,13 @@ test('Serialize Nodes', async (t) => {
       type: 'and',
       left: {
         type: 'lessThan',
-        left: { type: 'constant', data: { type: 'Field', value: '5' } },
-        right: { type: 'constant', data: { type: 'Field', value: '10' } },
+        left: { type: 'constant', data: { _type: 'Field', value: '5' } },
+        right: { type: 'constant', data: { _type: 'Field', value: '10' } },
       },
       right: {
         type: 'equals',
-        left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
-        right: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+        left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
       },
     };
 
@@ -262,13 +412,13 @@ test('Serialize Nodes', async (t) => {
 
 test('serializeInput', async (t) => {
   await t.test('should serialize constant input', () => {
-    const input = Input.constant(Field, Field(42));
+    const input = Constant(Field, Field(42));
 
     const serialized = serializeInput(input);
 
     const expected = {
       type: 'constant',
-      data: { type: 'Field' },
+      data: { _type: 'Field' },
       value: '42',
     };
 
@@ -276,50 +426,49 @@ test('serializeInput', async (t) => {
   });
 
   await t.test('should serialize public input', () => {
-    const input = Input.claim(Field);
+    const input = Claim(Field);
 
     const serialized = serializeInput(input);
 
     const expected = {
       type: 'public',
-      data: { type: 'Field' },
+      data: { _type: 'Field' },
     };
 
     assert.deepStrictEqual(serialized, expected);
   });
 
   await t.test('should serialize private input', () => {
-    const input = Input.private(Field);
+    const input = Credential.Unsigned(Field);
 
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'private',
-      data: { type: 'Field' },
+      type: 'credential',
+      id: 'none',
+      witness: { _type: 'Undefined' },
+      data: { _type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
   });
 
   await t.test('should serialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Credential.signatureNative(InputData);
+    const input = Credential.Simple(InputData);
 
     const serialized = serializeInput(input);
 
     const expected = {
       type: 'credential',
       id: 'signature-native',
-      private: {
-        issuerPublicKey: {
-          type: 'PublicKey',
-        },
-        issuerSignature: {
-          type: 'Signature',
-        },
+      witness: {
+        type: { type: 'Constant', value: 'simple' },
+        issuer: { _type: 'PublicKey' },
+        issuerSignature: { _type: 'Signature' },
       },
       data: {
-        age: { type: 'Field' },
-        isAdmin: { type: 'Bool' },
+        age: { _type: 'Field' },
+        isAdmin: { _type: 'Bool' },
       },
     };
 
@@ -334,18 +483,20 @@ test('serializeInput', async (t) => {
       },
       score: UInt32,
     };
-    const input = Input.private(NestedInputData);
+    const input = Credential.Unsigned(NestedInputData);
 
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'private',
+      type: 'credential',
+      id: 'none',
+      witness: { _type: 'Undefined' },
       data: {
         personal: {
-          age: { type: 'Field' },
-          id: { type: 'UInt64' },
+          age: { _type: 'Field' },
+          id: { _type: 'UInt64' },
         },
-        score: { type: 'UInt32' },
+        score: { _type: 'UInt32' },
       },
     };
 
@@ -365,9 +516,9 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a simple Spec', () => {
     const spec = Spec(
       {
-        age: Input.private(Field),
-        isAdmin: Input.claim(Bool),
-        maxAge: Input.constant(Field, Field(100)),
+        age: Credential.Unsigned(Field),
+        isAdmin: Claim(Bool),
+        maxAge: Constant(Field, Field(100)),
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
@@ -379,9 +530,14 @@ test('convertSpecToSerializable', async (t) => {
 
     const expected = {
       inputs: {
-        age: { type: 'private', data: { type: 'Field' } },
-        isAdmin: { type: 'public', data: { type: 'Bool' } },
-        maxAge: { type: 'constant', data: { type: 'Field' }, value: '100' },
+        age: {
+          type: 'credential',
+          id: 'none',
+          witness: { _type: 'Undefined' },
+          data: { _type: 'Field' },
+        },
+        isAdmin: { type: 'public', data: { _type: 'Bool' } },
+        maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
       logic: {
         assert: {
@@ -390,8 +546,12 @@ test('convertSpecToSerializable', async (t) => {
             type: 'lessThan',
             left: {
               type: 'property',
-              key: 'age',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'age',
+                inner: { type: 'root' },
+              },
             },
             right: {
               type: 'property',
@@ -407,8 +567,12 @@ test('convertSpecToSerializable', async (t) => {
         },
         data: {
           type: 'property',
-          key: 'age',
-          inner: { type: 'root' },
+          key: 'data',
+          inner: {
+            type: 'property',
+            key: 'age',
+            inner: { type: 'root' },
+          },
         },
       },
     };
@@ -419,8 +583,8 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with an credential', () => {
     const spec = Spec(
       {
-        signedData: Credential.signatureNative({ field: Field }),
-        zeroField: Input.constant(Field, Field(0)),
+        signedData: Credential.Simple({ field: Field }),
+        zeroField: Constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
         assert: Operation.equals(
@@ -437,19 +601,16 @@ test('convertSpecToSerializable', async (t) => {
         signedData: {
           type: 'credential',
           id: 'signature-native',
-          private: {
-            issuerPublicKey: {
-              type: 'PublicKey',
-            },
-            issuerSignature: {
-              type: 'Signature',
-            },
+          witness: {
+            type: { type: 'Constant', value: 'simple' },
+            issuer: { _type: 'PublicKey' },
+            issuerSignature: { _type: 'Signature' },
           },
           data: {
-            field: { type: 'Field' },
+            field: { _type: 'Field' },
           },
         },
-        zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
+        zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
       logic: {
         assert: {
@@ -490,9 +651,9 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with nested operations', () => {
     const spec = Spec(
       {
-        field1: Input.private(Field),
-        field2: Input.private(Field),
-        zeroField: Input.constant(Field, Field(0)),
+        field1: Credential.Unsigned(Field),
+        field2: Credential.Unsigned(Field),
+        zeroField: Constant(Field, Field(0)),
       },
       ({ field1, field2, zeroField }) => ({
         assert: Operation.and(
@@ -506,9 +667,19 @@ test('convertSpecToSerializable', async (t) => {
     const serialized = convertSpecToSerializable(spec);
     const expected = {
       inputs: {
-        field1: { type: 'private', data: { type: 'Field' } },
-        field2: { type: 'private', data: { type: 'Field' } },
-        zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
+        field1: {
+          type: 'credential',
+          id: 'none',
+          witness: { _type: 'Undefined' },
+          data: { _type: 'Field' },
+        },
+        field2: {
+          type: 'credential',
+          id: 'none',
+          witness: { _type: 'Undefined' },
+          data: { _type: 'Field' },
+        },
+        zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
       logic: {
         assert: {
@@ -517,21 +688,33 @@ test('convertSpecToSerializable', async (t) => {
             type: 'lessThan',
             left: {
               type: 'property',
-              key: 'field1',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'field1',
+                inner: { type: 'root' },
+              },
             },
             right: {
               type: 'property',
-              key: 'field2',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'field2',
+                inner: { type: 'root' },
+              },
             },
           },
           right: {
             type: 'equals',
             left: {
               type: 'property',
-              key: 'field1',
-              inner: { type: 'root' },
+              key: 'data',
+              inner: {
+                type: 'property',
+                key: 'field1',
+                inner: { type: 'root' },
+              },
             },
             right: {
               type: 'property',
@@ -542,8 +725,12 @@ test('convertSpecToSerializable', async (t) => {
         },
         data: {
           type: 'property',
-          key: 'field2',
-          inner: { type: 'root' },
+          key: 'data',
+          inner: {
+            type: 'property',
+            key: 'field2',
+            inner: { type: 'root' },
+          },
         },
       },
     };
@@ -554,9 +741,9 @@ test('convertSpecToSerializable', async (t) => {
 test('Serialize and deserialize spec with hash', async (t) => {
   const spec = Spec(
     {
-      age: Input.private(Field),
-      isAdmin: Input.claim(Bool),
-      ageLimit: Input.constant(Field, Field(100)),
+      age: Credential.Unsigned(Field),
+      isAdmin: Claim(Bool),
+      ageLimit: Constant(Field, Field(100)),
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
@@ -611,4 +798,40 @@ test('Serialize and deserialize spec with hash', async (t) => {
       }
     }
   );
+});
+
+test('Serialize spec with owner and issuer nodes', async (t) => {
+  const InputData = { age: Field };
+  const SignedData = Credential.Simple(InputData);
+
+  const spec = Spec(
+    {
+      signedData: SignedData,
+      targetAge: Claim(Field),
+    },
+    ({ signedData, targetAge }) => ({
+      assert: Operation.equals(
+        Operation.property(signedData, 'age'),
+        targetAge
+      ),
+      data: Operation.record({
+        owner: Operation.owner,
+        issuer: Operation.issuer(signedData),
+        age: Operation.property(signedData, 'age'),
+      }),
+    })
+  );
+
+  const serialized = await serializeSpec(spec);
+  const parsed = JSON.parse(serialized);
+  const serializedSpec = JSON.parse(parsed.spec);
+
+  assert.deepStrictEqual(serializedSpec.logic.data.data.owner, {
+    type: 'owner',
+  });
+
+  assert.deepStrictEqual(serializedSpec.logic.data.data.issuer, {
+    type: 'issuer',
+    credentialKey: 'signedData',
+  });
 });
