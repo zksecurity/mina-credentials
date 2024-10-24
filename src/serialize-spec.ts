@@ -1,6 +1,7 @@
 import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { Spec, type Input, Node } from './program-spec.ts';
+import { type PresentationRequest } from './presentation.ts';
 import {
   Field,
   Bool,
@@ -9,42 +10,36 @@ import {
   UInt64,
   PublicKey,
   Signature,
-  Provable,
   Undefined,
+  Bytes,
+  DynamicProof,
+  VerificationKey,
+  Struct,
 } from 'o1js';
+import { assert } from './util.ts';
 
 // Supported o1js base types
-const O1jsType = {
-  Field: 'Field',
-  Bool: 'Bool',
-  UInt8: 'UInt8',
-  UInt32: 'UInt32',
-  UInt64: 'UInt64',
-  PublicKey: 'PublicKey',
-  Signature: 'Signature',
-  Undefined: 'Undefined',
-} as const;
-
-type O1jsTypeName = (typeof O1jsType)[keyof typeof O1jsType];
-
-const supportedTypes: Record<O1jsTypeName, Provable<any>> = {
-  [O1jsType.Field]: Field,
-  [O1jsType.Bool]: Bool,
-  [O1jsType.UInt8]: UInt8,
-  [O1jsType.UInt32]: UInt32,
-  [O1jsType.UInt64]: UInt64,
-  [O1jsType.PublicKey]: PublicKey,
-  [O1jsType.Signature]: Signature,
-  [O1jsType.Undefined]: Undefined,
+const supportedTypes = {
+  Field,
+  Bool,
+  UInt8,
+  UInt32,
+  UInt64,
+  PublicKey,
+  Signature,
+  Undefined,
+  VerificationKey,
 };
+type O1jsTypeName = keyof typeof supportedTypes;
 
-let mapProvableTypeToName = new Map<ProvableType<any>, string>();
+let mapProvableTypeToName = new Map<ProvableType<any>, O1jsTypeName>();
 for (let [key, value] of Object.entries(supportedTypes)) {
-  mapProvableTypeToName.set(value, key);
+  mapProvableTypeToName.set(value, key as O1jsTypeName);
 }
 
 export {
   type O1jsTypeName,
+  type SerializedType as SerializedProvableType,
   supportedTypes,
   serializeProvableType,
   serializeProvable,
@@ -55,11 +50,20 @@ export {
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
+  serializePresentationRequest,
 };
 
-// TODO: simplify and unify serialization
-// like maybe instead of data: {type: 'Field'} it can be data: 'Field' idk, will figure out
-// TODO: Bytes?
+function serializePresentationRequest(request: PresentationRequest) {
+  let spec = convertSpecToSerializable(request.spec);
+  let claims = serializeNestedProvableValue(request.claims);
+  return {
+    type: request.type,
+    spec,
+    claims,
+    inputContext: request.inputContext,
+  };
+}
+
 async function serializeSpec(spec: Spec): Promise<string> {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
   const hash = await hashSpec(serializedSpec);
@@ -80,9 +84,9 @@ function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
   return Object.fromEntries(
     // sort by keys so we always get the same serialization for the same spec
     // will be important for hashing
-    Object.entries(inputs)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([key, input]) => [key, serializeInput(input)])
+    Object.keys(inputs)
+      .sort()
+      .map((key) => [key, serializeInput(inputs[key]!)])
   );
 }
 
@@ -184,55 +188,141 @@ function serializeNode(node: Node): any {
   }
 }
 
-function serializeProvableType(type: ProvableType<any>): Record<string, any> {
+type SerializedType =
+  | { _type: O1jsTypeName }
+  | { _type: 'Struct'; properties: SerializedNestedType }
+  | { _type: 'Constant'; value: unknown }
+  | { _type: 'Bytes'; size: number }
+  | { _type: 'Proof'; proof: Record<string, any> }
+  | { _type: 'String' };
+
+type SerializedNestedType =
+  | SerializedType
+  | { [key: string]: SerializedNestedType };
+
+function serializeProvableType(type: ProvableType<any>): SerializedType {
   if ('serialize' in type && typeof type.serialize === 'function') {
     return type.serialize();
   }
-  // TODO: handle case when type is a Struct
-  const typeName = mapProvableTypeToName.get(type);
-  if (typeName === undefined) {
-    throw Error(`serializeProvableType: Unsupported provable type: ${type}`);
+  if ((type as any).prototype instanceof Bytes.Base) {
+    return { _type: 'Bytes', size: (type as typeof Bytes.Base).size };
   }
-  return { type: typeName };
+  if ((type as any).prototype instanceof DynamicProof) {
+    let { publicInputType, publicOutputType, maxProofsVerified, featureFlags } =
+      type as typeof DynamicProof;
+    let proof = {
+      name: (type as typeof DynamicProof).name,
+      publicInput: serializeProvableType(publicInputType),
+      publicOutput: serializeProvableType(publicOutputType),
+      maxProofsVerified,
+      featureFlags: replaceUndefined(featureFlags),
+    };
+    return { _type: 'Proof', proof };
+  }
+  let _type = mapProvableTypeToName.get(type);
+  if (_type === undefined && (type as any)._isStruct) {
+    return serializeStruct(type as Struct<any>);
+  }
+  assert(
+    _type !== undefined,
+    `serializeProvableType: Unsupported provable type: ${type}`
+  );
+  return { _type };
 }
 
-function serializeProvable(value: any): {
-  type: O1jsTypeName;
-  value: string;
-} {
+function serializeProvable(value: any): { _type: string; value: string } {
   let typeClass = ProvableType.fromValue(value);
-  let { type } = serializeProvableType(typeClass);
+  let { _type } = serializeProvableType(typeClass);
+  if (_type === 'Bytes') {
+    return { _type, value: (value as Bytes).toHex() };
+  }
   switch (typeClass) {
     case Bool: {
-      return { type: type, value: value.toJSON().toString() };
+      return { _type, value: value.toJSON().toString() };
     }
     case UInt8: {
-      return { type: type, value: value.toJSON().value };
+      return { _type, value: value.toJSON().value };
     }
     default: {
-      return { type: type, value: value.toJSON() };
+      return { _type, value: value.toJSON() };
     }
   }
 }
 
-function serializeNestedProvable(type: NestedProvable): Record<string, any> {
+function serializeStruct(type: Struct<any>): SerializedType {
+  let value = type.empty();
+  let properties: SerializedNestedType = {};
+
+  for (let key in value) {
+    let type = NestedProvable.fromValue(value[key]);
+    properties[key] = serializeNestedProvable(type, false);
+  }
+  return { _type: 'Struct', properties };
+}
+
+function serializeNestedProvable(
+  type: NestedProvable,
+  reorderKeys = true
+): SerializedNestedType {
   if (ProvableType.isProvableType(type)) {
     return serializeProvableType(type);
   }
+
+  if (typeof type === 'string' || (type as any) === String)
+    return { _type: 'String' };
 
   if (typeof type === 'object' && type !== null) {
     const serializedObject: Record<string, any> = {};
     // sort by keys so we always get the same serialization for the same spec
     // will be important for hashing
-    for (const [key, value] of Object.entries(type).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    )) {
-      serializedObject[key] = serializeNestedProvable(value);
+    let keys = Object.keys(type);
+    if (reorderKeys) keys = keys.sort();
+
+    for (const key of keys) {
+      serializedObject[key] = serializeNestedProvable(type[key]!, reorderKeys);
     }
     return serializedObject;
   }
 
-  throw new Error(`Unsupported type in NestedProvable: ${type}`);
+  throw Error(`Unsupported type in NestedProvable: ${type}`);
+}
+
+function serializeNestedProvableValue(value: any): any {
+  let type = NestedProvable.fromValue(value);
+  return serializeNestedProvableTypeAndValue({ type, value });
+}
+
+function serializeNestedProvableTypeAndValue(t: {
+  type: NestedProvable;
+  value: any;
+}): any {
+  if (ProvableType.isProvableType(t.type)) {
+    return serializeProvable(t.value);
+  }
+  return Object.fromEntries(
+    Object.keys(t.type)
+      .sort()
+      .map((key) => {
+        assert(key in t.value, `Missing value for key ${key}`);
+        return [
+          key,
+          serializeNestedProvableTypeAndValue({
+            type: (t.type as any)[key],
+            value: t.value[key],
+          }),
+        ];
+      })
+  );
+}
+
+// `null` is preserved in JSON, but `undefined` is removed
+function replaceUndefined(obj: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [
+      key,
+      value === undefined ? null : value,
+    ])
+  );
 }
 
 async function hashSpec(serializedSpec: string): Promise<string> {

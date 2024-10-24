@@ -6,9 +6,11 @@ import {
   UInt64,
   PublicKey,
   Signature,
-  Provable,
   type ProvablePure,
   assert,
+  Bytes,
+  DynamicProof,
+  Struct,
 } from 'o1js';
 import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
 import type {
@@ -20,10 +22,12 @@ import {
   validateSpecHash,
   supportedTypes,
   type O1jsTypeName,
+  type SerializedProvableType,
 } from './serialize-spec.ts';
 import { type CredentialId } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { ProvableType } from './o1js-missing.ts';
+import { PresentationRequest } from './presentation.ts';
 
 export {
   deserializeSpec,
@@ -33,7 +37,21 @@ export {
   deserializeProvableType,
   deserializeProvable,
   deserializeNestedProvable,
+  deserializePresentationRequest,
 };
+
+function deserializePresentationRequest(request: any): PresentationRequest {
+  let type = request.type;
+  let spec = convertSpecFromSerializable(request.spec);
+  let claims = deserializeNestedProvableValue(request.claims);
+
+  switch (type) {
+    case 'no-context':
+      return PresentationRequest.noContext(spec, claims);
+    default:
+      throw Error(`Invalid presentation request type: ${type}`);
+  }
+}
 
 async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
   if (!(await validateSpecHash(serializedSpecWithHash))) {
@@ -41,7 +59,10 @@ async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
   }
 
   const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);
-  const parsedSpec = JSON.parse(serializedSpec);
+  return convertSpecFromSerializable(JSON.parse(serializedSpec));
+}
+
+function convertSpecFromSerializable(parsedSpec: any): Spec {
   let inputs = deserializeInputs(parsedSpec.inputs);
   return {
     inputs,
@@ -65,7 +86,7 @@ function deserializeInput(input: any): Input {
     case 'constant':
       return Constant(
         deserializeProvableType(input.data),
-        deserializeProvable(input.data.type, input.value)
+        deserializeProvable(input.data._type, input.value)
       );
     case 'public':
       return Claim(deserializeNestedProvablePure(input.data));
@@ -78,7 +99,8 @@ function deserializeInput(input: any): Input {
         case 'none':
           return Credential.Unsigned(data);
         case 'proof':
-          throw Error('Serializing proof credential is not supported yet');
+          let proof = deserializeProvableType(input.witness.proof) as any;
+          return Credential.Recursive(proof, data);
         default:
           throw Error(`Unsupported credential id: ${id}`);
       }
@@ -104,7 +126,7 @@ function deserializeNode(input: any, node: any): Node {
     case 'constant':
       return {
         type: 'constant',
-        data: deserializeProvable(node.data.type, node.data.value),
+        data: deserializeProvable(node.data._type, node.data.value),
       };
     case 'root':
       return { type: 'root', input };
@@ -160,14 +182,35 @@ function deserializeNode(input: any, node: any): Node {
   }
 }
 
-function deserializeProvableType(type: {
-  type: O1jsTypeName | 'Constant';
-}): Provable<any> {
-  if (type.type === 'Constant') {
+function deserializeProvableType(
+  type: SerializedProvableType
+): ProvableType<any> {
+  if (type._type === 'Constant') {
     return ProvableType.constant((type as any).value);
   }
-  let result = supportedTypes[type.type];
-  assert(result !== undefined, `Unsupported provable type: ${type.type}`);
+  if (type._type === 'Bytes') {
+    return Bytes(type.size);
+  }
+  if (type._type === 'Proof') {
+    let proof = type.proof;
+    let Proof = class extends DynamicProof<any, any> {
+      static publicInputType = deserializeProvablePureType(proof.publicInput);
+      static publicOutputType = deserializeProvablePureType(proof.publicOutput);
+      static maxProofsVerified = proof.maxProofsVerified;
+      static featureFlags = replaceNull(proof.featureFlags) as any;
+    };
+    Object.defineProperty(Proof, 'name', { value: proof.name });
+    return Proof;
+  }
+  if (type._type === 'Struct') {
+    let properties = deserializeNestedProvable(type.properties);
+    return Struct(properties);
+  }
+  if (type._type === 'String') {
+    return String as any;
+  }
+  let result = supportedTypes[type._type];
+  assert(result !== undefined, `Unsupported provable type: ${type._type}`);
   return result;
 }
 
@@ -187,13 +230,15 @@ function deserializeProvable(type: string, value: string): any {
       return PublicKey.fromJSON(value);
     case 'Signature':
       return Signature.fromJSON(value);
+    case 'Bytes':
+      return Bytes.fromHex(value);
     default:
       throw Error(`Unsupported provable type: ${type}`);
   }
 }
 
 function deserializeProvablePureType(type: {
-  type: O1jsTypeName;
+  _type: O1jsTypeName;
 }): ProvablePure<any> {
   const provableType = deserializeProvableType(type);
   return provableType as ProvablePure<any>;
@@ -201,7 +246,7 @@ function deserializeProvablePureType(type: {
 
 function deserializeNestedProvable(type: any): NestedProvable {
   if (typeof type === 'object' && type !== null) {
-    if ('type' in type) {
+    if ('_type' in type) {
       // basic provable type
       return deserializeProvableType(type);
     } else {
@@ -218,7 +263,7 @@ function deserializeNestedProvable(type: any): NestedProvable {
 
 function deserializeNestedProvablePure(type: any): NestedProvablePure {
   if (typeof type === 'object' && type !== null) {
-    if ('type' in type) {
+    if ('_type' in type) {
       // basic provable pure type
       return deserializeProvablePureType(type);
     } else {
@@ -231,4 +276,29 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
     }
   }
   throw Error(`Invalid type in NestedProvablePure: ${type}`);
+}
+
+function deserializeNestedProvableValue(type: any): any {
+  if (typeof type === 'object' && type !== null) {
+    if ('_type' in type) {
+      // basic provable type
+      return deserializeProvable(type._type, type.value);
+    } else {
+      // nested object
+      const result: Record<string, any> = {};
+      for (const [key, value] of Object.entries(type)) {
+        result[key] = deserializeNestedProvableValue(value);
+      }
+      return result;
+    }
+  }
+}
+
+function replaceNull(obj: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [
+      key,
+      value === null ? undefined : value,
+    ])
+  );
 }

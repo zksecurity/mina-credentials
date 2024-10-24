@@ -16,16 +16,16 @@ import { Credential } from '../src/credential-index.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
-    assert.deepStrictEqual(serializeProvableType(Field), { type: 'Field' });
-    assert.deepStrictEqual(serializeProvableType(Bool), { type: 'Bool' });
-    assert.deepStrictEqual(serializeProvableType(UInt8), { type: 'UInt8' });
-    assert.deepStrictEqual(serializeProvableType(UInt32), { type: 'UInt32' });
-    assert.deepStrictEqual(serializeProvableType(UInt64), { type: 'UInt64' });
+    assert.deepStrictEqual(serializeProvableType(Field), { _type: 'Field' });
+    assert.deepStrictEqual(serializeProvableType(Bool), { _type: 'Bool' });
+    assert.deepStrictEqual(serializeProvableType(UInt8), { _type: 'UInt8' });
+    assert.deepStrictEqual(serializeProvableType(UInt32), { _type: 'UInt32' });
+    assert.deepStrictEqual(serializeProvableType(UInt64), { _type: 'UInt64' });
     assert.deepStrictEqual(serializeProvableType(PublicKey), {
-      type: 'PublicKey',
+      _type: 'PublicKey',
     });
     assert.deepStrictEqual(serializeProvableType(Signature), {
-      type: 'Signature',
+      _type: 'Signature',
     });
   });
 
@@ -35,23 +35,21 @@ test('Serialize Inputs', async (t) => {
 
   await t.test('should serialize simple provable types (nested)', () => {
     assert.deepStrictEqual(serializeNestedProvable(Field), {
-      type: 'Field',
+      _type: 'Field',
     });
-    assert.deepStrictEqual(serializeNestedProvable(Bool), { type: 'Bool' });
-    assert.deepStrictEqual(serializeNestedProvable(UInt8), {
-      type: 'UInt8',
-    });
+    assert.deepStrictEqual(serializeNestedProvable(Bool), { _type: 'Bool' });
+    assert.deepStrictEqual(serializeNestedProvable(UInt8), { _type: 'UInt8' });
     assert.deepStrictEqual(serializeNestedProvable(UInt32), {
-      type: 'UInt32',
+      _type: 'UInt32',
     });
     assert.deepStrictEqual(serializeNestedProvable(UInt64), {
-      type: 'UInt64',
+      _type: 'UInt64',
     });
     assert.deepStrictEqual(serializeNestedProvable(PublicKey), {
-      type: 'PublicKey',
+      _type: 'PublicKey',
     });
     assert.deepStrictEqual(serializeNestedProvable(Signature), {
-      type: 'Signature',
+      _type: 'Signature',
     });
   });
 
@@ -65,10 +63,10 @@ test('Serialize Inputs', async (t) => {
     };
 
     assert.deepStrictEqual(serializeNestedProvable(nestedType), {
-      field: { type: 'Field' },
+      field: { _type: 'Field' },
       nested: {
-        bool: { type: 'Bool' },
-        uint: { type: 'UInt32' },
+        bool: { _type: 'Bool' },
+        uint: { _type: 'UInt32' },
       },
     });
   });
@@ -87,22 +85,22 @@ test('Serialize Inputs', async (t) => {
     };
 
     assert.deepStrictEqual(serializeNestedProvable(complexType), {
-      simpleField: { type: 'Field' },
+      simpleField: { _type: 'Field' },
       nestedObject: {
-        publicKey: { type: 'PublicKey' },
-        signature: { type: 'Signature' },
+        publicKey: { _type: 'PublicKey' },
+        signature: { _type: 'Signature' },
         deeplyNested: {
-          bool: { type: 'Bool' },
-          uint64: { type: 'UInt64' },
+          bool: { _type: 'Bool' },
+          uint64: { _type: 'UInt64' },
         },
       },
     });
   });
 
   await t.test('should throw an error for unsupported types', () => {
-    assert.throws(() => serializeNestedProvable('unsupported' as any), {
+    assert.throws(() => serializeNestedProvable(123 as any), {
       name: 'Error',
-      message: 'Unsupported type in NestedProvable: unsupported',
+      message: 'Unsupported type in NestedProvable: 123',
     });
   });
 });
@@ -115,10 +113,7 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'constant',
-      data: {
-        type: 'Field',
-        value: '123',
-      },
+      data: { _type: 'Field', value: '123' },
     };
 
     assert.deepEqual(serialized, expected);
@@ -170,8 +165,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'equals',
-      left: { type: 'constant', data: { type: 'Field', value: '10' } },
-      right: { type: 'constant', data: { type: 'Field', value: '10' } },
+      left: { type: 'constant', data: { _type: 'Field', value: '10' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '10' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -187,8 +182,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'lessThan',
-      left: { type: 'constant', data: { type: 'UInt32', value: '5' } },
-      right: { type: 'constant', data: { type: 'UInt32', value: '10' } },
+      left: { type: 'constant', data: { _type: 'UInt32', value: '5' } },
+      right: { type: 'constant', data: { _type: 'UInt32', value: '10' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -204,8 +199,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'lessThanEq',
-      left: { type: 'constant', data: { type: 'UInt64', value: '15' } },
-      right: { type: 'constant', data: { type: 'UInt64', value: '15' } },
+      left: { type: 'constant', data: { _type: 'UInt64', value: '15' } },
+      right: { type: 'constant', data: { _type: 'UInt64', value: '15' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -221,8 +216,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'and',
-      left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
-      right: { type: 'constant', data: { type: 'Bool', value: 'false' } },
+      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -238,8 +233,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'or',
-      left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
-      right: { type: 'constant', data: { type: 'Bool', value: 'false' } },
+      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -255,8 +250,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'add',
-      left: { type: 'constant', data: { type: 'Field', value: '5' } },
-      right: { type: 'constant', data: { type: 'Field', value: '10' } },
+      left: { type: 'constant', data: { _type: 'Field', value: '5' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '10' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -272,8 +267,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'sub',
-      left: { type: 'constant', data: { type: 'Field', value: '15' } },
-      right: { type: 'constant', data: { type: 'Field', value: '7' } },
+      left: { type: 'constant', data: { _type: 'Field', value: '15' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '7' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -289,8 +284,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'mul',
-      left: { type: 'constant', data: { type: 'Field', value: '3' } },
-      right: { type: 'constant', data: { type: 'Field', value: '4' } },
+      left: { type: 'constant', data: { _type: 'Field', value: '3' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '4' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -306,8 +301,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'div',
-      left: { type: 'constant', data: { type: 'Field', value: '20' } },
-      right: { type: 'constant', data: { type: 'Field', value: '5' } },
+      left: { type: 'constant', data: { _type: 'Field', value: '20' } },
+      right: { type: 'constant', data: { _type: 'Field', value: '5' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -323,7 +318,7 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'not',
-      inner: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+      inner: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -339,7 +334,7 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'hash',
-      inner: { type: 'constant', data: { type: 'Field', value: '123' } },
+      inner: { type: 'constant', data: { _type: 'Field', value: '123' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -356,9 +351,9 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'ifThenElse',
-      condition: { type: 'constant', data: { type: 'Bool', value: 'true' } },
-      thenNode: { type: 'constant', data: { type: 'Field', value: '1' } },
-      elseNode: { type: 'constant', data: { type: 'Field', value: '0' } },
+      condition: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      thenNode: { type: 'constant', data: { _type: 'Field', value: '1' } },
+      elseNode: { type: 'constant', data: { _type: 'Field', value: '0' } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -375,8 +370,8 @@ test('Serialize Nodes', async (t) => {
     const expected = {
       type: 'record',
       data: {
-        field1: { type: 'constant', data: { type: 'Field', value: '123' } },
-        field2: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+        field1: { type: 'constant', data: { _type: 'Field', value: '123' } },
+        field2: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
       },
     };
 
@@ -401,13 +396,13 @@ test('Serialize Nodes', async (t) => {
       type: 'and',
       left: {
         type: 'lessThan',
-        left: { type: 'constant', data: { type: 'Field', value: '5' } },
-        right: { type: 'constant', data: { type: 'Field', value: '10' } },
+        left: { type: 'constant', data: { _type: 'Field', value: '5' } },
+        right: { type: 'constant', data: { _type: 'Field', value: '10' } },
       },
       right: {
         type: 'equals',
-        left: { type: 'constant', data: { type: 'Bool', value: 'true' } },
-        right: { type: 'constant', data: { type: 'Bool', value: 'true' } },
+        left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
       },
     };
 
@@ -423,7 +418,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'constant',
-      data: { type: 'Field' },
+      data: { _type: 'Field' },
       value: '42',
     };
 
@@ -437,7 +432,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'public',
-      data: { type: 'Field' },
+      data: { _type: 'Field' },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -451,8 +446,8 @@ test('serializeInput', async (t) => {
     const expected = {
       type: 'credential',
       id: 'none',
-      witness: { type: 'Undefined' },
-      data: { type: 'Field' },
+      witness: { _type: 'Undefined' },
+      data: { _type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
   });
@@ -468,12 +463,12 @@ test('serializeInput', async (t) => {
       id: 'signature-native',
       witness: {
         type: { type: 'Constant', value: 'simple' },
-        issuer: { type: 'PublicKey' },
-        issuerSignature: { type: 'Signature' },
+        issuer: { _type: 'PublicKey' },
+        issuerSignature: { _type: 'Signature' },
       },
       data: {
-        age: { type: 'Field' },
-        isAdmin: { type: 'Bool' },
+        age: { _type: 'Field' },
+        isAdmin: { _type: 'Bool' },
       },
     };
 
@@ -495,13 +490,13 @@ test('serializeInput', async (t) => {
     const expected = {
       type: 'credential',
       id: 'none',
-      witness: { type: 'Undefined' },
+      witness: { _type: 'Undefined' },
       data: {
         personal: {
-          age: { type: 'Field' },
-          id: { type: 'UInt64' },
+          age: { _type: 'Field' },
+          id: { _type: 'UInt64' },
         },
-        score: { type: 'UInt32' },
+        score: { _type: 'UInt32' },
       },
     };
 
@@ -538,11 +533,11 @@ test('convertSpecToSerializable', async (t) => {
         age: {
           type: 'credential',
           id: 'none',
-          witness: { type: 'Undefined' },
-          data: { type: 'Field' },
+          witness: { _type: 'Undefined' },
+          data: { _type: 'Field' },
         },
-        isAdmin: { type: 'public', data: { type: 'Bool' } },
-        maxAge: { type: 'constant', data: { type: 'Field' }, value: '100' },
+        isAdmin: { type: 'public', data: { _type: 'Bool' } },
+        maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
       logic: {
         assert: {
@@ -608,14 +603,14 @@ test('convertSpecToSerializable', async (t) => {
           id: 'signature-native',
           witness: {
             type: { type: 'Constant', value: 'simple' },
-            issuer: { type: 'PublicKey' },
-            issuerSignature: { type: 'Signature' },
+            issuer: { _type: 'PublicKey' },
+            issuerSignature: { _type: 'Signature' },
           },
           data: {
-            field: { type: 'Field' },
+            field: { _type: 'Field' },
           },
         },
-        zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
+        zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
       logic: {
         assert: {
@@ -675,16 +670,16 @@ test('convertSpecToSerializable', async (t) => {
         field1: {
           type: 'credential',
           id: 'none',
-          witness: { type: 'Undefined' },
-          data: { type: 'Field' },
+          witness: { _type: 'Undefined' },
+          data: { _type: 'Field' },
         },
         field2: {
           type: 'credential',
           id: 'none',
-          witness: { type: 'Undefined' },
-          data: { type: 'Field' },
+          witness: { _type: 'Undefined' },
+          data: { _type: 'Field' },
         },
-        zeroField: { type: 'constant', data: { type: 'Field' }, value: '0' },
+        zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
       logic: {
         assert: {

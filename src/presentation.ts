@@ -12,8 +12,12 @@ import {
   type StoredCredential,
 } from './credential.ts';
 import { assert } from './util.ts';
+import { serializePresentationRequest } from './serialize-spec.ts';
+import { deserializePresentationRequest } from './deserialize-spec.ts';
 
 export { PresentationRequest, Presentation };
+
+type PresentationRequestType = 'no-context';
 
 type PresentationRequest<
   Output = any,
@@ -21,7 +25,8 @@ type PresentationRequest<
   InputContext = any,
   WalletContext = any
 > = {
-  programSpec: Spec<Output, Inputs>;
+  type: PresentationRequestType;
+  spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext?: InputContext;
 
@@ -30,14 +35,24 @@ type PresentationRequest<
 
 const PresentationRequest = {
   noContext<Output, Inputs extends Record<string, Input>>(
-    programSpec: Spec<Output, Inputs>,
+    spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>
   ) {
     return {
-      programSpec,
+      type: 'no-context',
+      spec,
       claims,
       deriveContext: () => Field(0),
     } satisfies PresentationRequest;
+  },
+
+  toJSON(request: PresentationRequest) {
+    return JSON.stringify(serializePresentationRequest(request));
+  },
+  fromJSON<P extends PresentationRequest = PresentationRequest>(
+    json: string
+  ): P {
+    return deserializePresentationRequest(JSON.parse(json)) as P;
   },
 };
 
@@ -56,7 +71,7 @@ const Presentation = {
     request: R
   ): Promise<R & { program: Program<Output<R>, Inputs<R>> }> {
     let program: Program<Output<R>, Inputs<R>> = (request as any).program ??
-    createProgram(request.programSpec);
+    createProgram(request.spec);
     await program.compile();
     return { ...request, program };
   },
@@ -84,7 +99,7 @@ async function createPresentation<
   let context = request.deriveContext(walletContext);
   let { program } = await Presentation.compile(request);
 
-  let credentialsNeeded = Object.entries(request.programSpec.inputs).filter(
+  let credentialsNeeded = Object.entries(request.spec.inputs).filter(
     (c): c is [string, CredentialType] => c[1].type === 'credential'
   );
   let credentialsUsed = pickCredentials(
