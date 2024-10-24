@@ -574,6 +574,119 @@ test(' Spec and Node operations', async (t) => {
     assert.strictEqual(assertResult4.toBoolean(), false);
   });
 
+  await t.test('Spec with compute operations', async (t) => {
+    await t.test('compute with addition', () => {
+      const spec = Spec(
+        {
+          input: Credential.Unsigned({ x: Field, y: Field }),
+        },
+        ({ input }) => ({
+          data: Operation.compute(
+            [Operation.property(input, 'x'), Operation.property(input, 'y')],
+            Field,
+            ([x, y]) => x.add(y)
+          ),
+        })
+      );
+
+      const root: DataInputs<typeof spec.inputs> = {
+        input: cred({ x: Field(10), y: Field(5) }),
+      };
+
+      const result = Node.eval(root, spec.logic.data);
+      assert.deepStrictEqual(result, Field(15));
+    });
+
+    await t.test('compute with boolean output', () => {
+      const spec = Spec(
+        {
+          value: Credential.Unsigned(Field),
+          threshold: Claim(Field),
+        },
+        ({ value, threshold }) => ({
+          data: Operation.compute([value, threshold], Bool, ([v, t]) =>
+            v.greaterThan(t)
+          ),
+        })
+      );
+
+      const validRoot: DataInputs<typeof spec.inputs> = {
+        value: cred(Field(20)),
+        threshold: Field(10),
+      };
+
+      const invalidRoot: DataInputs<typeof spec.inputs> = {
+        value: cred(Field(5)),
+        threshold: Field(10),
+      };
+
+      const validResult = Node.eval(validRoot, spec.logic.data);
+      const invalidResult = Node.eval(invalidRoot, spec.logic.data);
+
+      assert.strictEqual(validResult.toBoolean(), true);
+      assert.strictEqual(invalidResult.toBoolean(), false);
+    });
+
+    await t.test('compute with nested operations', () => {
+      const spec = Spec(
+        {
+          position: Credential.Unsigned({
+            x: Field,
+            y: Field,
+          }),
+          center: Claim({
+            x: Field,
+            y: Field,
+          }),
+          maxDistance: Claim(Field),
+        },
+        ({ position, center, maxDistance }) => {
+          const distanceSquared = Operation.compute(
+            [
+              Operation.property(position, 'x'),
+              Operation.property(position, 'y'),
+              Operation.property(center, 'x'),
+              Operation.property(center, 'y'),
+            ],
+            Field,
+            ([px, py, cx, cy]) => {
+              const dx = px.sub(cx);
+              const dy = py.sub(cy);
+              return dx.mul(dx).add(dy.mul(dy));
+            }
+          );
+
+          return {
+            assert: Operation.compute(
+              [distanceSquared, maxDistance],
+              Bool,
+              ([d, max]) => d.lessThanOrEqual(max.mul(max))
+            ),
+            data: distanceSquared,
+          };
+        }
+      );
+
+      const root: DataInputs<typeof spec.inputs> = {
+        position: cred({
+          x: Field(3),
+          y: Field(4),
+        }),
+        center: {
+          x: Field(0),
+          y: Field(0),
+        },
+        maxDistance: Field(5),
+      };
+
+      const assertResult = Node.eval(root, spec.logic.assert);
+      const dataResult = Node.eval(root, spec.logic.data);
+
+      assert.strictEqual(assertResult.toBoolean(), true);
+      assert.deepStrictEqual(dataResult, Field(25));
+    });
+  });
+
   await t.test('Spec with nested properties', () => {
     const InputData = { age: Field, name: Bytes32 };
     const NestedInputData = { person: InputData, points: Field };
