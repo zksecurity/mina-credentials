@@ -1,5 +1,7 @@
 import {
+  Bytes,
   Field,
+  Hash,
   Poseidon,
   Proof,
   Signature,
@@ -43,9 +45,9 @@ type Program<Output, Inputs extends Record<string, Input>> = {
 
 function deriveCircuitName(spec: Spec): string {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
-  const fields = Array.from(serializedSpec).map((c) => Field(c.charCodeAt(0)));
-  const hash = Poseidon.hashWithPrefix('credential-name', fields);
-  return `credential-${hash.toString()}`;
+  const specBytes = Bytes.fromString(serializedSpec);
+  const hashBytes = Hash.Keccak256.hash(specBytes);
+  return `credential-${hashBytes.toString()}`;
 }
 
 function createProgram<S extends Spec>(
