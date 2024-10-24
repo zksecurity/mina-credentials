@@ -1,9 +1,10 @@
-import { Field, PrivateKey, Proof } from 'o1js';
+import { Field, Poseidon, PrivateKey, Proof, PublicKey, Struct } from 'o1js';
 import {
   Spec,
   type Input,
   type Claims,
   type PublicInputs,
+  type ContextInput,
 } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
@@ -12,14 +13,29 @@ import {
   type StoredCredential,
 } from './credential.ts';
 import { assert } from './util.ts';
+import { generateContext, computeContext } from './program-spec.ts';
+import { NestedProvable } from './nested.ts';
 
 export { PresentationRequest, Presentation };
 
+type InputContext = {
+  action: string | Field;
+  serverNonce: Field;
+};
+
+type WalletContext = {
+  verifierIdentity: string | PublicKey;
+  clientNonce: Field;
+};
+
+type ContextConfig = {
+  type: 'zk-app' | 'https';
+  presentationCircuitVKHash: Field;
+};
+
 type PresentationRequest<
   Output = any,
-  Inputs extends Record<string, Input> = Record<string, Input>,
-  InputContext = any,
-  WalletContext = any
+  Inputs extends Record<string, Input> = Record<string, Input>
 > = {
   programSpec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
@@ -37,6 +53,43 @@ const PresentationRequest = {
       programSpec,
       claims,
       deriveContext: () => Field(0),
+    } satisfies PresentationRequest;
+  },
+
+  withContext<Output, Inputs extends Record<string, Input>>(
+    programSpec: Spec<Output, Inputs>,
+    claims: Claims<Inputs>,
+    contextConfig: ContextConfig,
+    inputContext: InputContext
+  ): PresentationRequest<Output, Inputs> {
+    const { type, presentationCircuitVKHash } = contextConfig;
+    const { action, serverNonce } = inputContext;
+
+    const claimsType = NestedProvable.fromValue(claims);
+    const claimsFields = Struct(claimsType).toFields(claims);
+    const claimsHash = Poseidon.hash(claimsFields);
+    return {
+      programSpec,
+      claims,
+      deriveContext: (walletContext: WalletContext) => {
+        const { verifierIdentity, clientNonce } = walletContext;
+
+        const contextParams = {
+          type,
+          presentationCircuitVKHash,
+          clientNonce,
+          serverNonce,
+          verifierIdentity,
+          action,
+          claims: claimsHash,
+        } as ContextInput;
+
+        const computedContext = computeContext(contextParams);
+
+        const generatedContext = generateContext(computedContext);
+
+        return generatedContext;
+      },
     } satisfies PresentationRequest;
   },
 };
@@ -64,19 +117,14 @@ const Presentation = {
   create: createPresentation,
 };
 
-async function createPresentation<
-  Output,
-  Inputs extends Record<string, Input>,
-  InputContext,
-  WalletContext
->(
+async function createPresentation<Output, Inputs extends Record<string, Input>>(
   ownerKey: PrivateKey,
   {
     request,
     walletContext,
     credentials,
   }: {
-    request: PresentationRequest<Output, Inputs, InputContext, WalletContext>;
+    request: PresentationRequest<Output, Inputs>;
     walletContext?: WalletContext;
     credentials: (StoredCredential & { key?: string })[];
   }
