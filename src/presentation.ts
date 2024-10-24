@@ -19,18 +19,15 @@ import { NestedProvable } from './nested.ts';
 export { PresentationRequest, Presentation };
 
 type InputContext = {
-  action: string | Field;
+  type: 'zk-app' | 'https';
+  presentationCircuitVKHash: Field;
+  action: Field | string;
   serverNonce: Field;
 };
 
 type WalletContext = {
   verifierIdentity: string | PublicKey;
   clientNonce: Field;
-};
-
-type ContextConfig = {
-  type: 'zk-app' | 'https';
-  presentationCircuitVKHash: Field;
 };
 
 type PresentationRequest<
@@ -59,11 +56,10 @@ const PresentationRequest = {
   withContext<Output, Inputs extends Record<string, Input>>(
     programSpec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
-    contextConfig: ContextConfig,
     inputContext: InputContext
   ): PresentationRequest<Output, Inputs> {
-    const { type, presentationCircuitVKHash } = contextConfig;
-    const { action, serverNonce } = inputContext;
+    const { type, presentationCircuitVKHash, action, serverNonce } =
+      inputContext;
 
     const claimsType = NestedProvable.fromValue(claims);
     const claimsFields = Struct(claimsType).toFields(claims);

@@ -199,6 +199,8 @@ test('presentation with context binding', async (t) => {
     const signedData = Credential.sign(issuerKey, { owner, data });
 
     const inputContext = {
+      type: 'zk-app' as const,
+      presentationCircuitVKHash,
       action: Field(123), // Mock method ID + args hash
       serverNonce: Field(456),
     };
@@ -208,15 +210,9 @@ test('presentation with context binding', async (t) => {
       clientNonce: Field(789),
     };
 
-    const contextConfig = {
-      type: 'zk-app' as const,
-      presentationCircuitVKHash,
-    };
-
     let request = PresentationRequest.withContext(
       spec,
       { targetAge: Field(18) },
-      contextConfig,
       inputContext
     );
 
@@ -244,6 +240,8 @@ test('presentation with context binding', async (t) => {
 
     // Create request with context
     const inputContext = {
+      type: 'https' as const,
+      presentationCircuitVKHash,
       action: 'POST /api/verify', // HTTP request
       serverNonce: Field(456),
     };
@@ -253,15 +251,9 @@ test('presentation with context binding', async (t) => {
       clientNonce: Field(789),
     };
 
-    const contextConfig = {
-      type: 'https' as const,
-      presentationCircuitVKHash,
-    };
-
     let request = PresentationRequest.withContext(
       spec,
       { targetAge: Field(18) },
-      contextConfig,
       inputContext
     );
 
