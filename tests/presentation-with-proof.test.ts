@@ -53,9 +53,26 @@ const spec = Spec(
 let requestInitial = PresentationRequest.noContext(spec, {
   targetAge: Field(18),
 });
-let request = await Presentation.compile(requestInitial);
+let json = PresentationRequest.toJSON(requestInitial);
+
+// wallet: deserialize and compile request
+let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
+let request = await Presentation.compile(deserialized);
 
 await describe('program with proof credential', async () => {
+  await test('program is deserialized correctly', async () => {
+    let program1 = createProgram(requestInitial.spec);
+    let analyze1 = await program1.program.analyzeMethods();
+    let program2 = createProgram(deserialized.spec);
+    let analyze2 = await program2.program.analyzeMethods();
+
+    assert.deepStrictEqual(
+      analyze1.run?.digest,
+      analyze2.run?.digest,
+      'Same circuit digest'
+    );
+  });
+
   await test('compile program', async () => {
     await request.program.compile();
   });

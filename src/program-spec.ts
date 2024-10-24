@@ -124,7 +124,7 @@ function Spec<Data, Inputs extends Record<string, Input>>(
 }
 
 const Operation = {
-  owner,
+  owner: { type: 'owner' } as Node<PublicKey>,
   issuer,
   property,
   record,
@@ -504,12 +504,12 @@ function hash(inner: Node): Node<Field> {
   return { type: 'hash', inner };
 }
 
-function owner(): Node<PublicKey> {
-  return { type: 'owner' };
-}
-
-function issuer(credentialKey: string): Node<Field> {
-  return { type: 'issuer', credentialKey };
+function issuer(credential: Node): Node<Field> {
+  let msg = 'Can only get issuer for a credential';
+  assert(credential.type === 'property', msg);
+  assert(credential.key === 'data', msg);
+  assert(credential.inner.type === 'property', msg);
+  return { type: 'issuer', credentialKey: credential.inner.key };
 }
 
 function ifThenElse<Data>(
