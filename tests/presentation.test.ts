@@ -212,7 +212,7 @@ test('presentation with context binding', async (t) => {
       clientNonce: Field(789),
     };
 
-    let request = PresentationRequest.withContext(
+    let request = PresentationRequest.zkApp(
       spec,
       { targetAge: Field(18) },
       inputContext
@@ -231,20 +231,17 @@ test('presentation with context binding', async (t) => {
   });
 
   await t.test('presentation with https context', async () => {
-    // Compilation
     const program = createProgram(spec);
     const verificationKey = await program.compile();
     const presentationCircuitVKHash = verificationKey.hash;
 
-    // Setup test data
     const data = { age: Field(18), name: Bytes32.fromString('Alice') };
     const signedData = Credential.sign(issuerKey, { owner, data });
 
-    // Create request with context
     const inputContext = {
       type: 'https' as const,
       presentationCircuitVKHash,
-      action: 'POST /api/verify', // HTTP request
+      action: 'POST /api/verify',
       serverNonce: Field(456),
     };
 
@@ -253,23 +250,20 @@ test('presentation with context binding', async (t) => {
       clientNonce: Field(789),
     };
 
-    let request = PresentationRequest.withContext(
+    let request = PresentationRequest.https(
       spec,
       { targetAge: Field(18) },
       inputContext
     );
 
-    // Create presentation
     let { proof } = await Presentation.create(ownerKey, {
       request,
       walletContext,
       credentials: [signedData],
     });
 
-    // Verify proof properties
     assert(proof, 'Proof should be generated');
 
-    // Verify context matches spec
     const expectedContext = request.deriveContext(walletContext);
     assert.deepStrictEqual(proof.publicInput.context, expectedContext);
   });

@@ -49,9 +49,14 @@ function deserializePresentationRequest(request: any): PresentationRequest {
   switch (type) {
     case 'no-context':
       return PresentationRequest.noContext(spec, claims);
-    case 'with-context':
+    case 'zk-app': {
       const inputContext = deserializeInputContext(request.inputContext);
-      return PresentationRequest.withContext(spec, claims, inputContext);
+      return PresentationRequest.zkApp(spec, claims, inputContext);
+    }
+    case 'https': {
+      const inputContext = deserializeInputContext(request.inputContext);
+      return PresentationRequest.https(spec, claims, inputContext);
+    }
     default:
       throw Error(`Invalid presentation request type: ${type}`);
   }

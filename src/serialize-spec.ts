@@ -1,7 +1,11 @@
 import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { Spec, type Input, Node } from './program-spec.ts';
-import { type PresentationRequest } from './presentation.ts';
+import {
+  type HttpsInputContext,
+  type ZkAppInputContext,
+  type PresentationRequest,
+} from './presentation.ts';
 import {
   Field,
   Bool,
@@ -57,14 +61,23 @@ export {
 function serializePresentationRequest(request: PresentationRequest) {
   let spec = convertSpecToSerializable(request.spec);
   let claims = serializeNestedProvableValue(request.claims);
-  return {
-    type: request.type,
-    spec,
-    claims,
-    inputContext: request.inputContext
-      ? serializeInputContext(request.inputContext)
-      : undefined,
-  };
+
+  switch (request.type) {
+    case 'no-context':
+      return {
+        type: request.type,
+        spec,
+        claims,
+      };
+    case 'zk-app':
+    case 'https':
+      return {
+        type: request.type,
+        spec,
+        claims,
+        inputContext: serializeInputContext(request.inputContext),
+      };
+  }
 }
 
 async function serializeSpec(spec: Spec): Promise<string> {
@@ -191,28 +204,33 @@ function serializeNode(node: Node): any {
   }
 }
 
-function serializeInputContext(context: {
+function serializeInputContext(
+  context: ZkAppInputContext | HttpsInputContext
+): {
   type: 'zk-app' | 'https';
-  presentationCircuitVKHash: Field;
-  action: Field | string;
-  serverNonce: Field;
-}): {
-  type: string;
   presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
   action: ReturnType<typeof serializeProvable> | string;
   serverNonce: ReturnType<typeof serializeProvable>;
 } {
-  return {
-    type: context.type,
-    presentationCircuitVKHash: serializeProvable(
-      context.presentationCircuitVKHash
-    ),
-    action:
-      context.type === 'zk-app'
-        ? serializeProvable(context.action as Field)
-        : (context.action as string),
-    serverNonce: serializeProvable(context.serverNonce),
-  };
+  if ('action' in context && typeof context.action === 'string') {
+    return {
+      type: 'https',
+      presentationCircuitVKHash: serializeProvable(
+        context.presentationCircuitVKHash
+      ),
+      action: context.action,
+      serverNonce: serializeProvable(context.serverNonce),
+    };
+  } else {
+    return {
+      type: 'zk-app',
+      presentationCircuitVKHash: serializeProvable(
+        context.presentationCircuitVKHash
+      ),
+      action: serializeProvable((context as ZkAppInputContext).action),
+      serverNonce: serializeProvable(context.serverNonce),
+    };
+  }
 }
 
 type SerializedType =
