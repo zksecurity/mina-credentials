@@ -71,18 +71,21 @@ function deserializeInputContext(context: {
 }) {
   return {
     type: context.type as 'zk-app' | 'https',
-    presentationCircuitVKHash: deserializeProvable(
-      'Field',
-      context.presentationCircuitVKHash.value
-    ),
+    presentationCircuitVKHash: deserializeProvable({
+      _type: 'Field',
+      value: context.presentationCircuitVKHash.value,
+    }),
     action:
       context.type === 'zk-app'
-        ? deserializeProvable(
-            'Field',
-            (context.action as { _type: string; value: string }).value
-          )
+        ? deserializeProvable({
+            _type: 'Field',
+            value: (context.action as { _type: string; value: string }).value,
+          })
         : (context.action as string),
-    serverNonce: deserializeProvable('Field', context.serverNonce.value),
+    serverNonce: deserializeProvable({
+      _type: 'Field',
+      value: context.serverNonce.value,
+    }),
   };
 }
 
