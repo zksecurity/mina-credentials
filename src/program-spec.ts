@@ -140,6 +140,7 @@ const Operation = {
   not,
   hash,
   ifThenElse,
+  compute,
 };
 
 type Constant<Data> = {
@@ -177,6 +178,12 @@ type Node<Data = any> =
       condition: Node<Bool>;
       thenNode: Node;
       elseNode: Node;
+    }
+  | {
+      type: 'compute';
+      inputs: readonly Node[];
+      computation: (...inputs: any[]) => any;
+      outputType: ProvableType;
     };
 
 type OutputNode<Data = any> = {
@@ -263,6 +270,12 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let elseNode = evalNode(root, node.elseNode);
       let result = Provable.if(condition, thenNode, elseNode);
       return result as Data;
+    }
+    case 'compute': {
+      const computationInputs = node.inputs.map((input) =>
+        evalNode(root, input)
+      );
+      return node.computation(...computationInputs);
     }
   }
 }
@@ -383,6 +396,9 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
         result[key] = evalNodeType(rootType, node.data[key]!);
       }
       return result;
+    }
+    case 'compute': {
+      return node.outputType;
     }
   }
 }
@@ -612,6 +628,22 @@ function generateContext(input: ContextOutput): Field {
   ]);
 
   return context;
+}
+function compute<Inputs extends readonly Node[], Output>(
+  inputs: [...Inputs],
+  outputType: ProvableType<Output>,
+  computation: (
+    ...args: {
+      [K in keyof Inputs]: Inputs[K] extends Node<infer T> ? T : never;
+    }
+  ) => Output
+): Node<Output> {
+  return {
+    type: 'compute',
+    inputs: inputs,
+    computation: computation as (inputs: any[]) => Output,
+    outputType,
+  };
 }
 
 // helpers to extract/recombine portions of the spec inputs
