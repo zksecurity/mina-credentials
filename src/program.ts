@@ -1,4 +1,13 @@
-import { Field, Proof, Signature, VerificationKey, ZkProgram } from 'o1js';
+import {
+  Bytes,
+  Field,
+  Hash,
+  Poseidon,
+  Proof,
+  Signature,
+  VerificationKey,
+  ZkProgram,
+} from 'o1js';
 import {
   type Input,
   Node,
@@ -15,6 +24,7 @@ import {
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 import { verifyCredentials } from './credential.ts';
+import { convertSpecToSerializable } from './serialize-spec.ts';
 
 export { createProgram, type Program };
 
@@ -33,6 +43,13 @@ type Program<Output, Inputs extends Record<string, Input>> = {
   >;
 };
 
+function deriveCircuitName(spec: Spec): string {
+  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
+  const specBytes = Bytes.fromString(serializedSpec);
+  const hashBytes = Hash.Keccak256.hash(specBytes);
+  return `credential-${hashBytes.toString()}`;
+}
+
 function createProgram<S extends Spec>(
   spec: S
 ): Program<GetSpecData<S>, S['inputs']> {
@@ -42,7 +59,7 @@ function createProgram<S extends Spec>(
   let PrivateInput = NestedProvable.get(privateInputTypes(spec));
 
   let program = ZkProgram({
-    name: `todo`, // we should create a name deterministically derived from the spec, e.g. `credential-${hash(spec)}`
+    name: deriveCircuitName(spec),
     publicInput: PublicInput,
     publicOutput: PublicOutput,
     methods: {
