@@ -5,10 +5,18 @@ import {
   signCredentials,
 } from '../src/credential.ts';
 
-export { createOwnerSignature, owner, ownerKey, issuer, issuerKey };
+export {
+  createOwnerSignature,
+  owner,
+  ownerKey,
+  issuer,
+  issuerKey,
+  zkAppVerifierIdentity,
+};
 
 const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
 const { publicKey: issuer, privateKey: issuerKey } = PrivateKey.randomKeypair();
+const zkAppVerifierIdentity = PrivateKey.random().toPublicKey();
 
 function createOwnerSignature<Witness, Data>(
   context: Field,

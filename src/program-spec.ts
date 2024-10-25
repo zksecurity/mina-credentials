@@ -9,6 +9,8 @@ import {
   Poseidon,
   Signature,
   PublicKey,
+  Bytes,
+  Hash,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -32,6 +34,7 @@ import {
   withOwner,
   type CredentialOutputs,
 } from './credential.ts';
+import { prefixes } from './constants.ts';
 
 export type {
   PublicInputs,

@@ -1,7 +1,11 @@
 import { NestedProvable } from './nested.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { Spec, type Input, Node } from './program-spec.ts';
-import { type PresentationRequest } from './presentation.ts';
+import {
+  type HttpsInputContext,
+  type ZkAppInputContext,
+  type PresentationRequest,
+} from './presentation.ts';
 import {
   Field,
   Bool,
@@ -51,17 +55,29 @@ export {
   serializeSpec,
   validateSpecHash,
   serializePresentationRequest,
+  serializeInputContext,
 };
 
 function serializePresentationRequest(request: PresentationRequest) {
   let spec = convertSpecToSerializable(request.spec);
   let claims = serializeNestedProvableValue(request.claims);
-  return {
-    type: request.type,
-    spec,
-    claims,
-    inputContext: request.inputContext,
-  };
+
+  switch (request.type) {
+    case 'no-context':
+      return {
+        type: request.type,
+        spec,
+        claims,
+      };
+    case 'zk-app':
+    case 'https':
+      return {
+        type: request.type,
+        spec,
+        claims,
+        inputContext: serializeInputContext(request.inputContext),
+      };
+  }
 }
 
 async function serializeSpec(spec: Spec): Promise<string> {
@@ -116,7 +132,7 @@ function serializeInput(input: Input): any {
       }
     }
   }
-  throw new Error('Invalid input type');
+  throw Error('Invalid input type');
 }
 
 function serializeNode(node: Node): any {
@@ -185,6 +201,41 @@ function serializeNode(node: Node): any {
         data: serializedData,
       };
     }
+  }
+}
+
+function serializeInputContext(context: {
+  type: 'zk-app' | 'https';
+  presentationCircuitVKHash: Field;
+  action: Field | string;
+  serverNonce: Field;
+}): {
+  type: string;
+  presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
+  action: ReturnType<typeof serializeProvable> | string;
+  serverNonce: ReturnType<typeof serializeProvable>;
+} {
+  const serializedBase = {
+    type: context.type,
+    presentationCircuitVKHash: serializeProvable(
+      context.presentationCircuitVKHash
+    ),
+    serverNonce: serializeProvable(context.serverNonce),
+  };
+
+  switch (context.type) {
+    case 'zk-app':
+      return {
+        ...serializedBase,
+        action: serializeProvable(context.action as Field),
+      };
+    case 'https':
+      return {
+        ...serializedBase,
+        action: context.action as string,
+      };
+    default:
+      throw Error(`Unsupported context type: ${context.type}`);
   }
 }
 

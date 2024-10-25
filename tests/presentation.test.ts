@@ -2,9 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
-import { issuerKey, owner, ownerKey } from './test-utils.ts';
+import {
+  issuerKey,
+  owner,
+  ownerKey,
+  zkAppVerifierIdentity,
+} from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
+import { createProgram } from '../src/program.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
@@ -164,5 +170,99 @@ test('program with owner and issuer operations', async (t) => {
     assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
 
     assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
+  });
+});
+
+test('presentation with context binding', async (t) => {
+  const Bytes32 = Bytes(32);
+  const InputData = { age: Field, name: Bytes32 };
+
+  const spec = Spec(
+    {
+      signedData: Credential.Simple(InputData),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
+      assert: Operation.and(
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
+      ),
+      data: Operation.property(signedData, 'age'),
+    })
+  );
+
+  await t.test('presentation with zk-app context', async () => {
+    const program = createProgram(spec);
+    const verificationKey = await program.compile();
+    const presentationCircuitVKHash = verificationKey.hash;
+
+    const data = { age: Field(18), name: Bytes32.fromString('Alice') };
+    const signedData = Credential.sign(issuerKey, { owner, data });
+
+    const inputContext = {
+      presentationCircuitVKHash,
+      action: Field(123), // Mock method ID + args hash
+      serverNonce: Field(456),
+    };
+
+    const walletContext = {
+      verifierIdentity: zkAppVerifierIdentity,
+      clientNonce: Field(789),
+    };
+
+    let request = PresentationRequest.zkApp(
+      spec,
+      { targetAge: Field(18) },
+      inputContext
+    );
+
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      walletContext,
+      credentials: [signedData],
+    });
+
+    assert(proof, 'Proof should be generated');
+
+    const expectedContext = request.deriveContext(walletContext);
+    assert.deepStrictEqual(proof.publicInput.context, expectedContext);
+  });
+
+  await t.test('presentation with https context', async () => {
+    const program = createProgram(spec);
+    const verificationKey = await program.compile();
+    const presentationCircuitVKHash = verificationKey.hash;
+
+    const data = { age: Field(18), name: Bytes32.fromString('Alice') };
+    const signedData = Credential.sign(issuerKey, { owner, data });
+
+    const inputContext = {
+      presentationCircuitVKHash,
+      action: 'POST /api/verify',
+      serverNonce: Field(456),
+    };
+
+    const walletContext = {
+      verifierIdentity: 'test.com',
+      clientNonce: Field(789),
+    };
+
+    let request = PresentationRequest.https(
+      spec,
+      { targetAge: Field(18) },
+      inputContext
+    );
+
+    let { proof } = await Presentation.create(ownerKey, {
+      request,
+      walletContext,
+      credentials: [signedData],
+    });
+
+    assert(proof, 'Proof should be generated');
+
+    const expectedContext = request.deriveContext(walletContext);
+    assert.deepStrictEqual(proof.publicInput.context, expectedContext);
   });
 });
