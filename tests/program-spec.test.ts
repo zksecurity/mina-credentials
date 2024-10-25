@@ -584,7 +584,7 @@ test(' Spec and Node operations', async (t) => {
           data: Operation.compute(
             [Operation.property(input, 'x'), Operation.property(input, 'y')],
             Field,
-            ([x, y]) => x.add(y)
+            (x, y) => x.add(y)
           ),
         })
       );
@@ -604,7 +604,7 @@ test(' Spec and Node operations', async (t) => {
           threshold: Claim(Field),
         },
         ({ value, threshold }) => ({
-          data: Operation.compute([value, threshold], Bool, ([v, t]) =>
+          data: Operation.compute([value, threshold], Bool, (v, t) =>
             v.greaterThan(t)
           ),
         })
@@ -649,7 +649,7 @@ test(' Spec and Node operations', async (t) => {
               Operation.property(center, 'y'),
             ],
             Field,
-            ([px, py, cx, cy]) => {
+            (px, py, cx, cy) => {
               const dx = px.sub(cx);
               const dy = py.sub(cy);
               return dx.mul(dx).add(dy.mul(dy));
@@ -660,7 +660,7 @@ test(' Spec and Node operations', async (t) => {
             assert: Operation.compute(
               [distanceSquared, maxDistance],
               Bool,
-              ([d, max]) => d.lessThanOrEqual(max.mul(max))
+              (d, max) => d.lessThanOrEqual(max.mul(max))
             ),
             data: distanceSquared,
           };

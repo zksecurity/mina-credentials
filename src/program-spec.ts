@@ -176,8 +176,8 @@ type Node<Data = any> =
     }
   | {
       type: 'compute';
-      inputs: Node[];
-      computation: (inputs: any[]) => any;
+      inputs: readonly Node[];
+      computation: (...inputs: any[]) => any;
       outputType: ProvableType;
     };
 
@@ -270,7 +270,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       const computationInputs = node.inputs.map((input) =>
         evalNode(root, input)
       );
-      return node.computation(computationInputs);
+      return node.computation(...computationInputs);
     }
   }
 }
