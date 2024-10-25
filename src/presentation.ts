@@ -4,7 +4,6 @@ import {
   type Input,
   type Claims,
   type PublicInputs,
-  type ContextInput,
 } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
@@ -13,7 +12,7 @@ import {
   type StoredCredential,
 } from './credential.ts';
 import { assert } from './util.ts';
-import { generateContext, computeContext } from './program-spec.ts';
+import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
 import { serializePresentationRequest } from './serialize-spec.ts';
 import { deserializePresentationRequest } from './deserialize-spec.ts';
