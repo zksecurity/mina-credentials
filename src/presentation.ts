@@ -53,25 +53,16 @@ type PresentationRequestType = 'no-context' | 'zk-app' | 'https';
 
 type PresentationRequest<
   Output = any,
-  Inputs extends Record<string, Input> = Record<string, Input>
+  Inputs extends Record<string, Input> = Record<string, Input>,
+  InputContext = any,
+  WalletContext = any
 > = {
   type: PresentationRequestType;
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
-  deriveContext(walletContext?: ZkAppWalletContext | HttpsWalletContext): Field;
-} & (
-  | {
-      type: 'no-context';
-    }
-  | {
-      type: 'zk-app';
-      inputContext: ZkAppInputContext;
-    }
-  | {
-      type: 'https';
-      inputContext: HttpsInputContext;
-    }
-);
+  inputContext?: InputContext;
+  deriveContext(walletContext?: WalletContext): Field;
+};
 
 const PresentationRequest = {
   noContext<Output, Inputs extends Record<string, Input>>(
