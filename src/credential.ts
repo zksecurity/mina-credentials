@@ -50,7 +50,8 @@ type CredentialType = 'unsigned' | 'simple' | 'recursive';
  * - a string id fully identifying the credential type
  * - a type for private parameters
  * - a type for data (which is left generic when defining credential types)
- * - a function `verify(...)` that asserts the credential is valid
+ * - a function `verify(...)` that verifies the credential inside a ZkProgram circuit
+ * - a function `verifyOutsideCircuit(...)` that verifies the credential in normal JS
  * - a function `issuer(...)` that derives a commitment to the "issuer" of the credential, e.g. a public key for signed credentials
  */
 type CredentialSpec<
@@ -64,6 +65,11 @@ type CredentialSpec<
   data: NestedProvablePureFor<Data>;
 
   verify(witness: Witness, credHash: Hashed<Credential<Data>>): void;
+
+  verifyOutsideCircuit(
+    witness: Witness,
+    credHash: Hashed<Credential<Data>>
+  ): Promise<void>;
 
   issuer(witness: Witness): Field;
 };
@@ -178,24 +184,29 @@ function signCredentials<Private, Data>(
 }
 
 function defineCredential<
-  Id extends CredentialType,
-  PrivateType extends NestedProvable
+  Type extends CredentialType,
+  Witness extends NestedProvable
 >(config: {
-  credentialType: Id;
-  witness: PrivateType;
+  credentialType: Type;
+  witness: Witness;
 
   verify<Data>(
-    witness: InferNestedProvable<PrivateType>,
+    witness: InferNestedProvable<Witness>,
     credHash: Hashed<Credential<Data>>
   ): void;
 
-  issuer(witness: InferNestedProvable<PrivateType>): Field;
+  verifyOutsideCircuit<Data>(
+    witness: InferNestedProvable<Witness>,
+    credHash: Hashed<Credential<Data>>
+  ): Promise<void>;
+
+  issuer(witness: InferNestedProvable<Witness>): Field;
 }) {
   return function credential<DataType extends NestedProvablePure>(
     dataType: DataType
   ): CredentialSpec<
-    Id,
-    InferNestedProvable<PrivateType>,
+    Type,
+    InferNestedProvable<Witness>,
     InferNestedProvable<DataType>
   > {
     return {
@@ -204,6 +215,7 @@ function defineCredential<
       witness: config.witness as any,
       data: dataType as any,
       verify: config.verify,
+      verifyOutsideCircuit: config.verifyOutsideCircuit,
       issuer: config.issuer,
     };
   };
@@ -218,6 +230,7 @@ const Unsigned = defineCredential({
 
   // do nothing
   verify() {},
+  async verifyOutsideCircuit() {},
 
   // dummy issuer
   issuer() {

@@ -38,6 +38,10 @@ const Signed = defineCredential({
     let ok = issuerSignature.verify(issuer, [credHash.hash]);
     ok.assertTrue('Invalid signature');
   },
+  async verifyOutsideCircuit({ issuer, issuerSignature }, credHash) {
+    let ok = issuerSignature.verify(issuer, [credHash.hash]);
+    ok.assertTrue('Invalid signature');
+  },
 
   // issuer == issuer public key
   issuer({ issuer }) {
