@@ -531,15 +531,19 @@ function ifThenElse<Data>(
   return { type: 'ifThenElse', condition, thenNode, elseNode };
 }
 
-function compute<Output>(
-  inputs: Node[],
+function compute<Inputs extends readonly Node[], Output>(
+  inputs: [...Inputs],
   outputType: ProvableType<Output>,
-  computation: (...args: any[]) => Output
+  computation: (
+    ...args: {
+      [K in keyof Inputs]: Inputs[K] extends Node<infer T> ? T : never;
+    }
+  ) => Output
 ): Node<Output> {
   return {
     type: 'compute',
-    inputs,
-    computation,
+    inputs: inputs,
+    computation: computation as (inputs: any[]) => Output,
     outputType,
   };
 }
