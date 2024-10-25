@@ -17,6 +17,7 @@ import {
   Struct,
 } from 'o1js';
 import { assert } from './util.ts';
+import type { StoredCredential } from './credential.ts';
 
 // Supported o1js base types
 const supportedTypes = {
@@ -51,6 +52,7 @@ export {
   serializeSpec,
   validateSpecHash,
   serializePresentationRequest,
+  serializeNestedProvableValue,
 };
 
 function serializePresentationRequest(request: PresentationRequest) {
@@ -287,6 +289,8 @@ function serializeNestedProvableTypeAndValue(t: {
   if (ProvableType.isProvableType(t.type)) {
     return serializeProvable(t.value);
   }
+  if (typeof t.type === 'string' || (t.type as any) === String) return t.value;
+
   return Object.fromEntries(
     Object.keys(t.type).map((key) => {
       assert(key in t.value, `Missing value for key ${key}`);

@@ -38,6 +38,7 @@ export {
   deserializeProvable,
   deserializeNestedProvable,
   deserializePresentationRequest,
+  deserializeNestedProvableValue,
 };
 
 function deserializePresentationRequest(request: any): PresentationRequest {
@@ -278,20 +279,24 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
   throw Error(`Invalid type in NestedProvablePure: ${type}`);
 }
 
-function deserializeNestedProvableValue(type: any): any {
-  if (typeof type === 'object' && type !== null) {
-    if ('_type' in type) {
+function deserializeNestedProvableValue(value: any): any {
+  if (typeof value === 'string') return value;
+
+  if (typeof value === 'object' && value !== null) {
+    if ('_type' in value) {
       // basic provable type
-      return deserializeProvable(type._type, type.value);
+      return deserializeProvable(value._type, value.value);
     } else {
       // nested object
       const result: Record<string, any> = {};
-      for (const [key, value] of Object.entries(type)) {
-        result[key] = deserializeNestedProvableValue(value);
+      for (let [key, v] of Object.entries(value)) {
+        result[key] = deserializeNestedProvableValue(v);
       }
       return result;
     }
   }
+
+  throw Error(`Invalid nested provable value: ${value}`);
 }
 
 function replaceNull(obj: Record<string, any>): Record<string, any> {
