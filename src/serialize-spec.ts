@@ -17,7 +17,6 @@ import {
   Struct,
 } from 'o1js';
 import { assert } from './util.ts';
-import type { StoredCredential } from './credential.ts';
 
 // Supported o1js base types
 const supportedTypes = {
