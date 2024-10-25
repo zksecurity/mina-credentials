@@ -89,7 +89,7 @@ function deserializeInput(input: any): Input {
         deserializeProvableType(input.data),
         deserializeProvable(input.data._type, input.value)
       );
-    case 'public':
+    case 'claim':
       return Claim(deserializeNestedProvablePure(input.data));
     case 'credential': {
       let credentialType: CredentialType = input.credentialType;
@@ -111,6 +111,7 @@ function deserializeInput(input: any): Input {
   }
 }
 
+function deserializeNode(input: any, node: any): Node;
 function deserializeNode(
   input: any,
   node: { type: Node['type'] } & Record<string, any>

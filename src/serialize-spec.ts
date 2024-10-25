@@ -108,7 +108,7 @@ function serializeInput(input: Input): any {
       }
       case 'claim': {
         return {
-          type: 'public',
+          type: 'claim',
           data: serializeNestedProvable(input.data),
         };
       }
