@@ -34,6 +34,7 @@ import {
   withOwner,
   type CredentialOutputs,
 } from './credential.ts';
+import { prefixes } from './constants.ts';
 
 export type {
   PublicInputs,
@@ -576,10 +577,7 @@ type ContextOutput = {
 };
 
 function computeNonce(serverNonce: Field, clientNonce: Field): Field {
-  return Poseidon.hashWithPrefix('mina-cred:v0:nonce', [
-    serverNonce,
-    clientNonce,
-  ]);
+  return Poseidon.hashWithPrefix(prefixes.nonce, [serverNonce, clientNonce]);
 }
 
 // separated context creation into two functions so the context can be returned and not just the hash
@@ -610,7 +608,7 @@ function computeContext(input: ContextInput): ContextOutput {
 }
 
 function generateContext(input: ContextOutput): Field {
-  const prefix = `mina-cred:v0:nonce:${input.type}`;
+  const prefix = `${prefixes.context}:${input.type}`;
 
   const verifierIdentity = input.verifierIdentity.toFields().flat();
 
