@@ -19,8 +19,8 @@ import { zip } from './util.ts';
 
 export {
   type Credential,
+  type CredentialSpec,
   type CredentialType,
-  type CredentialId,
   type CredentialInputs,
   type CredentialOutputs,
   hashCredential,
@@ -43,7 +43,7 @@ type Credential<Data> = { owner: PublicKey; data: Data };
 /**
  * The different types of credential we currently support.
  */
-type CredentialId = 'none' | 'signature-native' | 'proof';
+type CredentialType = 'unsigned' | 'simple' | 'recursive';
 
 /**
  * A credential type is:
@@ -53,13 +53,13 @@ type CredentialId = 'none' | 'signature-native' | 'proof';
  * - a function `verify(...)` that asserts the credential is valid
  * - a function `issuer(...)` that derives a commitment to the "issuer" of the credential, e.g. a public key for signed credentials
  */
-type CredentialType<
-  Id extends CredentialId = CredentialId,
+type CredentialSpec<
+  Type extends CredentialType = CredentialType,
   Witness = any,
   Data = any
 > = {
   type: 'credential';
-  id: Id;
+  credentialType: Type;
   witness: NestedProvableFor<Witness>;
   data: NestedProvablePureFor<Data>;
 
@@ -93,7 +93,7 @@ type CredentialInputs = {
   ownerSignature: Signature;
 
   credentials: {
-    credentialType: CredentialType;
+    spec: CredentialSpec;
     credential: Credential<any>;
     witness: any;
   }[];
@@ -116,22 +116,18 @@ function verifyCredentials({
   credentials,
 }: CredentialInputs): CredentialOutputs {
   // pack credentials in hashes
-  let credHashes = credentials.map(({ credentialType: { data }, credential }) =>
+  let credHashes = credentials.map(({ spec: { data }, credential }) =>
     hashCredential(data, credential)
   );
 
   // verify each credential using its own verification method
-  zip(credentials, credHashes).forEach(
-    ([{ credentialType, witness }, credHash]) => {
-      credentialType.verify(witness, credHash);
-    }
-  );
+  zip(credentials, credHashes).forEach(([{ spec, witness }, credHash]) => {
+    spec.verify(witness, credHash);
+  });
 
   // create issuer hashes for each credential
   // TODO would be nice to make this a `Hashed<Issuer>` over a more informative `Issuer` type, for easier use in the app circuit
-  let issuers = credentials.map(({ credentialType, witness }) =>
-    credentialType.issuer(witness)
-  );
+  let issuers = credentials.map(({ spec, witness }) => spec.issuer(witness));
 
   // assert that all credentials have the same owner, and determine that owner
   let owner: undefined | PublicKey;
@@ -166,7 +162,7 @@ function signCredentials<Private, Data>(
   ownerKey: PrivateKey,
   context: Field,
   ...credentials: {
-    credentialType: CredentialType<any, Private, Data>;
+    credentialType: CredentialSpec<any, Private, Data>;
     credential: Credential<Data>;
     witness: Private;
   }[]
@@ -182,10 +178,10 @@ function signCredentials<Private, Data>(
 }
 
 function defineCredential<
-  Id extends CredentialId,
+  Id extends CredentialType,
   PrivateType extends NestedProvable
 >(config: {
-  id: Id;
+  credentialType: Id;
   witness: PrivateType;
 
   verify<Data>(
@@ -197,14 +193,14 @@ function defineCredential<
 }) {
   return function credential<DataType extends NestedProvablePure>(
     dataType: DataType
-  ): CredentialType<
+  ): CredentialSpec<
     Id,
     InferNestedProvable<PrivateType>,
     InferNestedProvable<DataType>
   > {
     return {
       type: 'credential',
-      id: config.id,
+      credentialType: config.credentialType,
       witness: config.witness as any,
       data: dataType as any,
       verify: config.verify,
@@ -217,7 +213,7 @@ function defineCredential<
 type Unsigned<Data> = StoredCredential<Data, undefined, undefined>;
 
 const Unsigned = defineCredential({
-  id: 'none',
+  credentialType: 'unsigned',
   witness: Undefined,
 
   // do nothing

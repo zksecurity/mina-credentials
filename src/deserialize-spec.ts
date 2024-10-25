@@ -24,7 +24,7 @@ import {
   type O1jsTypeName,
   type SerializedProvableType,
 } from './serialize-spec.ts';
-import { type CredentialId } from './credential.ts';
+import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { PresentationRequest } from './presentation.ts';
@@ -91,18 +91,18 @@ function deserializeInput(input: any): Input {
     case 'public':
       return Claim(deserializeNestedProvablePure(input.data));
     case 'credential': {
-      let id: CredentialId = input.id;
+      let credentialType: CredentialType = input.credentialType;
       let data = deserializeNestedProvablePure(input.data);
-      switch (id) {
-        case 'signature-native':
+      switch (credentialType) {
+        case 'simple':
           return Credential.Simple(data);
-        case 'none':
+        case 'unsigned':
           return Credential.Unsigned(data);
-        case 'proof':
+        case 'recursive':
           let proof = deserializeProvableType(input.witness.proof) as any;
           return Credential.Recursive(proof, data);
         default:
-          throw Error(`Unsupported credential id: ${id}`);
+          throw Error(`Unsupported credential id: ${credentialType}`);
       }
     }
     default:

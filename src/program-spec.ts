@@ -25,8 +25,8 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 import {
+  type CredentialSpec,
   type CredentialType,
-  type CredentialId,
   type Credential,
   type CredentialInputs,
   withOwner,
@@ -145,7 +145,7 @@ type Constant<Data> = {
 type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
 
 type Input<Data = any> =
-  | CredentialType<CredentialId, any, Data>
+  | CredentialSpec<CredentialType, any, Data>
   | Constant<Data>
   | Claim<Data>;
 
@@ -602,7 +602,7 @@ function extractCredentialInputs(
     if (input.type === 'credential') {
       let value: any = credentials[key];
       credentialInputs.push({
-        credentialType: input,
+        spec: input,
         credential: value.credential,
         witness: value.witness,
       });
@@ -693,16 +693,16 @@ type MapToDataInput<T extends Record<string, Input>> = {
 
 type ToClaim<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
-type ToCredential<T extends Input> = T extends CredentialType<
-  CredentialId,
+type ToCredential<T extends Input> = T extends CredentialSpec<
+  CredentialType,
   infer Witness,
   infer Data
 >
   ? { credential: Credential<Data>; witness: Witness }
   : never;
 
-type ToDataInput<T extends Input> = T extends CredentialType<
-  CredentialId,
+type ToDataInput<T extends Input> = T extends CredentialSpec<
+  CredentialType,
   any,
   infer Data
 >

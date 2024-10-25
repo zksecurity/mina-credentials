@@ -21,7 +21,7 @@ import {
 } from './nested.ts';
 import { prefixes } from './constants.ts';
 import {
-  type CredentialType,
+  type CredentialSpec,
   type Credential,
   type StoredCredential,
   HashableCredential,
@@ -49,14 +49,14 @@ function Recursive<
 >(
   Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): CredentialType<'proof', Witness<Data, Input>, Data> {
+): CredentialSpec<'recursive', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
   let data: NestedProvablePureFor<Data> = dataType as any;
   const credentialType = HashableCredential(data);
 
   return {
     type: 'credential',
-    id: 'proof',
+    credentialType: 'recursive',
     witness: {
       type: ProvableType.constant('recursive' as const),
       vk: VerificationKey,

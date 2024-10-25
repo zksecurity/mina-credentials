@@ -26,7 +26,7 @@ type Metadata = undefined;
 type Signed<Data> = StoredCredential<Data, Witness, Metadata>;
 
 const Signed = defineCredential({
-  id: 'signature-native',
+  credentialType: 'simple',
   witness: {
     type: ProvableType.constant('simple' as const),
     issuer: PublicKey,

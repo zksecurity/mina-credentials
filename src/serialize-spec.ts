@@ -92,7 +92,7 @@ function serializeInput(input: Input): any {
       case 'credential': {
         return {
           type: 'credential',
-          id: input.id,
+          credentialType: input.credentialType,
           witness: serializeNestedProvable(input.witness),
           data: serializeNestedProvable(input.data),
         };

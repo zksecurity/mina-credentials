@@ -8,7 +8,7 @@ import {
 import { createProgram, type Program } from './program.ts';
 import {
   signCredentials,
-  type CredentialType,
+  type CredentialSpec,
   type StoredCredential,
 } from './credential.ts';
 import { assert } from './util.ts';
@@ -100,7 +100,7 @@ async function createPresentation<
   let { program } = await Presentation.compile(request);
 
   let credentialsNeeded = Object.entries(request.spec.inputs).filter(
-    (c): c is [string, CredentialType] => c[1].type === 'credential'
+    (c): c is [string, CredentialSpec] => c[1].type === 'credential'
   );
   let credentialsUsed = pickCredentials(
     credentialsNeeded.map(([key]) => key),

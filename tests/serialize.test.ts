@@ -445,7 +445,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: { _type: 'Field' },
     };
@@ -460,7 +460,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'signature-native',
+      credentialType: 'simple',
       witness: {
         type: { type: 'Constant', value: 'simple' },
         issuer: { _type: 'PublicKey' },
@@ -489,7 +489,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: {
         personal: {
@@ -532,7 +532,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         age: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
@@ -600,7 +600,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          id: 'signature-native',
+          credentialType: 'simple',
           witness: {
             type: { type: 'Constant', value: 'simple' },
             issuer: { _type: 'PublicKey' },
@@ -669,13 +669,13 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         field1: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
         field2: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
