@@ -114,7 +114,7 @@ function serializeInput(input: Input): any {
       }
     }
   }
-  throw new Error('Invalid input type');
+  throw Error('Invalid input type');
 }
 
 function serializeNode(node: Node): object {
@@ -197,6 +197,8 @@ function serializeNode(node: Node): object {
         data: serializedData,
       };
     }
+    default:
+      throw Error(`Invalid node type: ${(node as Node).type}`);
   }
 }
 

@@ -198,7 +198,6 @@ function deserializeNode(
         data: deserializedData,
       };
     default:
-      node.type satisfies never;
       throw Error(`Invalid node type: ${node.type}`);
   }
 }
