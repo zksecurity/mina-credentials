@@ -39,6 +39,7 @@ export {
   deserializeNestedProvable,
   deserializePresentationRequest,
   deserializeNestedProvableValue,
+  deserializeInputContext,
 };
 
 function deserializePresentationRequest(request: any): PresentationRequest {
@@ -49,14 +50,45 @@ function deserializePresentationRequest(request: any): PresentationRequest {
   switch (type) {
     case 'no-context':
       return PresentationRequest.noContext(spec, claims);
+    case 'zk-app': {
+      const inputContext = deserializeInputContext(request.inputContext);
+      return PresentationRequest.zkApp(spec, claims, inputContext);
+    }
+    case 'https': {
+      const inputContext = deserializeInputContext(request.inputContext);
+      return PresentationRequest.https(spec, claims, inputContext);
+    }
     default:
       throw Error(`Invalid presentation request type: ${type}`);
   }
 }
 
+function deserializeInputContext(context: {
+  type: string;
+  presentationCircuitVKHash: { _type: string; value: string };
+  action: { _type: string; value: string } | string;
+  serverNonce: { _type: string; value: string };
+}) {
+  return {
+    type: context.type as 'zk-app' | 'https',
+    presentationCircuitVKHash: deserializeProvable(
+      'Field',
+      context.presentationCircuitVKHash.value
+    ),
+    action:
+      context.type === 'zk-app'
+        ? deserializeProvable(
+            'Field',
+            (context.action as { _type: string; value: string }).value
+          )
+        : (context.action as string),
+    serverNonce: deserializeProvable('Field', context.serverNonce.value),
+  };
+}
+
 async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
   if (!(await validateSpecHash(serializedSpecWithHash))) {
-    throw new Error('Invalid spec hash');
+    throw Error('Invalid spec hash');
   }
 
   const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);

@@ -9,9 +9,13 @@ import {
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
+  serializeInputContext,
 } from '../src/serialize-spec.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
-import { deserializeSpec } from '../src/deserialize-spec.ts';
+import {
+  deserializeInputContext,
+  deserializeSpec,
+} from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 
 test('Serialize Inputs', async (t) => {
@@ -834,5 +838,55 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
   assert.deepStrictEqual(serializedSpec.logic.data.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
+  });
+});
+
+test('serializeInputContext', async (t) => {
+  await t.test('should serialize zk-app context', () => {
+    const context = {
+      type: 'zk-app' as const,
+      presentationCircuitVKHash: Field(123),
+      action: Field(456),
+      serverNonce: Field(789),
+    };
+
+    const serialized = serializeInputContext(context);
+
+    assert.deepStrictEqual(serialized, {
+      type: 'zk-app',
+      presentationCircuitVKHash: { _type: 'Field', value: '123' },
+      action: { _type: 'Field', value: '456' },
+      serverNonce: { _type: 'Field', value: '789' },
+    });
+
+    const deserialized = deserializeInputContext(serialized);
+    assert.deepStrictEqual(deserialized, context);
+
+    const reserialized = serializeInputContext(deserialized);
+    assert.deepStrictEqual(serialized, reserialized);
+  });
+
+  await t.test('should serialize https context', () => {
+    const context = {
+      type: 'https' as const,
+      presentationCircuitVKHash: Field(123),
+      action: 'POST /api/verify',
+      serverNonce: Field(789),
+    };
+
+    const serialized = serializeInputContext(context);
+
+    assert.deepStrictEqual(serialized, {
+      type: 'https',
+      presentationCircuitVKHash: { _type: 'Field', value: '123' },
+      action: 'POST /api/verify',
+      serverNonce: { _type: 'Field', value: '789' },
+    });
+
+    const deserialized = deserializeInputContext(serialized);
+    assert.deepStrictEqual(deserialized, context);
+
+    const reserialized = serializeInputContext(deserialized);
+    assert.deepStrictEqual(serialized, reserialized);
   });
 });

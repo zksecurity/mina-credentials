@@ -1,4 +1,4 @@
-import { Field, PrivateKey, Proof } from 'o1js';
+import { Field, Poseidon, PrivateKey, Proof, PublicKey, Struct } from 'o1js';
 import {
   Spec,
   type Input,
@@ -12,12 +12,44 @@ import {
   type StoredCredential,
 } from './credential.ts';
 import { assert } from './util.ts';
+import { generateContext, computeContext } from './context.ts';
+import { NestedProvable } from './nested.ts';
 import { serializePresentationRequest } from './serialize-spec.ts';
 import { deserializePresentationRequest } from './deserialize-spec.ts';
 
-export { PresentationRequest, Presentation };
+export {
+  PresentationRequest,
+  Presentation,
+  type ZkAppInputContext,
+  type HttpsInputContext,
+};
 
-type PresentationRequestType = 'no-context';
+type BaseInputContext = {
+  presentationCircuitVKHash: Field;
+  serverNonce: Field;
+};
+
+type ZkAppInputContext = BaseInputContext & {
+  action: Field;
+};
+
+type HttpsInputContext = BaseInputContext & {
+  action: string;
+};
+
+type BaseWalletContext = {
+  clientNonce: Field;
+};
+
+type ZkAppWalletContext = BaseWalletContext & {
+  verifierIdentity: PublicKey;
+};
+
+type HttpsWalletContext = BaseWalletContext & {
+  verifierIdentity: string;
+};
+
+type PresentationRequestType = 'no-context' | 'zk-app' | 'https';
 
 type PresentationRequest<
   Output = any,
@@ -29,7 +61,6 @@ type PresentationRequest<
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext?: InputContext;
-
   deriveContext(walletContext?: WalletContext): Field;
 };
 
@@ -46,6 +77,67 @@ const PresentationRequest = {
     } satisfies PresentationRequest;
   },
 
+  zkApp<Output, Inputs extends Record<string, Input>>(
+    spec: Spec<Output, Inputs>,
+    claims: Claims<Inputs>,
+    inputContext: ZkAppInputContext
+  ): PresentationRequest<Output, Inputs> {
+    const { presentationCircuitVKHash, action, serverNonce } = inputContext;
+    const claimsType = NestedProvable.fromValue(claims);
+    const claimsFields = Struct(claimsType).toFields(claims);
+    const claimsHash = Poseidon.hash(claimsFields);
+
+    return {
+      type: 'zk-app',
+      spec,
+      claims,
+      inputContext,
+      deriveContext: (walletContext: ZkAppWalletContext) => {
+        const { verifierIdentity, clientNonce } = walletContext;
+        const context = computeContext({
+          type: 'zk-app',
+          presentationCircuitVKHash,
+          clientNonce,
+          serverNonce,
+          verifierIdentity,
+          action,
+          claims: claimsHash,
+        });
+        return generateContext(context);
+      },
+    };
+  },
+
+  https<Output, Inputs extends Record<string, Input>>(
+    spec: Spec<Output, Inputs>,
+    claims: Claims<Inputs>,
+    inputContext: HttpsInputContext
+  ): PresentationRequest<Output, Inputs> {
+    const { presentationCircuitVKHash, action, serverNonce } = inputContext;
+    const claimsType = NestedProvable.fromValue(claims);
+    const claimsFields = Struct(claimsType).toFields(claims);
+    const claimsHash = Poseidon.hash(claimsFields);
+
+    return {
+      type: 'https',
+      spec,
+      claims,
+      inputContext,
+      deriveContext: (walletContext: HttpsWalletContext) => {
+        const { verifierIdentity, clientNonce } = walletContext;
+        const context = computeContext({
+          type: 'https',
+          presentationCircuitVKHash,
+          clientNonce,
+          serverNonce,
+          verifierIdentity,
+          action,
+          claims: claimsHash,
+        });
+        return generateContext(context);
+      },
+    };
+  },
   toJSON(request: PresentationRequest) {
     return JSON.stringify(serializePresentationRequest(request));
   },
@@ -79,20 +171,15 @@ const Presentation = {
   create: createPresentation,
 };
 
-async function createPresentation<
-  Output,
-  Inputs extends Record<string, Input>,
-  InputContext,
-  WalletContext
->(
+async function createPresentation<Output, Inputs extends Record<string, Input>>(
   ownerKey: PrivateKey,
   {
     request,
     walletContext,
     credentials,
   }: {
-    request: PresentationRequest<Output, Inputs, InputContext, WalletContext>;
-    walletContext?: WalletContext;
+    request: PresentationRequest<Output, Inputs>;
+    walletContext?: ZkAppWalletContext | HttpsWalletContext;
     credentials: (StoredCredential & { key?: string })[];
   }
 ): Promise<Presentation<Output, Inputs>> {
