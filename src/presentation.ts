@@ -11,7 +11,7 @@ import {
   type CredentialSpec,
   type StoredCredential,
 } from './credential.ts';
-import { assert } from './util.ts';
+import { assert, assertDefined } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
 import { serializePresentationRequest } from './serialize-spec.ts';
@@ -61,6 +61,7 @@ type PresentationRequest<
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext?: InputContext;
+
   deriveContext(walletContext?: WalletContext): Field;
 };
 
@@ -81,7 +82,12 @@ const PresentationRequest = {
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
     inputContext: ZkAppInputContext
-  ): PresentationRequest<Output, Inputs> {
+  ): PresentationRequest<
+    Output,
+    Inputs,
+    ZkAppInputContext,
+    ZkAppWalletContext
+  > {
     const { presentationCircuitVKHash, action, serverNonce } = inputContext;
     const claimsType = NestedProvable.fromValue(claims);
     const claimsFields = Struct(claimsType).toFields(claims);
@@ -92,7 +98,8 @@ const PresentationRequest = {
       spec,
       claims,
       inputContext,
-      deriveContext: (walletContext: ZkAppWalletContext) => {
+      deriveContext(walletContext) {
+        assertDefined(walletContext, 'Wallet context is required for zk-app');
         const { verifierIdentity, clientNonce } = walletContext;
         const context = computeContext({
           type: 'zk-app',
@@ -112,7 +119,12 @@ const PresentationRequest = {
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
     inputContext: HttpsInputContext
-  ): PresentationRequest<Output, Inputs> {
+  ): PresentationRequest<
+    Output,
+    Inputs,
+    HttpsInputContext,
+    HttpsWalletContext
+  > {
     const { presentationCircuitVKHash, action, serverNonce } = inputContext;
     const claimsType = NestedProvable.fromValue(claims);
     const claimsFields = Struct(claimsType).toFields(claims);
@@ -123,7 +135,8 @@ const PresentationRequest = {
       spec,
       claims,
       inputContext,
-      deriveContext: (walletContext: HttpsWalletContext) => {
+      deriveContext(walletContext) {
+        assertDefined(walletContext, 'Wallet context is required for https');
         const { verifierIdentity, clientNonce } = walletContext;
         const context = computeContext({
           type: 'https',
@@ -138,6 +151,7 @@ const PresentationRequest = {
       },
     };
   },
+
   toJSON(request: PresentationRequest) {
     return JSON.stringify(serializePresentationRequest(request));
   },
@@ -171,15 +185,20 @@ const Presentation = {
   create: createPresentation,
 };
 
-async function createPresentation<Output, Inputs extends Record<string, Input>>(
+async function createPresentation<
+  Output,
+  Inputs extends Record<string, Input>,
+  InputContext,
+  WalletContext
+>(
   ownerKey: PrivateKey,
   {
     request,
     walletContext,
     credentials,
   }: {
-    request: PresentationRequest<Output, Inputs>;
-    walletContext?: ZkAppWalletContext | HttpsWalletContext;
+    request: PresentationRequest<Output, Inputs, InputContext, WalletContext>;
+    walletContext?: WalletContext;
     credentials: (StoredCredential & { key?: string })[];
   }
 ): Promise<Presentation<Output, Inputs>> {

@@ -217,12 +217,11 @@ function serializeNode(node: Node): object {
   }
 }
 
-function serializeInputContext(context: {
-  type: 'zk-app' | 'https';
-  presentationCircuitVKHash: Field;
-  action: Field | string;
-  serverNonce: Field;
-}): {
+function serializeInputContext(
+  context:
+    | ({ type: 'zk-app' } & ZkAppInputContext)
+    | ({ type: 'https' } & HttpsInputContext)
+): {
   type: string;
   presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
   action: ReturnType<typeof serializeProvable> | string;
@@ -238,17 +237,12 @@ function serializeInputContext(context: {
 
   switch (context.type) {
     case 'zk-app':
-      return {
-        ...serializedBase,
-        action: serializeProvable(context.action as Field),
-      };
+      let action = serializeProvable(context.action);
+      return { ...serializedBase, action };
     case 'https':
-      return {
-        ...serializedBase,
-        action: context.action as string,
-      };
+      return { ...serializedBase, action: context.action };
     default:
-      throw Error(`Unsupported context type: ${context.type}`);
+      throw Error(`Unsupported context type: ${(context as any).type}`);
   }
 }
 
