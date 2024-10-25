@@ -123,7 +123,7 @@ type ToProvable<A extends WithProvable<any>> = A extends {
 type InferProvableType<T extends ProvableType> = InferProvable<ToProvable<T>>;
 
 // temporary, until we land `StaticArray`
-// this is copied from o1js: https://github.com/o1-labs/o1js
+// this is copied from o1js and then modified: https://github.com/o1-labs/o1js
 // License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
 function array<A extends ProvableType<any>>(elementType: A, length: number) {
   type T = InferProvable<A>;
