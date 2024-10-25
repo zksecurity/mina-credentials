@@ -245,11 +245,11 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let inner = evalNode(root, node.inner);
       return inner.not() as Data;
     }
-    // TODO: handle composite types
+    // TODO: list of inputs
     case 'hash': {
       let inner = evalNode(root, node.inner);
-      let innerFields = inner.toFields();
-      let hash = Poseidon.hash(innerFields);
+      let innerType = NestedProvable.get(NestedProvable.fromValue(inner));
+      let hash = Poseidon.hash(innerType.toFields(inner));
       return hash as Data;
     }
     case 'ifThenElse': {
