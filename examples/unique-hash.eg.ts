@@ -1,4 +1,4 @@
-import { Bytes, Provable } from 'o1js';
+import { Bytes } from 'o1js';
 import {
   Spec,
   Operation,
@@ -9,7 +9,7 @@ import {
   assert,
 } from '../src/index.ts';
 import { issuerKey, owner, ownerKey } from '../tests/test-utils.ts';
-import { hashCredential } from '../src/credential.ts';
+import { validateCredential } from '../src/credential-index.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const Bytes32 = Bytes(32);
@@ -28,6 +28,7 @@ let data = {
 };
 let credential = Credential.sign(issuerKey, { owner, data });
 // TODO: serialize the credential to send it to the owner wallet
+console.log('✅ ISSUER: issued credential:', credential);
 
 // ---------------------------------------------
 // WALLET: deserialize, validate and store the credential
@@ -35,13 +36,8 @@ let storedCredential = credential;
 
 // TODO: this validation should be generic: it should obtain the CredentialType from the storedCredential.id,
 // and use the `verify()` method on CredentialType
-console.log('Stored credential:', storedCredential);
-let credHash = hashCredential(Data, storedCredential.credential);
-let ok = storedCredential.witness.issuerSignature.verify(
-  storedCredential.witness.issuer,
-  [credHash.hash]
-);
-ok.assertTrue('Invalid signature when importing credential');
+await validateCredential(storedCredential);
+console.log('✅ WALLET: imported and validated credential');
 
 // ---------------------------------------------
 // VERIFIER: request a presentation
@@ -71,6 +67,7 @@ let request = PresentationRequest.noContext(spec, {
   appId: Bytes32.fromString('my-app-id'),
 });
 let requestJson = PresentationRequest.toJSON(request);
+console.log('✅ VERIFIER: created presentation request:', requestJson);
 
 // ---------------------------------------------
 // WALLET: deserialize request and create presentation
@@ -86,6 +83,7 @@ let presentation = await Presentation.create(ownerKey, {
 });
 console.timeEnd('create');
 // TODO: to send the presentation back we need to serialize it as well
+console.log('✅ WALLET: created presentation:', presentation);
 
 // ---------------------------------------------
 // VERIFIER: verify the presentation, and check that the nullifier was not used yet
@@ -97,5 +95,6 @@ assert(
   !existingNullifiers.has(nullifier.toBigInt()),
   'Nullifier should be unique'
 );
+console.log('✅ VERIFIER: checked nullifier uniqueness');
 
 // TODO: implement verification
