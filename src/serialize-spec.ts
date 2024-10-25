@@ -117,7 +117,7 @@ function serializeInput(input: Input): any {
   throw new Error('Invalid input type');
 }
 
-function serializeNode(node: Node): any {
+function serializeNode(node: Node): object {
   switch (node.type) {
     case 'owner': {
       return {
@@ -160,6 +160,15 @@ function serializeNode(node: Node): any {
         left: serializeNode(node.left),
         right: serializeNode(node.right),
       };
+    case 'equalsOneOf': {
+      return {
+        type: 'equalsOneOf',
+        input: serializeNode(node.input),
+        options: Array.isArray(node.options)
+          ? node.options.map(serializeNode)
+          : serializeNode(node.options),
+      };
+    }
     case 'hash':
       return {
         type: node.type,
@@ -194,6 +203,7 @@ function serializeNode(node: Node): any {
 type SerializedType =
   | { _type: O1jsTypeName }
   | { _type: 'Struct'; properties: SerializedNestedType }
+  | { _type: 'Array'; inner: SerializedType; size: number }
   | { _type: 'Constant'; value: unknown }
   | { _type: 'Bytes'; size: number }
   | { _type: 'Proof'; proof: Record<string, any> }
@@ -225,6 +235,13 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   let _type = mapProvableTypeToName.get(type);
   if (_type === undefined && (type as any)._isStruct) {
     return serializeStruct(type as Struct<any>);
+  }
+  if (_type === undefined && (type as any)._isArray) {
+    return {
+      _type: 'Array',
+      inner: serializeProvableType((type as any).innerType),
+      size: (type as any).size,
+    };
   }
   assert(
     _type !== undefined,

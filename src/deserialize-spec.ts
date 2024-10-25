@@ -26,7 +26,7 @@ import {
 } from './serialize-spec.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
-import { ProvableType } from './o1js-missing.ts';
+import { array, ProvableType } from './o1js-missing.ts';
 import { PresentationRequest } from './presentation.ts';
 
 export {
@@ -111,7 +111,10 @@ function deserializeInput(input: any): Input {
   }
 }
 
-function deserializeNode(input: any, node: any): Node {
+function deserializeNode(
+  input: any,
+  node: { type: Node['type'] } & Record<string, any>
+): Node {
   switch (node.type) {
     case 'owner': {
       return {
@@ -145,6 +148,15 @@ function deserializeNode(input: any, node: any): Node {
         left: deserializeNode(input, node.left),
         right: deserializeNode(input, node.right),
       };
+    case 'equalsOneOf': {
+      return {
+        type: 'equalsOneOf',
+        input: deserializeNode(input, node.input),
+        options: Array.isArray(node.options)
+          ? node.options.map((o) => deserializeNode(input, o))
+          : deserializeNode(input, node.options),
+      };
+    }
     case 'and':
     case 'or':
     case 'add':
@@ -178,13 +190,14 @@ function deserializeNode(input: any, node: any): Node {
     case 'record':
       const deserializedData: Record<string, Node> = {};
       for (const [key, value] of Object.entries(node.data)) {
-        deserializedData[key] = deserializeNode(input, value);
+        deserializedData[key] = deserializeNode(input, value as any);
       }
       return {
         type: 'record',
         data: deserializedData,
       };
     default:
+      node.type satisfies never;
       throw Error(`Invalid node type: ${node.type}`);
   }
 }
@@ -212,6 +225,10 @@ function deserializeProvableType(
   if (type._type === 'Struct') {
     let properties = deserializeNestedProvable(type.properties);
     return Struct(properties);
+  }
+  if (type._type === 'Array') {
+    let inner = deserializeProvableType(type.inner);
+    return array(inner, type.size);
   }
   if (type._type === 'String') {
     return String as any;
