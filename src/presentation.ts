@@ -47,6 +47,7 @@ type PresentationRequest<
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext: InputContext;
+  program?: unknown;
 
   deriveContext(
     inputContext: InputContext,
@@ -68,40 +69,52 @@ const PresentationRequest = {
     };
   },
 
-  zkApp<Output, Inputs extends Record<string, Input>>(
+  async zkApp<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
-    context: { presentationCircuitVKHash: Field; action: Field }
+    context: { action: Field }
   ) {
     // generate random nonce on "the server"
     let serverNonce = Field.random();
 
+    // compile program to get the verification key
+    let program = createProgram(spec);
+    let verificationKey = await program.compile();
+
     return ZkAppRequest({
       spec,
       claims,
+      program,
       inputContext: {
         ...context,
         type: 'zk-app',
+        presentationCircuitVKHash: verificationKey.hash,
         serverNonce,
         claims: hashClaims(claims),
       },
     });
   },
 
-  https<Output, Inputs extends Record<string, Input>>(
+  async https<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
-    context: { presentationCircuitVKHash: Field; action: string }
+    context: { action: string }
   ) {
     // generate random nonce on "the server"
     let serverNonce = Field.random();
 
+    // compile program to get the verification key
+    let program = createProgram(spec);
+    let verificationKey = await program.compile();
+
     return HttpsRequest({
       spec,
       claims,
+      program,
       inputContext: {
-        ...context,
         type: 'https',
+        ...context,
+        presentationCircuitVKHash: verificationKey.hash,
         serverNonce,
         claims: hashClaims(claims),
       },
@@ -176,7 +189,7 @@ type WalletContext<R> = R extends PresentationRequest<
 const Presentation = {
   async compile<R extends PresentationRequest>(
     request: R
-  ): Promise<R & { program: Program<Output<R>, Inputs<R>> }> {
+  ): Promise<Omit<R, 'program'> & { program: Program<Output<R>, Inputs<R>> }> {
     let program: Program<Output<R>, Inputs<R>> = (request as any).program ??
     createProgram(request.spec);
     await program.compile();
@@ -307,6 +320,7 @@ function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext: ZkAppInputContext;
+  program?: Program<Output, Inputs>;
 }): ZkAppRequest<Output, Inputs> {
   return {
     type: 'zk-app',
@@ -346,6 +360,7 @@ function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
   inputContext: HttpsInputContext;
+  program?: Program<Output, Inputs>;
 }): HttpsRequest<Output, Inputs> {
   return {
     type: 'https',

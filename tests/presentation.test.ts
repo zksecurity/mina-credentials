@@ -197,20 +197,13 @@ test('presentation with context binding', async (t) => {
   );
 
   await t.test('presentation with zk-app context', async () => {
-    const program = createProgram(spec);
-    const verificationKey = await program.compile();
-    const presentationCircuitVKHash = verificationKey.hash;
-
     const data = { age: Field(18), name: Bytes32.fromString('Alice') };
     const signedData = Credential.sign(issuerKey, { owner, data });
 
-    let request = PresentationRequest.zkApp(
+    let request = await PresentationRequest.zkApp(
       spec,
       { targetAge: Field(18) },
-      {
-        presentationCircuitVKHash,
-        action: Field(123), // Mock method ID + args hash
-      }
+      { action: Field(123) }
     );
 
     let { proof } = await Presentation.create(ownerKey, {
@@ -223,20 +216,13 @@ test('presentation with context binding', async (t) => {
   });
 
   await t.test('presentation with https context', async () => {
-    const program = createProgram(spec);
-    const verificationKey = await program.compile();
-    const presentationCircuitVKHash = verificationKey.hash;
-
     const data = { age: Field(18), name: Bytes32.fromString('Alice') };
     const signedData = Credential.sign(issuerKey, { owner, data });
 
-    let request = PresentationRequest.https(
+    let request = await PresentationRequest.https(
       spec,
       { targetAge: Field(18) },
-      {
-        presentationCircuitVKHash,
-        action: 'POST /api/verify',
-      }
+      { action: 'POST /api/verify' }
     );
 
     let { proof } = await Presentation.create(ownerKey, {

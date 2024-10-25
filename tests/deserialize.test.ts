@@ -32,7 +32,11 @@ import {
 } from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
-import { PresentationRequest } from '../src/presentation.ts';
+import {
+  HttpsRequest,
+  PresentationRequest,
+  ZkAppRequest,
+} from '../src/presentation.ts';
 import { zkAppVerifierIdentity } from './test-utils.ts';
 import { computeContext, generateContext } from '../src/context.ts';
 
@@ -792,16 +796,17 @@ test('deserializePresentationRequest with context', async (t) => {
   );
 
   await t.test('should deserialize zk-app context correctly', () => {
-    const inputContext = {
-      presentationCircuitVKHash: Field(123),
-      action: Field(123), // Mock method ID + args hash
-    };
-
-    const originalRequest = PresentationRequest.zkApp(
+    const originalRequest = ZkAppRequest({
       spec,
-      { targetAge: Field(18) },
-      inputContext
-    );
+      claims: { targetAge: Field(18) },
+      inputContext: {
+        type: 'zk-app',
+        presentationCircuitVKHash: Field(123),
+        action: Field(123), // Mock method ID + args hash
+        claims: Field(456),
+        serverNonce: Field(789),
+      },
+    });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
     const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
@@ -840,19 +845,20 @@ test('deserializePresentationRequest with context', async (t) => {
     assert.deepStrictEqual(deserializedContext, originalContext);
   });
 
-  await t.test('should deserialize https context correctly', () => {
+  await t.test('should deserialize https context correctly', async () => {
     const serverUrl = 'test.com';
 
-    const inputContext = {
-      presentationCircuitVKHash: Field(123),
-      action: 'POST /api/verify',
-    };
-
-    const originalRequest = PresentationRequest.https(
+    const originalRequest = HttpsRequest({
       spec,
-      { targetAge: Field(18) },
-      inputContext
-    );
+      claims: { targetAge: Field(18) },
+      inputContext: {
+        type: 'https',
+        presentationCircuitVKHash: Field(123),
+        action: 'POST /api/verify',
+        claims: Field(456),
+        serverNonce: Field(789),
+      },
+    });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
     const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
