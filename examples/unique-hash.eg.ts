@@ -13,30 +13,30 @@ import { validateCredential } from '../src/credential-index.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const Bytes32 = Bytes(32);
-const Bytes128 = Bytes(128);
+const Bytes16 = Bytes(16); // 16 bytes = 128 bits = enough entropy
 
 const Data = {
   nationality: Bytes32,
-  id: Bytes128,
+  id: Bytes16,
 };
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
 let data = {
   nationality: Bytes32.fromString('United States of America'),
-  id: Bytes128.random(),
+  id: Bytes16.random(),
 };
 let credential = Credential.sign(issuerKey, { owner, data });
-// TODO: serialize the credential to send it to the owner wallet
-console.log('✅ ISSUER: issued credential:', credential);
+let credentialJson = Credential.toJSON(credential);
+
+console.log('✅ ISSUER: issued credential:', credentialJson);
 
 // ---------------------------------------------
 // WALLET: deserialize, validate and store the credential
-let storedCredential = credential;
+let storedCredential = Credential.fromJSON(credentialJson);
 
-// TODO: this validation should be generic: it should obtain the CredentialType from the storedCredential.id,
-// and use the `verify()` method on CredentialType
 await validateCredential(storedCredential);
+
 console.log('✅ WALLET: imported and validated credential');
 
 // ---------------------------------------------
