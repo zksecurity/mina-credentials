@@ -12,8 +12,6 @@ type BaseContextInput = {
   presentationCircuitVKHash: Field;
   clientNonce: Field;
   serverNonce: Field;
-  // TODO: change after Gregor's PR
-  // add a separate output claim or alternatively hash them together to get one Field element
   claims: Field;
 };
 

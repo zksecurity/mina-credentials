@@ -76,7 +76,7 @@ console.log('✅ VERIFIER: created presentation request:', requestJson);
 // WALLET: deserialize request and create presentation
 
 console.time('compile');
-let deserialized = PresentationRequest.fromJSON<typeof request>(requestJson);
+let deserialized = PresentationRequest.fromJSON('no-context', requestJson);
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
 
@@ -84,6 +84,7 @@ console.time('create');
 let presentation = await Presentation.create(ownerKey, {
   request: compiled,
   credentials: [storedCredential],
+  walletContext: undefined,
 });
 console.timeEnd('create');
 // TODO: to send the presentation back we need to serialize it as well

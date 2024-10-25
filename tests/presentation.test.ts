@@ -38,7 +38,7 @@ test('program with simple spec and signature credential', async (t) => {
   let json = PresentationRequest.toJSON(requestInitial);
 
   // wallet: deserialize and compile request
-  let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
+  let deserialized = PresentationRequest.fromJSON('no-context', json);
   let request = await Presentation.compile(deserialized);
 
   await t.test('compile program', async () => {
@@ -57,6 +57,7 @@ test('program with simple spec and signature credential', async (t) => {
     let { proof } = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
+      walletContext: undefined,
     });
 
     assert(proof, 'Proof should be generated');
@@ -82,6 +83,7 @@ test('program with simple spec and signature credential', async (t) => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
+          walletContext: undefined,
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -108,6 +110,7 @@ test('program with simple spec and signature credential', async (t) => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
+          walletContext: undefined,
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -160,6 +163,7 @@ test('program with owner and issuer operations', async (t) => {
     let { proof } = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
+      walletContext: undefined,
     });
 
     assert(proof, 'Proof should be generated');
@@ -200,33 +204,22 @@ test('presentation with context binding', async (t) => {
     const data = { age: Field(18), name: Bytes32.fromString('Alice') };
     const signedData = Credential.sign(issuerKey, { owner, data });
 
-    const inputContext = {
-      presentationCircuitVKHash,
-      action: Field(123), // Mock method ID + args hash
-      serverNonce: Field(456),
-    };
-
-    const walletContext = {
-      verifierIdentity: zkAppVerifierIdentity,
-      clientNonce: Field(789),
-    };
-
     let request = PresentationRequest.zkApp(
       spec,
       { targetAge: Field(18) },
-      inputContext
+      {
+        presentationCircuitVKHash,
+        action: Field(123), // Mock method ID + args hash
+      }
     );
 
     let { proof } = await Presentation.create(ownerKey, {
       request,
-      walletContext,
+      walletContext: { verifierIdentity: zkAppVerifierIdentity },
       credentials: [signedData],
     });
 
     assert(proof, 'Proof should be generated');
-
-    const expectedContext = request.deriveContext(walletContext);
-    assert.deepStrictEqual(proof.publicInput.context, expectedContext);
   });
 
   await t.test('presentation with https context', async () => {
@@ -237,32 +230,21 @@ test('presentation with context binding', async (t) => {
     const data = { age: Field(18), name: Bytes32.fromString('Alice') };
     const signedData = Credential.sign(issuerKey, { owner, data });
 
-    const inputContext = {
-      presentationCircuitVKHash,
-      action: 'POST /api/verify',
-      serverNonce: Field(456),
-    };
-
-    const walletContext = {
-      verifierIdentity: 'test.com',
-      clientNonce: Field(789),
-    };
-
     let request = PresentationRequest.https(
       spec,
       { targetAge: Field(18) },
-      inputContext
+      {
+        presentationCircuitVKHash,
+        action: 'POST /api/verify',
+      }
     );
 
     let { proof } = await Presentation.create(ownerKey, {
       request,
-      walletContext,
+      walletContext: { verifierIdentity: 'test.com' },
       credentials: [signedData],
     });
 
     assert(proof, 'Proof should be generated');
-
-    const expectedContext = request.deriveContext(walletContext);
-    assert.deepStrictEqual(proof.publicInput.context, expectedContext);
   });
 });

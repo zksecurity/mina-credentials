@@ -56,7 +56,10 @@ let requestInitial = PresentationRequest.noContext(spec, {
 let json = PresentationRequest.toJSON(requestInitial);
 
 // wallet: deserialize and compile request
-let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
+let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(
+  'no-context',
+  json
+);
 let request = await Presentation.compile(deserialized);
 
 await describe('program with proof credential', async () => {
@@ -81,6 +84,7 @@ await describe('program with proof credential', async () => {
     let { proof } = await Presentation.create(ownerKey, {
       request,
       credentials: [provedData],
+      walletContext: undefined,
     });
 
     assert(proof, 'Proof should be generated');
@@ -105,6 +109,7 @@ await describe('program with proof credential', async () => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [provedData],
+          walletContext: undefined,
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');

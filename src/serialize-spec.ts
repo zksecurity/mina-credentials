@@ -43,7 +43,8 @@ for (let [key, value] of Object.entries(supportedTypes)) {
 
 export {
   type O1jsTypeName,
-  type SerializedType as SerializedProvableType,
+  type SerializedType,
+  type SerializedValue,
   supportedTypes,
   serializeProvableType,
   serializeProvable,
@@ -54,32 +55,9 @@ export {
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
-  serializePresentationRequest,
   serializeNestedProvableValue,
   serializeInputContext,
 };
-
-function serializePresentationRequest(request: PresentationRequest) {
-  let spec = convertSpecToSerializable(request.spec);
-  let claims = serializeNestedProvableValue(request.claims);
-
-  switch (request.type) {
-    case 'no-context':
-      return {
-        type: request.type,
-        spec,
-        claims,
-      };
-    case 'zk-app':
-    case 'https':
-      return {
-        type: request.type,
-        spec,
-        claims,
-        inputContext: serializeInputContext(request.inputContext),
-      };
-  }
-}
 
 async function serializeSpec(spec: Spec): Promise<string> {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
@@ -219,19 +197,23 @@ function serializeNode(node: Node): object {
 
 function serializeInputContext(
   context:
+    | undefined
     | ({ type: 'zk-app' } & ZkAppInputContext)
     | ({ type: 'https' } & HttpsInputContext)
-): {
+): null | {
   type: string;
-  presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
-  action: ReturnType<typeof serializeProvable> | string;
-  serverNonce: ReturnType<typeof serializeProvable>;
+  presentationCircuitVKHash: SerializedValue;
+  claims: SerializedValue;
+  action: SerializedValue | string;
+  serverNonce: SerializedValue;
 } {
+  if (context === undefined) return null;
   const serializedBase = {
     type: context.type,
     presentationCircuitVKHash: serializeProvable(
       context.presentationCircuitVKHash
     ),
+    claims: serializeProvable(context.claims),
     serverNonce: serializeProvable(context.serverNonce),
   };
 
@@ -296,7 +278,9 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   return { _type };
 }
 
-function serializeProvable(value: any): { _type: string; value: any } {
+type SerializedValue = { _type: string; value: any };
+
+function serializeProvable(value: any): SerializedValue {
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
   if (_type === 'Bytes') {
