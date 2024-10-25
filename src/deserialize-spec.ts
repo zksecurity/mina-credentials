@@ -87,7 +87,7 @@ function deserializeInputContext(context: {
 
 async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
   if (!(await validateSpecHash(serializedSpecWithHash))) {
-    throw new Error('Invalid spec hash');
+    throw Error('Invalid spec hash');
   }
 
   const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);

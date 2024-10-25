@@ -132,7 +132,7 @@ function serializeInput(input: Input): any {
       }
     }
   }
-  throw new Error('Invalid input type');
+  throw Error('Invalid input type');
 }
 
 function serializeNode(node: Node): any {
@@ -204,32 +204,38 @@ function serializeNode(node: Node): any {
   }
 }
 
-function serializeInputContext(
-  context: ZkAppInputContext | HttpsInputContext
-): {
+function serializeInputContext(context: {
   type: 'zk-app' | 'https';
+  presentationCircuitVKHash: Field;
+  action: Field | string;
+  serverNonce: Field;
+}): {
+  type: string;
   presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
   action: ReturnType<typeof serializeProvable> | string;
   serverNonce: ReturnType<typeof serializeProvable>;
 } {
-  if ('action' in context && typeof context.action === 'string') {
-    return {
-      type: 'https',
-      presentationCircuitVKHash: serializeProvable(
-        context.presentationCircuitVKHash
-      ),
-      action: context.action,
-      serverNonce: serializeProvable(context.serverNonce),
-    };
-  } else {
-    return {
-      type: 'zk-app',
-      presentationCircuitVKHash: serializeProvable(
-        context.presentationCircuitVKHash
-      ),
-      action: serializeProvable((context as ZkAppInputContext).action),
-      serverNonce: serializeProvable(context.serverNonce),
-    };
+  const serializedBase = {
+    type: context.type,
+    presentationCircuitVKHash: serializeProvable(
+      context.presentationCircuitVKHash
+    ),
+    serverNonce: serializeProvable(context.serverNonce),
+  };
+
+  switch (context.type) {
+    case 'zk-app':
+      return {
+        ...serializedBase,
+        action: serializeProvable(context.action as Field),
+      };
+    case 'https':
+      return {
+        ...serializedBase,
+        action: context.action as string,
+      };
+    default:
+      throw Error(`Unsupported context type: ${context.type}`);
   }
 }
 
