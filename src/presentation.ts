@@ -203,11 +203,11 @@ async function createPresentation<R extends PresentationRequest>(
   ownerKey: PrivateKey,
   {
     request,
-    walletContext,
+    context: walletContext,
     credentials,
   }: {
     request: R;
-    walletContext: WalletContext<R>;
+    context: WalletContext<R>;
     credentials: (StoredCredential & { key?: string })[];
   }
 ): Promise<Presentation<Output<R>, Inputs<R>>> {

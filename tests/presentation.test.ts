@@ -57,7 +57,7 @@ test('program with simple spec and signature credential', async (t) => {
     let { proof } = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
-      walletContext: undefined,
+      context: undefined,
     });
 
     assert(proof, 'Proof should be generated');
@@ -83,7 +83,7 @@ test('program with simple spec and signature credential', async (t) => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
-          walletContext: undefined,
+          context: undefined,
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -110,7 +110,7 @@ test('program with simple spec and signature credential', async (t) => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
-          walletContext: undefined,
+          context: undefined,
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');
@@ -163,7 +163,7 @@ test('program with owner and issuer operations', async (t) => {
     let { proof } = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
-      walletContext: undefined,
+      context: undefined,
     });
 
     assert(proof, 'Proof should be generated');
@@ -208,7 +208,7 @@ test('presentation with context binding', async (t) => {
 
     let { proof } = await Presentation.create(ownerKey, {
       request,
-      walletContext: { verifierIdentity: zkAppVerifierIdentity },
+      context: { verifierIdentity: zkAppVerifierIdentity },
       credentials: [signedData],
     });
 
@@ -227,8 +227,8 @@ test('presentation with context binding', async (t) => {
 
     let { proof } = await Presentation.create(ownerKey, {
       request,
-      walletContext: { verifierIdentity: 'test.com' },
       credentials: [signedData],
+      context: { verifierIdentity: 'test.com' },
     });
 
     assert(proof, 'Proof should be generated');

@@ -84,7 +84,7 @@ await describe('program with proof credential', async () => {
     let { proof } = await Presentation.create(ownerKey, {
       request,
       credentials: [provedData],
-      walletContext: undefined,
+      context: undefined,
     });
 
     assert(proof, 'Proof should be generated');
@@ -109,7 +109,7 @@ await describe('program with proof credential', async () => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [provedData],
-          walletContext: undefined,
+          context: undefined,
         }),
       (err) => {
         assert(err instanceof Error, 'Should throw an Error');

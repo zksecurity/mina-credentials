@@ -84,7 +84,7 @@ console.time('create');
 let presentation = await Presentation.create(ownerKey, {
   request: compiled,
   credentials: [storedCredential],
-  walletContext: undefined,
+  context: undefined,
 });
 console.timeEnd('create');
 // TODO: to send the presentation back we need to serialize it as well
