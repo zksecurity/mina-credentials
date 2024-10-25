@@ -21,23 +21,23 @@ Metadata MUST NOT be presented to the verifier during the presentation of a cred
 A credential is a set of attributes and an owner:
 
 ```javascript
-type Attributes = {
+type AppAttributes = {
   [key: string]: Any, // any o1js type
 }
 
-type Credential = {
-  owner: PublicKey,       // the owners public key
-  metaHash: Field,        // hash of arbitrary metadata
-  attributes: Attributes, // struct of hidden attributes (e.g. age, name, SSN)
+type Attributes = {
+  owner: Field,       // credential owners identifier (references a DID or public key)
+  meta: Field,        // hash of arbitrary metadata
+  app: AppAttributes, // application-specific attributes (e.g. name, age, etc.)
 }
 ```
 
 Is is stored along with metadata and the version of the credential:
 
 ```javascript
-type Witness =
+type WitnessIssuance =
   | { type: "simple",
-      issuer: PublicKey,
+      issuerPK: PublicKey,
       issuerSignature: Signature,
     }
   | { type: "recursive",
@@ -54,6 +54,26 @@ type StoredCredential = {
   metadata: Metadata,
   credential: Credential,
 }
+```
+
+```javascript
+type OwnerIdentity = {
+  | { type: "public-key",
+      pk: PublicKey,
+    }
+  | { type: "did",
+      did: Field,
+    }
+}
+
+type OwnerWitness =
+  | { type: "public-key",
+      pk: PublicKey,  // public key of the owner
+      sig: Signature, // signature under the owners public key
+    }
+  | { type: "did"
+      did: Field,     // a hash of the DID
+    }
 ```
 
 Wallets MUST import/export credentials in this format, but MAY store them in any format internally.
@@ -108,6 +128,54 @@ The `metaHash` fiueld MUST be computed using `Keccak256` over the metadata.
 metaHash = Keccak256.hash(metadata)
 ```
 
+
+# Authenticate Owner
+
+## Authenticate Public Key Owner
+
+[context, issuer, credHash]
+
+```javascript
+function verifyOwnerPublicKey(
+  credentials: Credential[],
+  authMsg: Field
+) {
+  // check the owners identity
+  for (let credential of credentials) {
+    Poseidon.hashWithPrefix(
+      "mina-cred:v0:owner:pk", // sep. the domain of "public key" and "DID" owners
+      ownerPk
+    ).assertEquals(credential.owner);
+  }
+
+  // verify the credential owners signature on authMsg
+  ownerSignature.verifyWithPrefix(
+    "mina-cred:v0:owner-signature",
+    ownerPk,
+    authMsg
+  );
+}
+```
+
+## Authenticate DID Owner
+
+```javascript
+function verifyOwnerDID(
+  authMsg: Field,
+  credentials: Credential[],
+) {
+  // check the owners identity
+  for (let credential of credentials) {
+    Poseidon.hashWithPrefix(
+      "mina-cred:v0:owner:did",
+      ownerDID
+    ).assertEquals(credential.owner);
+  }
+
+  // we expose ownerDID from the presentation proof
+}
+```
+
 # Protocols
 
 ## Presentations
@@ -128,89 +196,222 @@ type PublicInput = {
 }
 ```
 
-### Circuit: Present Simple Credential
-
-A standardized circuit for presenting simple credentials.
-
-The circuit verifies two signatures: one from the issuer and one from the owner.
+### Circuit: Presentation Validation
 
 ```javascript
-// the private inputs for the circuit
-type PrivateInput = {
-  credential: Credential,
-  issuerPk: PublicKey,
-  issuerSignature: Signature,
-  ownerSignature: Signature,
+class WitnessOwner {
+  pk: PublicKey
+  sig: Signature
+  did: Field
+
+  // convert the owner DID to an opaque "owner" hash
+  ownerIdDID(): Field {
+    return Poseidon.hashWithPrefix(
+      "mina-cred:v0:owner:did",
+      this.did
+    );
+  }
+
+  // convert the owner PublicKey to an opaque "owner" hash
+  ownerIdPK(): Field {
+    return Poseidon.hashWithPrefix(
+      "mina-cred:v0:owner:pk",
+      this.pk
+    );
+  }
+
+  // verify that the claimed owner authorized the presentation
+  verify(authMsg: Field, ownerDID: Field) {
+    // verify did owner
+    ownerDID.assertEquals(this.did);
+
+    // verify owner signature on authMsg
+    this.ownerSignature.verifyWithPrefix(
+      "mina-cred:v0:owner-signature",
+      this.pk,
+      authMsg
+    );
+  }
 }
 
-// hash the credential
-let credHash = Poseidon.hashPacked(Credential, credential);
+class WitnessCredential {
+  // the type of the credential owner
+  ownerType: "pk" | "did";
 
-// verify the credential issuer signature
-issuerSignature.verify(issuerPk, credHash);
+  // the attributes / fields of the credential
+  credential: Credential;
 
-// convert issuerPK to opaque field element
-let issuer = Poseidon.hashWithPrefix(
-  "mina-cred:v0:simple",  // sep. the domain of "simple" and "recursive" issuers
-  issuerPk
+  // data proving that the "issuer" issued the credential
+  issuance: WitnessIssuance;
+
+  // credential hash is uniform across owner types
+  // (DID / PK) and credential types (recursive / simple)
+  hash(): Field {
+    return Poseidon.hashPacked(Credential, this.credential);
+  }
+
+  // compute the issuer identity of the credential
+  issuer(): Field {
+    switch (this.issuance.type) {
+      case "simple":
+        // simply a signed set of attributes
+        return Poseidon.hashWithPrefix(
+          "mina-cred:v0:simple",
+          this.issuance.issuerPK
+        );
+      case "recursive":
+        // recursively computed relation
+        return Poseidon.hashWithPrefix(
+          "mina-cred:v0:recursive",
+          [
+            this.issuance.credVK,
+            this.issuance.credIdent
+          ]
+        );
+    }
+  }
+
+  // compute the owner identity of the credential
+  // (corresponding to either a public key or a DID)
+  verify(
+    owner: WitnessOwner,
+  ) {
+    // verify the owner field
+    switch (this.ownerType) {
+      case "pk":
+        owner.ownerIdPK().assertEquals(credential.owner);
+      case "did":
+        owner.ownerIdDID().assertEquals(credential.owner);
+    }
+
+    // verify the issuance of the credential
+    switch (this.witness.type) {
+      case "simple":
+        // verify the credential signature
+        issuerSignature.verify(
+          "mina-cred:v0:issuer-signature",
+          this.issuance.issuerPK,
+          this.hash(),
+        );
+
+      case "recursive":
+        // verify the credential proof
+        this.issuance.credProof.publicInput.assertEquals([
+          self.hash(),            // the hash of the attributes
+          this.issuance.credIdent // additional public input (e.g. a hash of an RSA key)
+        ]);
+        this.issuance.credProof.verify();
+    }
+  }
+}
+```
+
+```javascript
+type PrivateInput = {
+  rand: Field,
+  owner: WitnessOwner,
+  credentials: WitnessCredential[],
+}
+
+type PublicInput = {
+  context: Field,  // context binding the presentation
+  authMsg: Field,  // signed by the owner: MAY be omitted when owner is always a public key
+  ownerDID: Field, // DID of the owner: MAY be omitted when owner is always a public key
+  claims: Claims,  // application specific public inputs
+}
+
+// compute the authentication message:
+// signed by the owner
+let authMsg = Poseidon.hashWithPrefix(
+  "mina-cred:v0:auth-msg", // sep. for Poseidon used as a blinding commitment
+  rand,                    // randomness for the commitment
+  context,                 // context of the presentation
+  // first credential
+  witCred[0].hash(),
+  witCred[0].issuer(),
+  // second credential
+  witCred[1].hash(),
+  witCred[1].issuer(),
+  // third credential
+  ...
+  // last credential
+  witCred[N].hash(),
+  witCred[N].issuer(),
+]);
+
+// message commitment exported for DID integration
+authMsg.assertEquals(publicInput.authMsg);
+
+// verify each credential issuance
+for (let credential of credentials) {
+  credential.verify(owner);
+}
+
+// verify owner identity
+owner.verify(
+  publicInput.authMsg,
+  publicInput.ownerDID
 );
 
-// verify the credential owners signature
-ownerSignature.verify(
-  credential.owner,
-  [context, issuer, credHash]
-);
-
-// verify application specific constraints using the standard API
+// verify application constraints
 applicationConstraints(
-  credential, // hidden attributes/owner
-  issuer,     // potentially hidden issuer
-  claims,     // application specific public input
+  [
+    (
+      credentials[0].issuer(), credentials[0].credential,
+      credentials[1].issuer(), credentials[1].credential,
+      ...
+      credentials[N].issuer(), credentials[N].credential
+    ),
+  ],
+  claims
 )
 ```
 
-### Circuit: Present Recursive Credential
+WARNING: The following serves to help mitigate "owner confusion attacks",
+where an owner (e.g. DID) is used in-circuit belonging to
+another party but which has not been authenticated.
 
-A standardized circuit for presenting recursive credentials.
+If the number of DID owned credentials is 0, the `owner.did` field MAY be omitted from the implementation,
+if it is present it MUST be the zero field element.
+If the number of Public Key owned credentials is 0,  the `owner.pk` field MAY be omitted from the implementation,
+if it is present it MUST be the dummy public key corresponding to a secret key of 1.
+The implementation SHOULD NOT provide a way to extract the `owner.did` or `owner.pk` from a credential,
+but MAY allow testing for equality with other witnessed values.
 
-The circuit verifies a proof "from" the issuing authority and a signature from the owner.
+Implementation MUST NOT provide direct access to the fields of the `owner` object,
+namely `owner.did` and `owner.pk` without logic to ensure that the
 
-```javascript
-// the private inputs for the circuit
-type PrivateInput = {
-  credVK: VerificationKey,
-  credIdent: Field,
-  credProof: Proof,
-  credential: Credential,
-  ownerSignature: Signature,
-}
 
-// hash the credential
-let credHash = Poseidon.hashPacked(Credential, credential);
+#### Hiding the DID
 
-// verify the credential proof
-credProof.publicInput.assertEquals([credHash, credIdent]);
-credProof.verify(credVK);
+The specification outlines how to create a presentation for a public DID,
+e.g. prove that a particular ID is associated with a person above a certain age.
+We forsee applications where the DID is not public.
+Such cases will require application-specific cryptographic engineering:
 
-// the issuer is identified by the recursive relation and public input
-let issuer = Poseidon.hashWithPrefix(
-  "mina-cred:v0:recursive", // sep. the domain of "simple" and "recursive" issuers
-  [vk.hash, credIdent]      // identifies the issuing authority / validation logic
-);
+In the case there the number of DID owned credentials is non-zero,
+the public inputs `publicInput.ownerDID` and `publicInput.authMsg`
+MAY be omitted, in such scenarios the application logic MUST validate the DID:
+e.g. looking up the DID in a Merkle tree and retrieving a public key from the DID document in the corresponding leaf.
 
-// verify the credential owners signature
-ownerSignature.verify(
-  credential.owner,
-  [context, issuer, credHash]
-);
+#### Specialized Implementations
 
-// verify application specific constraints using the standard API
-applicationConstraints(
-  credential, // hidden attributes/owner
-  issuer,     // potentially hidden issuer
-  claims,     // application specific public input
-)
-```
+Implementations MAY be universal, allowing the verification of both types of credentials with both types of owners.
+Implementations MAY also be specialized, only allowing the verification of a specific type of credential with a specific type of owner,
+in such cases unnecessary code MAY be omitted to reduce the size of the circuit:
+
+- If the number of DID owned credentials is 0:
+
+- If only public key owners are supported: the DID verification code MUST be omitted.
+  - The `rand` field MAY be fixed to zero.
+  - The public output `publicInput.ownerDID` MAY be omitted or MUST be fixed to zero.
+  - The public output `publicInput.authMsg` MAY be omitted.
+
+- If only recursive credentials are supported:
+  the simple credential verification code (checking the issuer signature) MUST be omitted.
+
+- If only simple credentials are supported:
+  the recursive credential verification code (checking the recursive SNARK) MUST be omitted.
 
 # Context Binding
 
@@ -218,19 +419,20 @@ The verifier computes the context (out-of-circuit) as:
 
 ```javascript
 context = Poseidon.hashWithPrefix(
-  "mina-cred:v0:context", // for versioning
+  "mina-cred:v0:context:<TYPE>", // for versioning and type separation
   [
-    type,                       // seperates different types of verifiers
-    presentationCircuitVK.hash, // binds the presentation to the relation
-    nonce,                      // a random nonce to prevent replay attacks
-    verifierIdentity,           // verifiers identifier
-    action,                     // the "action" being performed (e.g. login, transaction hash etc.)
-    claims,                     // the public input (the set of "claims" being presented)
+    presentationVK.hash, // binds the presentation to the relation
+    verifierIdentity,    // verifiers identifier
+    nonce,               // a random nonce to prevent replay attacks
+    action,              // the "action" being performed (e.g. login, transaction hash etc.)
+    claims,              // the public input (the set of "claims" being presented)
   ]
 )
 ```
 
-The nonce MUST be generated as follows:
+Where `TYPE` is a constant "type" of the presentation, seperating e.g. zkApp interactions from HTTP requests.
+
+The `nonce` MUST be generated as follows:
 
 ```javascript
 let nonce = Poseidon.hashWithPrefix(
@@ -249,9 +451,9 @@ Allowing the server to only store nonces for a limited time.
 
 ## zkApp
 
-```javascript
-let type = Keccak256.hash("zk-app")
+The `TYPE` MUST be `zk-app`.
 
+```javascript
 let verifierIdentity = "Mina Address of the ZK App"
 
 let action = Poseidon.hash([METHOD_ID, ARG1, ARG2, ...])
@@ -261,11 +463,11 @@ The ZK app MUST check the validity of the presentation proof and the claims.
 
 ## Web Application
 
+The `TYPE` MUST be `https`.
+
 [Uniform Resource Identifier](https://datatracker.ietf.org/doc/html/rfc3986)
 
 ```javascript
-let type = Keccak256.hash("https");
-
 let verifierIdentity = Keccak256.hash("example.com");
 
 let action = Keccak256.hash(HTTP_REQUEST);
@@ -274,3 +476,18 @@ let action = Keccak256.hash(HTTP_REQUEST);
 The scheme MUST be `https`.
 
 Keccak is used to improve efficiency when the HTTP request is long: such as uploading a file.
+
+QUESTION: solving the chicken-and-egg problem, where to include the proof?
+
+## JSON-RPC and REST
+
+Specify how to "sign" a JSON document using the presentation proof.
+
+```javascript
+let verifierIdentity = Keccak256.hash("example.com");
+
+let action = Keccak256.hash(serialize-json-canonically);
+
+// add the proof to the JSON-RPC request
+
+```
