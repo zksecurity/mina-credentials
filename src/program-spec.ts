@@ -16,7 +16,7 @@ import {
   type InferProvableType,
   ProvableType,
 } from './o1js-missing.ts';
-import { assert, assertHasProperty } from './util.ts';
+import { assert, assertHasProperty, zip } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
@@ -134,6 +134,7 @@ const Operation = {
   or,
   not,
   hash,
+  hashWithPrefix,
   ifThenElse,
 };
 
@@ -166,7 +167,7 @@ type Node<Data = any> =
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
-  | { type: 'hash'; inner: Node }
+  | { type: 'hash'; inputs: Node[]; prefix?: string }
   | {
       type: 'ifThenElse';
       condition: Node<Bool>;
@@ -245,11 +246,18 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let inner = evalNode(root, node.inner);
       return inner.not() as Data;
     }
-    // TODO: list of inputs
     case 'hash': {
-      let inner = evalNode(root, node.inner);
-      let innerType = NestedProvable.get(NestedProvable.fromValue(inner));
-      let hash = Poseidon.hash(innerType.toFields(inner));
+      let inputs = node.inputs.map((i) => evalNode(root, i));
+      let types = inputs.map((i) =>
+        NestedProvable.get(NestedProvable.fromValue(i))
+      );
+      let fields = zip(types, inputs).flatMap(([type, value]) =>
+        type.toFields(value)
+      );
+      let hash =
+        node.prefix === undefined
+          ? Poseidon.hash(fields)
+          : Poseidon.hashWithPrefix(node.prefix, fields);
       return hash as Data;
     }
     case 'ifThenElse': {
@@ -495,8 +503,11 @@ function not(inner: Node<Bool>): Node<Bool> {
   return { type: 'not', inner };
 }
 
-function hash(inner: Node): Node<Field> {
-  return { type: 'hash', inner };
+function hash(...inputs: Node[]): Node<Field> {
+  return { type: 'hash', inputs };
+}
+function hashWithPrefix(prefix: string, ...inputs: Node[]): Node<Field> {
+  return { type: 'hash', inputs, prefix };
 }
 
 function issuer(credential: Node): Node<Field> {

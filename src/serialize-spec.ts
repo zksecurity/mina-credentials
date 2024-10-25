@@ -161,6 +161,11 @@ function serializeNode(node: Node): any {
         right: serializeNode(node.right),
       };
     case 'hash':
+      return {
+        type: node.type,
+        inputs: node.inputs.map(serializeNode),
+        prefix: node.prefix ?? null,
+      };
     case 'not':
       return {
         type: node.type,

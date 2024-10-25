@@ -334,7 +334,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'hash',
-      inner: { type: 'constant', data: { _type: 'Field', value: '123' } },
+      inputs: [{ type: 'constant', data: { _type: 'Field', value: '123' } }],
+      prefix: null,
     };
 
     assert.deepStrictEqual(serialized, expected);

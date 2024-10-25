@@ -56,8 +56,7 @@ const spec = Spec(
     ),
     // we expose a unique hash of the credential data, as nullifier
     data: Operation.record({
-      // TODO make this take a list of fields, and add the appId
-      nullifier: Operation.hash(signedData),
+      nullifier: Operation.hash(signedData, appId),
     }),
   })
 );

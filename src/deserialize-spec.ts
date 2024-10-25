@@ -156,8 +156,14 @@ function deserializeNode(input: any, node: any): Node {
         left: deserializeNode(input, node.left),
         right: deserializeNode(input, node.right),
       };
-    case 'not':
     case 'hash':
+      let result: Node = {
+        type: node.type,
+        inputs: node.inputs.map((i: any) => deserializeNode(input, i)),
+      };
+      if (node.prefix !== null) result.prefix = node.prefix;
+      return result;
+    case 'not':
       return {
         type: node.type,
         inner: deserializeNode(input, node.inner),
