@@ -15,18 +15,16 @@ import { hashCredential } from '../src/credential.ts';
 const Bytes32 = Bytes(32);
 const Bytes128 = Bytes(128);
 
-// TODO: if we reorder id, nationality, it stops working because serialization changes the order!
-// that shouldn't be the case, changing the order was a bad idea
 const Data = {
-  id: Bytes128,
   nationality: Bytes32,
+  id: Bytes128,
 };
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
 let data = {
-  id: Bytes128.random(),
   nationality: Bytes32.fromString('United States of America'),
+  id: Bytes128.random(),
 };
 let credential = Credential.sign(issuerKey, { owner, data });
 // TODO: serialize the credential to send it to the owner wallet

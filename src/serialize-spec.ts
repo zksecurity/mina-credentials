@@ -82,11 +82,7 @@ function convertSpecToSerializable(spec: Spec): Record<string, any> {
 
 function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
   return Object.fromEntries(
-    // sort by keys so we always get the same serialization for the same spec
-    // will be important for hashing
-    Object.keys(inputs)
-      .sort()
-      .map((key) => [key, serializeInput(inputs[key]!)])
+    Object.keys(inputs).map((key) => [key, serializeInput(inputs[key]!)])
   );
 }
 
@@ -255,15 +251,12 @@ function serializeStruct(type: Struct<any>): SerializedType {
 
   for (let key in value) {
     let type = NestedProvable.fromValue(value[key]);
-    properties[key] = serializeNestedProvable(type, false);
+    properties[key] = serializeNestedProvable(type);
   }
   return { _type: 'Struct', properties };
 }
 
-function serializeNestedProvable(
-  type: NestedProvable,
-  reorderKeys = true
-): SerializedNestedType {
+function serializeNestedProvable(type: NestedProvable): SerializedNestedType {
   if (ProvableType.isProvableType(type)) {
     return serializeProvableType(type);
   }
@@ -273,13 +266,8 @@ function serializeNestedProvable(
 
   if (typeof type === 'object' && type !== null) {
     const serializedObject: Record<string, any> = {};
-    // sort by keys so we always get the same serialization for the same spec
-    // will be important for hashing
-    let keys = Object.keys(type);
-    if (reorderKeys) keys = keys.sort();
-
-    for (const key of keys) {
-      serializedObject[key] = serializeNestedProvable(type[key]!, reorderKeys);
+    for (const key of Object.keys(type)) {
+      serializedObject[key] = serializeNestedProvable(type[key]!);
     }
     return serializedObject;
   }
@@ -300,18 +288,16 @@ function serializeNestedProvableTypeAndValue(t: {
     return serializeProvable(t.value);
   }
   return Object.fromEntries(
-    Object.keys(t.type)
-      .sort()
-      .map((key) => {
-        assert(key in t.value, `Missing value for key ${key}`);
-        return [
-          key,
-          serializeNestedProvableTypeAndValue({
-            type: (t.type as any)[key],
-            value: t.value[key],
-          }),
-        ];
-      })
+    Object.keys(t.type).map((key) => {
+      assert(key in t.value, `Missing value for key ${key}`);
+      return [
+        key,
+        serializeNestedProvableTypeAndValue({
+          type: (t.type as any)[key],
+          value: t.value[key],
+        }),
+      ];
+    })
   );
 }
 
