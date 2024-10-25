@@ -36,7 +36,7 @@ import { withOwner } from '../src/credential.ts';
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
     await t.test('Field', () => {
-      const deserialized = deserializeProvable('Field', '42');
+      const deserialized = deserializeProvable({ _type: 'Field', value: '42' });
       assert(deserialized instanceof Field, 'Should be instance of Field');
       assert.strictEqual(
         deserialized.toString(),
@@ -46,11 +46,17 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('Bool', () => {
-      const deserializedTrue = deserializeProvable('Bool', 'true');
+      const deserializedTrue = deserializeProvable({
+        _type: 'Bool',
+        value: 'true',
+      });
       assert(deserializedTrue instanceof Bool, 'Should be instance of Bool');
       assert.strictEqual(deserializedTrue.toBoolean(), true, 'Should be true');
 
-      const deserializedFalse = deserializeProvable('Bool', 'false');
+      const deserializedFalse = deserializeProvable({
+        _type: 'Bool',
+        value: 'false',
+      });
       assert(deserializedFalse instanceof Bool, 'Should be instance of Bool');
       assert.strictEqual(
         deserializedFalse.toBoolean(),
@@ -60,7 +66,10 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('UInt8', () => {
-      const deserialized = deserializeProvable('UInt8', '255');
+      const deserialized = deserializeProvable({
+        _type: 'UInt8',
+        value: '255',
+      });
       assert(deserialized instanceof UInt8, 'Should be instance of UInt8');
       assert.strictEqual(
         deserialized.toString(),
@@ -70,7 +79,10 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('UInt32', () => {
-      const deserialized = deserializeProvable('UInt32', '4294967295');
+      const deserialized = deserializeProvable({
+        _type: 'UInt32',
+        value: '4294967295',
+      });
       assert(deserialized instanceof UInt32, 'Should be instance of UInt32');
       assert.strictEqual(
         deserialized.toString(),
@@ -80,10 +92,10 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('UInt64', () => {
-      const deserialized = deserializeProvable(
-        'UInt64',
-        '18446744073709551615'
-      );
+      const deserialized = deserializeProvable({
+        _type: 'UInt64',
+        value: '18446744073709551615',
+      });
       assert(deserialized instanceof UInt64, 'Should be instance of UInt64');
       assert.strictEqual(
         deserialized.toString(),
@@ -95,7 +107,10 @@ test('Deserialize Spec', async (t) => {
     await t.test('PublicKey', () => {
       const publicKeyBase58 =
         'B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg';
-      const deserialized = deserializeProvable('PublicKey', publicKeyBase58);
+      const deserialized = deserializeProvable({
+        _type: 'PublicKey',
+        value: publicKeyBase58,
+      });
       assert(
         deserialized instanceof PublicKey,
         'Should be instance of PublicKey'
@@ -118,10 +133,7 @@ test('Deserialize Spec', async (t) => {
       const serializedSignature = serializeProvable(signature);
 
       // Deserialize the signature
-      const deserialized = deserializeProvable(
-        serializedSignature._type,
-        serializedSignature.value
-      );
+      const deserialized = deserializeProvable(serializedSignature);
 
       assert(
         deserialized instanceof Signature,
@@ -143,7 +155,7 @@ test('Deserialize Spec', async (t) => {
 
     await t.test('Invalid type', () => {
       assert.throws(
-        () => deserializeProvable('InvalidType' as any, '42'),
+        () => deserializeProvable({ _type: 'InvalidType' as any, value: '42' }),
         { message: 'Unsupported provable type: InvalidType' },
         'Should throw for invalid type'
       );

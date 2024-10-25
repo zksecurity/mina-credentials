@@ -87,7 +87,7 @@ function deserializeInput(input: any): Input {
     case 'constant':
       return Constant(
         deserializeProvableType(input.data),
-        deserializeProvable(input.data._type, input.value)
+        deserializeProvable(input.data)
       );
     case 'claim':
       return Claim(deserializeNestedProvablePure(input.data));
@@ -131,7 +131,7 @@ function deserializeNode(
     case 'constant':
       return {
         type: 'constant',
-        data: deserializeProvable(node.data._type, node.data.value),
+        data: deserializeProvable(node.data),
       };
     case 'root':
       return { type: 'root', input };
@@ -239,8 +239,14 @@ function deserializeProvableType(
   return result;
 }
 
-function deserializeProvable(type: string, value: string): any {
-  switch (type) {
+function deserializeProvable({
+  _type,
+  value,
+}: {
+  _type: string;
+  value: any;
+}): any {
+  switch (_type) {
     case 'Field':
       return Field.fromJSON(value);
     case 'Bool':
@@ -257,8 +263,10 @@ function deserializeProvable(type: string, value: string): any {
       return Signature.fromJSON(value);
     case 'Bytes':
       return Bytes.fromHex(value);
+    case 'Array':
+      return (value as any[]).map((v: any) => deserializeProvable(v));
     default:
-      throw Error(`Unsupported provable type: ${type}`);
+      throw Error(`Unsupported provable type: ${_type}`);
   }
 }
 
@@ -309,7 +317,7 @@ function deserializeNestedProvableValue(value: any): any {
   if (typeof value === 'object' && value !== null) {
     if ('_type' in value) {
       // basic provable type
-      return deserializeProvable(value._type, value.value);
+      return deserializeProvable(value);
     } else {
       // nested object
       const result: Record<string, any> = {};

@@ -8,9 +8,11 @@ import {
   type InferValue,
   Provable,
   type ProvablePure,
+  Struct,
   Undefined,
 } from 'o1js';
 import { assert, assertHasProperty, hasProperty } from './util.ts';
+import type { NestedProvable } from './nested.ts';
 
 export {
   ProvableType,
@@ -36,6 +38,9 @@ const ProvableType = {
     if (value === undefined) return Undefined as any;
     if (value instanceof Field) return Field as any;
     if (value instanceof Bool) return Bool as any;
+    if (Array.isArray(value))
+      return array(ProvableType.fromValue(value[0]), value.length) as any;
+
     assertHasProperty(
       value,
       'constructor',
@@ -125,10 +130,12 @@ type InferProvableType<T extends ProvableType> = InferProvable<ToProvable<T>>;
 // temporary, until we land `StaticArray`
 // this is copied from o1js and then modified: https://github.com/o1-labs/o1js
 // License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
-function array<A extends ProvableType<any>>(elementType: A, length: number) {
+function array<A extends NestedProvable>(elementType: A, length: number) {
   type T = InferProvable<A>;
   type V = InferValue<A>;
-  let type: Provable<T, V> = ProvableType.get(elementType);
+  let type: Provable<T, V> = ProvableType.isProvableType(elementType)
+    ? ProvableType.get(elementType)
+    : Struct(elementType);
   return {
     _isArray: true,
     innerType: elementType,

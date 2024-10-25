@@ -250,11 +250,14 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   return { _type };
 }
 
-function serializeProvable(value: any): { _type: string; value: string } {
+function serializeProvable(value: any): { _type: string; value: any } {
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
   if (_type === 'Bytes') {
     return { _type, value: (value as Bytes).toHex() };
+  }
+  if (_type === 'Array') {
+    return { _type, value: value.map((x: any) => serializeProvable(x)) };
   }
   switch (typeClass) {
     case Bool: {
