@@ -201,7 +201,6 @@ test('presentation with context binding', async (t) => {
     const signedData = Credential.sign(issuerKey, { owner, data });
 
     const inputContext = {
-      type: 'zk-app' as const,
       presentationCircuitVKHash,
       action: Field(123), // Mock method ID + args hash
       serverNonce: Field(456),
@@ -239,7 +238,6 @@ test('presentation with context binding', async (t) => {
     const signedData = Credential.sign(issuerKey, { owner, data });
 
     const inputContext = {
-      type: 'https' as const,
       presentationCircuitVKHash,
       action: 'POST /api/verify',
       serverNonce: Field(456),
