@@ -43,11 +43,11 @@ type Program<Output, Inputs extends Record<string, Input>> = {
   >;
 };
 
-function deriveCircuitName(spec: Spec): string {
+function programName(spec: Spec): string {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
   const specBytes = Bytes.fromString(serializedSpec);
   const hashBytes = Hash.Keccak256.hash(specBytes);
-  return `credential-${hashBytes.toString()}`;
+  return `credential-${hashBytes.toHex().slice(0, 16)}`;
 }
 
 function createProgram<S extends Spec>(
@@ -59,7 +59,7 @@ function createProgram<S extends Spec>(
   let PrivateInput = NestedProvable.get(privateInputTypes(spec));
 
   let program = ZkProgram({
-    name: deriveCircuitName(spec),
+    name: programName(spec),
     publicInput: PublicInput,
     publicOutput: PublicOutput,
     methods: {
