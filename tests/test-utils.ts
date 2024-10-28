@@ -1,7 +1,7 @@
 import { Field, PrivateKey } from 'o1js';
 import {
   type Credential,
-  type CredentialType,
+  type CredentialSpec,
   signCredentials,
 } from '../src/credential.ts';
 
@@ -21,7 +21,7 @@ const zkAppVerifierIdentity = PrivateKey.random().toPublicKey();
 function createOwnerSignature<Witness, Data>(
   context: Field,
   ...credentials: [
-    CredentialType<any, Witness, Data>,
+    CredentialSpec<any, Witness, Data>,
     { credential: Credential<Data>; witness: Witness }
   ][]
 ) {

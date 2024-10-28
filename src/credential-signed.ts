@@ -26,7 +26,7 @@ type Metadata = undefined;
 type Signed<Data> = StoredCredential<Data, Witness, Metadata>;
 
 const Signed = defineCredential({
-  id: 'signature-native',
+  credentialType: 'simple',
   witness: {
     type: ProvableType.constant('simple' as const),
     issuer: PublicKey,
@@ -35,6 +35,10 @@ const Signed = defineCredential({
 
   // verify the signature
   verify({ issuer, issuerSignature }, credHash) {
+    let ok = issuerSignature.verify(issuer, [credHash.hash]);
+    ok.assertTrue('Invalid signature');
+  },
+  async verifyOutsideCircuit({ issuer, issuerSignature }, credHash) {
     let ok = issuerSignature.verify(issuer, [credHash.hash]);
     ok.assertTrue('Invalid signature');
   },

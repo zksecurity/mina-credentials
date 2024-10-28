@@ -5,17 +5,21 @@ import {
   Bool,
   Field,
   type InferProvable,
+  type InferValue,
   Provable,
   type ProvablePure,
+  Struct,
   Undefined,
 } from 'o1js';
 import { assert, assertHasProperty, hasProperty } from './util.ts';
+import type { NestedProvable } from './nested.ts';
 
 export {
   ProvableType,
   assertPure,
   type ProvablePureType,
   type InferProvableType,
+  array,
 };
 
 const ProvableType = {
@@ -34,6 +38,9 @@ const ProvableType = {
     if (value === undefined) return Undefined as any;
     if (value instanceof Field) return Field as any;
     if (value instanceof Bool) return Bool as any;
+    if (Array.isArray(value))
+      return array(ProvableType.fromValue(value[0]), value.length) as any;
+
     assertHasProperty(
       value,
       'constructor',
@@ -119,3 +126,79 @@ type ToProvable<A extends WithProvable<any>> = A extends {
   ? P
   : A;
 type InferProvableType<T extends ProvableType> = InferProvable<ToProvable<T>>;
+
+// temporary, until we land `StaticArray`
+// this is copied from o1js and then modified: https://github.com/o1-labs/o1js
+// License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
+function array<A extends NestedProvable>(elementType: A, length: number) {
+  type T = InferProvable<A>;
+  type V = InferValue<A>;
+  let type: Provable<T, V> = ProvableType.isProvableType(elementType)
+    ? ProvableType.get(elementType)
+    : Struct(elementType);
+  return {
+    _isArray: true,
+    innerType: elementType,
+    size: length,
+
+    /**
+     * Returns the size of this structure in {@link Field} elements.
+     * @returns size of this structure
+     */
+    sizeInFields() {
+      let elementLength = type.sizeInFields();
+      return elementLength * length;
+    },
+    /**
+     * Serializes this structure into {@link Field} elements.
+     * @returns an array of {@link Field} elements
+     */
+    toFields(array: T[]) {
+      return array.map((e) => type.toFields(e)).flat();
+    },
+    /**
+     * Serializes this structure's auxiliary data.
+     * @returns auxiliary data
+     */
+    toAuxiliary(array?) {
+      let array_ = array ?? Array<undefined>(length).fill(undefined);
+      return array_?.map((e) => type.toAuxiliary(e));
+    },
+
+    /**
+     * Deserializes an array of {@link Field} elements into this structure.
+     */
+    fromFields(fields: Field[], aux?: any[]) {
+      let array = [];
+      let size = type.sizeInFields();
+      let n = length;
+      for (let i = 0, offset = 0; i < n; i++, offset += size) {
+        array[i] = type.fromFields(
+          fields.slice(offset, offset + size),
+          aux?.[i]
+        );
+      }
+      return array;
+    },
+    check(array: T[]) {
+      for (let i = 0; i < length; i++) {
+        (type as any).check(array[i]);
+      }
+    },
+    toCanonical(x) {
+      return x.map((v) => Provable.toCanonical(type, v));
+    },
+
+    toValue(x) {
+      return x.map((v) => type.toValue(v));
+    },
+
+    fromValue(x) {
+      return x.map((v) => type.fromValue(v));
+    },
+  } satisfies Provable<T[], V[]> & {
+    _isArray: true;
+    innerType: A;
+    size: number;
+  };
+}

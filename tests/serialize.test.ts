@@ -338,7 +338,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'hash',
-      inner: { type: 'constant', data: { _type: 'Field', value: '123' } },
+      inputs: [{ type: 'constant', data: { _type: 'Field', value: '123' } }],
+      prefix: null,
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -435,7 +436,7 @@ test('serializeInput', async (t) => {
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'public',
+      type: 'claim',
       data: { _type: 'Field' },
     };
 
@@ -449,7 +450,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: { _type: 'Field' },
     };
@@ -464,7 +465,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'signature-native',
+      credentialType: 'simple',
       witness: {
         type: { type: 'Constant', value: 'simple' },
         issuer: { _type: 'PublicKey' },
@@ -493,7 +494,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: {
         personal: {
@@ -536,11 +537,11 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         age: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
-        isAdmin: { type: 'public', data: { _type: 'Bool' } },
+        isAdmin: { type: 'claim', data: { _type: 'Bool' } },
         maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
       logic: {
@@ -604,7 +605,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          id: 'signature-native',
+          credentialType: 'simple',
           witness: {
             type: { type: 'Constant', value: 'simple' },
             issuer: { _type: 'PublicKey' },
@@ -673,13 +674,13 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         field1: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
         field2: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
@@ -771,7 +772,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
   await t.test('should detect tampering', async () => {
     const tampered = JSON.parse(serialized);
     const tamperedSpec = JSON.parse(tampered.spec);
-    tamperedSpec.inputs.age.type = 'public';
+    tamperedSpec.inputs.age.type = 'claim';
     tampered.spec = JSON.stringify(tamperedSpec);
     const tamperedString = JSON.stringify(tampered);
     assert(
@@ -785,7 +786,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     async () => {
       const tampered = JSON.parse(serialized);
       const tamperedSpec = JSON.parse(tampered.spec);
-      tamperedSpec.inputs.age.type = 'public';
+      tamperedSpec.inputs.age.type = 'claim';
       tampered.spec = JSON.stringify(tamperedSpec);
       const tamperedString = JSON.stringify(tampered);
 

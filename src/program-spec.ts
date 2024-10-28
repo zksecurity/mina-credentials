@@ -18,7 +18,7 @@ import {
   type InferProvableType,
   ProvableType,
 } from './o1js-missing.ts';
-import { assert, assertHasProperty } from './util.ts';
+import { assert, assertHasProperty, zip } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
@@ -27,8 +27,8 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 import {
+  type CredentialSpec,
   type CredentialType,
-  type CredentialId,
   type Credential,
   type CredentialInputs,
   withOwner,
@@ -127,6 +127,7 @@ const Operation = {
   property,
   record,
   equals,
+  equalsOneOf,
   lessThan,
   lessThanEq,
   add,
@@ -137,6 +138,7 @@ const Operation = {
   or,
   not,
   hash,
+  hashWithPrefix,
   ifThenElse,
   compute,
 };
@@ -149,7 +151,7 @@ type Constant<Data> = {
 type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
 
 type Input<Data = any> =
-  | CredentialType<CredentialId, any, Data>
+  | CredentialSpec<CredentialType, any, Data>
   | Constant<Data>
   | Claim<Data>;
 
@@ -161,6 +163,7 @@ type Node<Data = any> =
   | { type: 'property'; key: string; inner: Node }
   | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
+  | { type: 'equalsOneOf'; input: Node; options: Node[] | Node<any[]> }
   | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
@@ -170,7 +173,7 @@ type Node<Data = any> =
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
-  | { type: 'hash'; inner: Node }
+  | { type: 'hash'; inputs: Node[]; prefix?: string }
   | {
       type: 'ifThenElse';
       condition: Node<Bool>;
@@ -233,6 +236,18 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let bool = Provable.equal(ProvableType.fromValue(left), left, right);
       return bool as Data;
     }
+    case 'equalsOneOf': {
+      let input = evalNode(root, node.input);
+      let type = NestedProvable.get(NestedProvable.fromValue(input));
+      let options: any[];
+      if (Array.isArray(node.options)) {
+        options = node.options.map((i) => evalNode(root, i));
+      } else {
+        options = evalNode(root, node.options);
+      }
+      let bools = options.map((o) => Provable.equal(type, input, o));
+      return bools.reduce(Bool.or) as Data;
+    }
     case 'lessThan':
     case 'lessThanEq':
       return compareNodes(root, node, node.type === 'lessThanEq') as Data;
@@ -255,11 +270,18 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let inner = evalNode(root, node.inner);
       return inner.not() as Data;
     }
-    // TODO: handle composite types
     case 'hash': {
-      let inner = evalNode(root, node.inner);
-      let innerFields = inner.toFields();
-      let hash = Poseidon.hash(innerFields);
+      let inputs = node.inputs.map((i) => evalNode(root, i));
+      let types = inputs.map((i) =>
+        NestedProvable.get(NestedProvable.fromValue(i))
+      );
+      let fields = zip(types, inputs).flatMap(([type, value]) =>
+        type.toFields(value)
+      );
+      let hash =
+        node.prefix === undefined
+          ? Poseidon.hash(fields)
+          : Poseidon.hashWithPrefix(node.prefix, fields);
       return hash as Data;
     }
     case 'ifThenElse': {
@@ -370,6 +392,7 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
       return inner[node.key] as any;
     }
     case 'equals':
+    case 'equalsOneOf':
     case 'lessThan':
     case 'lessThanEq':
     case 'and':
@@ -456,6 +479,13 @@ function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
   return { type: 'equals', left, right };
 }
 
+function equalsOneOf<Data>(
+  input: Node<Data>,
+  options: Node<Data>[] | Node<Data[]>
+): Node<Bool> {
+  return { type: 'equalsOneOf', input, options };
+}
+
 type NumericType = Field | UInt64 | UInt32 | UInt8;
 
 const numericTypeOrder = [UInt8, UInt32, UInt64, Field];
@@ -514,8 +544,11 @@ function not(inner: Node<Bool>): Node<Bool> {
   return { type: 'not', inner };
 }
 
-function hash(inner: Node): Node<Field> {
-  return { type: 'hash', inner };
+function hash(...inputs: Node[]): Node<Field> {
+  return { type: 'hash', inputs };
+}
+function hashWithPrefix(prefix: string, ...inputs: Node[]): Node<Field> {
+  return { type: 'hash', inputs, prefix };
 }
 
 function issuer(credential: Node): Node<Field> {
@@ -638,7 +671,7 @@ function extractCredentialInputs(
     if (input.type === 'credential') {
       let value: any = credentials[key];
       credentialInputs.push({
-        credentialType: input,
+        spec: input,
         credential: value.credential,
         witness: value.witness,
       });
@@ -729,16 +762,16 @@ type MapToDataInput<T extends Record<string, Input>> = {
 
 type ToClaim<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
-type ToCredential<T extends Input> = T extends CredentialType<
-  CredentialId,
+type ToCredential<T extends Input> = T extends CredentialSpec<
+  CredentialType,
   infer Witness,
   infer Data
 >
   ? { credential: Credential<Data>; witness: Witness }
   : never;
 
-type ToDataInput<T extends Input> = T extends CredentialType<
-  CredentialId,
+type ToDataInput<T extends Input> = T extends CredentialSpec<
+  CredentialType,
   any,
   infer Data
 >

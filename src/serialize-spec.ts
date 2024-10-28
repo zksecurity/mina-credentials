@@ -55,6 +55,7 @@ export {
   serializeSpec,
   validateSpecHash,
   serializePresentationRequest,
+  serializeNestedProvableValue,
   serializeInputContext,
 };
 
@@ -98,11 +99,7 @@ function convertSpecToSerializable(spec: Spec): Record<string, any> {
 
 function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
   return Object.fromEntries(
-    // sort by keys so we always get the same serialization for the same spec
-    // will be important for hashing
-    Object.keys(inputs)
-      .sort()
-      .map((key) => [key, serializeInput(inputs[key]!)])
+    Object.keys(inputs).map((key) => [key, serializeInput(inputs[key]!)])
   );
 }
 
@@ -112,7 +109,7 @@ function serializeInput(input: Input): any {
       case 'credential': {
         return {
           type: 'credential',
-          id: input.id,
+          credentialType: input.credentialType,
           witness: serializeNestedProvable(input.witness),
           data: serializeNestedProvable(input.data),
         };
@@ -126,7 +123,7 @@ function serializeInput(input: Input): any {
       }
       case 'claim': {
         return {
-          type: 'public',
+          type: 'claim',
           data: serializeNestedProvable(input.data),
         };
       }
@@ -135,7 +132,7 @@ function serializeInput(input: Input): any {
   throw Error('Invalid input type');
 }
 
-function serializeNode(node: Node): any {
+function serializeNode(node: Node): object {
   switch (node.type) {
     case 'owner': {
       return {
@@ -178,7 +175,21 @@ function serializeNode(node: Node): any {
         left: serializeNode(node.left),
         right: serializeNode(node.right),
       };
+    case 'equalsOneOf': {
+      return {
+        type: 'equalsOneOf',
+        input: serializeNode(node.input),
+        options: Array.isArray(node.options)
+          ? node.options.map(serializeNode)
+          : serializeNode(node.options),
+      };
+    }
     case 'hash':
+      return {
+        type: node.type,
+        inputs: node.inputs.map(serializeNode),
+        prefix: node.prefix ?? null,
+      };
     case 'not':
       return {
         type: node.type,
@@ -201,6 +212,8 @@ function serializeNode(node: Node): any {
         data: serializedData,
       };
     }
+    default:
+      throw Error(`Invalid node type: ${(node as Node).type}`);
   }
 }
 
@@ -242,6 +255,7 @@ function serializeInputContext(context: {
 type SerializedType =
   | { _type: O1jsTypeName }
   | { _type: 'Struct'; properties: SerializedNestedType }
+  | { _type: 'Array'; inner: SerializedType; size: number }
   | { _type: 'Constant'; value: unknown }
   | { _type: 'Bytes'; size: number }
   | { _type: 'Proof'; proof: Record<string, any> }
@@ -274,6 +288,13 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   if (_type === undefined && (type as any)._isStruct) {
     return serializeStruct(type as Struct<any>);
   }
+  if (_type === undefined && (type as any)._isArray) {
+    return {
+      _type: 'Array',
+      inner: serializeProvableType((type as any).innerType),
+      size: (type as any).size,
+    };
+  }
   assert(
     _type !== undefined,
     `serializeProvableType: Unsupported provable type: ${type}`
@@ -281,11 +302,14 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   return { _type };
 }
 
-function serializeProvable(value: any): { _type: string; value: string } {
+function serializeProvable(value: any): { _type: string; value: any } {
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
   if (_type === 'Bytes') {
     return { _type, value: (value as Bytes).toHex() };
+  }
+  if (_type === 'Array') {
+    return { _type, value: value.map((x: any) => serializeProvable(x)) };
   }
   switch (typeClass) {
     case Bool: {
@@ -306,15 +330,12 @@ function serializeStruct(type: Struct<any>): SerializedType {
 
   for (let key in value) {
     let type = NestedProvable.fromValue(value[key]);
-    properties[key] = serializeNestedProvable(type, false);
+    properties[key] = serializeNestedProvable(type);
   }
   return { _type: 'Struct', properties };
 }
 
-function serializeNestedProvable(
-  type: NestedProvable,
-  reorderKeys = true
-): SerializedNestedType {
+function serializeNestedProvable(type: NestedProvable): SerializedNestedType {
   if (ProvableType.isProvableType(type)) {
     return serializeProvableType(type);
   }
@@ -324,13 +345,8 @@ function serializeNestedProvable(
 
   if (typeof type === 'object' && type !== null) {
     const serializedObject: Record<string, any> = {};
-    // sort by keys so we always get the same serialization for the same spec
-    // will be important for hashing
-    let keys = Object.keys(type);
-    if (reorderKeys) keys = keys.sort();
-
-    for (const key of keys) {
-      serializedObject[key] = serializeNestedProvable(type[key]!, reorderKeys);
+    for (const key of Object.keys(type)) {
+      serializedObject[key] = serializeNestedProvable(type[key]!);
     }
     return serializedObject;
   }
@@ -350,19 +366,19 @@ function serializeNestedProvableTypeAndValue(t: {
   if (ProvableType.isProvableType(t.type)) {
     return serializeProvable(t.value);
   }
+  if (typeof t.type === 'string' || (t.type as any) === String) return t.value;
+
   return Object.fromEntries(
-    Object.keys(t.type)
-      .sort()
-      .map((key) => {
-        assert(key in t.value, `Missing value for key ${key}`);
-        return [
-          key,
-          serializeNestedProvableTypeAndValue({
-            type: (t.type as any)[key],
-            value: t.value[key],
-          }),
-        ];
-      })
+    Object.keys(t.type).map((key) => {
+      assert(key in t.value, `Missing value for key ${key}`);
+      return [
+        key,
+        serializeNestedProvableTypeAndValue({
+          type: (t.type as any)[key],
+          value: t.value[key],
+        }),
+      ];
+    })
   );
 }
 

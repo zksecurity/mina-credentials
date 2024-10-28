@@ -24,9 +24,9 @@ import {
   type O1jsTypeName,
   type SerializedProvableType,
 } from './serialize-spec.ts';
-import { type CredentialId } from './credential.ts';
+import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
-import { ProvableType } from './o1js-missing.ts';
+import { array, ProvableType } from './o1js-missing.ts';
 import { PresentationRequest } from './presentation.ts';
 
 export {
@@ -38,6 +38,7 @@ export {
   deserializeProvable,
   deserializeNestedProvable,
   deserializePresentationRequest,
+  deserializeNestedProvableValue,
   deserializeInputContext,
 };
 
@@ -70,18 +71,21 @@ function deserializeInputContext(context: {
 }) {
   return {
     type: context.type as 'zk-app' | 'https',
-    presentationCircuitVKHash: deserializeProvable(
-      'Field',
-      context.presentationCircuitVKHash.value
-    ),
+    presentationCircuitVKHash: deserializeProvable({
+      _type: 'Field',
+      value: context.presentationCircuitVKHash.value,
+    }),
     action:
       context.type === 'zk-app'
-        ? deserializeProvable(
-            'Field',
-            (context.action as { _type: string; value: string }).value
-          )
+        ? deserializeProvable({
+            _type: 'Field',
+            value: (context.action as { _type: string; value: string }).value,
+          })
         : (context.action as string),
-    serverNonce: deserializeProvable('Field', context.serverNonce.value),
+    serverNonce: deserializeProvable({
+      _type: 'Field',
+      value: context.serverNonce.value,
+    }),
   };
 }
 
@@ -118,23 +122,23 @@ function deserializeInput(input: any): Input {
     case 'constant':
       return Constant(
         deserializeProvableType(input.data),
-        deserializeProvable(input.data._type, input.value)
+        deserializeProvable({ _type: input.data._type, value: input.value })
       );
-    case 'public':
+    case 'claim':
       return Claim(deserializeNestedProvablePure(input.data));
     case 'credential': {
-      let id: CredentialId = input.id;
+      let credentialType: CredentialType = input.credentialType;
       let data = deserializeNestedProvablePure(input.data);
-      switch (id) {
-        case 'signature-native':
+      switch (credentialType) {
+        case 'simple':
           return Credential.Simple(data);
-        case 'none':
+        case 'unsigned':
           return Credential.Unsigned(data);
-        case 'proof':
+        case 'recursive':
           let proof = deserializeProvableType(input.witness.proof) as any;
           return Credential.Recursive(proof, data);
         default:
-          throw Error(`Unsupported credential id: ${id}`);
+          throw Error(`Unsupported credential id: ${credentialType}`);
       }
     }
     default:
@@ -142,7 +146,11 @@ function deserializeInput(input: any): Input {
   }
 }
 
-function deserializeNode(input: any, node: any): Node {
+function deserializeNode(input: any, node: any): Node;
+function deserializeNode(
+  input: any,
+  node: { type: Node['type'] } & Record<string, any>
+): Node {
   switch (node.type) {
     case 'owner': {
       return {
@@ -158,7 +166,7 @@ function deserializeNode(input: any, node: any): Node {
     case 'constant':
       return {
         type: 'constant',
-        data: deserializeProvable(node.data._type, node.data.value),
+        data: deserializeProvable(node.data),
       };
     case 'root':
       return { type: 'root', input };
@@ -176,6 +184,15 @@ function deserializeNode(input: any, node: any): Node {
         left: deserializeNode(input, node.left),
         right: deserializeNode(input, node.right),
       };
+    case 'equalsOneOf': {
+      return {
+        type: 'equalsOneOf',
+        input: deserializeNode(input, node.input),
+        options: Array.isArray(node.options)
+          ? node.options.map((o) => deserializeNode(input, o))
+          : deserializeNode(input, node.options),
+      };
+    }
     case 'and':
     case 'or':
     case 'add':
@@ -187,8 +204,14 @@ function deserializeNode(input: any, node: any): Node {
         left: deserializeNode(input, node.left),
         right: deserializeNode(input, node.right),
       };
-    case 'not':
     case 'hash':
+      let result: Node = {
+        type: node.type,
+        inputs: node.inputs.map((i: any) => deserializeNode(input, i)),
+      };
+      if (node.prefix !== null) result.prefix = node.prefix;
+      return result;
+    case 'not':
       return {
         type: node.type,
         inner: deserializeNode(input, node.inner),
@@ -203,7 +226,7 @@ function deserializeNode(input: any, node: any): Node {
     case 'record':
       const deserializedData: Record<string, Node> = {};
       for (const [key, value] of Object.entries(node.data)) {
-        deserializedData[key] = deserializeNode(input, value);
+        deserializedData[key] = deserializeNode(input, value as any);
       }
       return {
         type: 'record',
@@ -238,6 +261,10 @@ function deserializeProvableType(
     let properties = deserializeNestedProvable(type.properties);
     return Struct(properties);
   }
+  if (type._type === 'Array') {
+    let inner = deserializeProvableType(type.inner);
+    return array(inner, type.size);
+  }
   if (type._type === 'String') {
     return String as any;
   }
@@ -246,8 +273,14 @@ function deserializeProvableType(
   return result;
 }
 
-function deserializeProvable(type: string, value: string): any {
-  switch (type) {
+function deserializeProvable({
+  _type,
+  value,
+}: {
+  _type: string;
+  value: any;
+}): any {
+  switch (_type) {
     case 'Field':
       return Field.fromJSON(value);
     case 'Bool':
@@ -264,8 +297,10 @@ function deserializeProvable(type: string, value: string): any {
       return Signature.fromJSON(value);
     case 'Bytes':
       return Bytes.fromHex(value);
+    case 'Array':
+      return (value as any[]).map((v: any) => deserializeProvable(v));
     default:
-      throw Error(`Unsupported provable type: ${type}`);
+      throw Error(`Unsupported provable type: ${_type}`);
   }
 }
 
@@ -310,20 +345,24 @@ function deserializeNestedProvablePure(type: any): NestedProvablePure {
   throw Error(`Invalid type in NestedProvablePure: ${type}`);
 }
 
-function deserializeNestedProvableValue(type: any): any {
-  if (typeof type === 'object' && type !== null) {
-    if ('_type' in type) {
+function deserializeNestedProvableValue(value: any): any {
+  if (typeof value === 'string') return value;
+
+  if (typeof value === 'object' && value !== null) {
+    if ('_type' in value) {
       // basic provable type
-      return deserializeProvable(type._type, type.value);
+      return deserializeProvable(value);
     } else {
       // nested object
       const result: Record<string, any> = {};
-      for (const [key, value] of Object.entries(type)) {
-        result[key] = deserializeNestedProvableValue(value);
+      for (let [key, v] of Object.entries(value)) {
+        result[key] = deserializeNestedProvableValue(v);
       }
       return result;
     }
   }
+
+  throw Error(`Invalid nested provable value: ${value}`);
 }
 
 function replaceNull(obj: Record<string, any>): Record<string, any> {
