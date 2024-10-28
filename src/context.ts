@@ -1,8 +1,6 @@
 import { Field, PublicKey, Bytes, Poseidon, Hash } from 'o1js';
 import { prefixes } from './constants.ts';
 
-export type { Context as ContextInput };
-
 export { computeContext, generateContext };
 
 type ContextType = 'zk-app' | 'https';
