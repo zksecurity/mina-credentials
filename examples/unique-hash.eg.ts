@@ -65,7 +65,7 @@ const spec = Spec(
 
 const targetNationalities = ['United States of America', 'Canada', 'Mexico'];
 
-let request = await PresentationRequest.https(
+let request = PresentationRequest.https(
   spec,
   {
     targetNationalities: targetNationalities.map((s) => Bytes32.fromString(s)),
