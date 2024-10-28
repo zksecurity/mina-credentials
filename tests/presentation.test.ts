@@ -202,7 +202,7 @@ test('presentation with context binding', async (t) => {
         Presentation.verify(request, presentation, {
           verifierIdentity: randomPublicKey(),
         }),
-      /Invalid context/,
+      /Invalid proof/,
       'Should throw an error for invalid context'
     );
 
@@ -217,7 +217,7 @@ test('presentation with context binding', async (t) => {
         Presentation.verify(request2, presentation, {
           verifierIdentity: zkAppAddress,
         }),
-      /Invalid context/,
+      /Invalid proof/,
       'Should throw an error for invalid context'
     );
   });
