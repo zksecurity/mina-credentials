@@ -57,7 +57,7 @@ const spec = Spec(
       targetNationalities
     ),
     // we expose a unique hash of the credential data, as nullifier
-    data: Operation.record({
+    ouputClaim: Operation.record({
       nullifier: Operation.hash(signedData, appId),
     }),
   })

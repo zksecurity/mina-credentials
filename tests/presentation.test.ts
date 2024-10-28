@@ -20,7 +20,7 @@ test('program with simple spec and signature credential', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      data: Operation.property(signedData, 'age'),
+      ouputClaim: Operation.property(signedData, 'age'),
     })
   );
 
@@ -136,7 +136,7 @@ test('program with owner and issuer operations', async (t) => {
         Operation.property(signedData, 'dummy'),
         expectedDummy
       ),
-      data: Operation.record({
+      ouputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         dummy: Operation.property(signedData, 'dummy'),
@@ -185,7 +185,7 @@ test('presentation with context binding', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      data: Operation.property(signedData, 'age'),
+      ouputClaim: Operation.property(signedData, 'age'),
     })
   );
   const data = { age: Field(18), name: Bytes32.fromString('Alice') };

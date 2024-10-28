@@ -527,7 +527,7 @@ test('convertSpecToSerializable', async (t) => {
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-        data: age,
+        ouputClaim: age,
       })
     );
 
@@ -596,7 +596,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.property(signedData, 'field'),
           zeroField
         ),
-        data: signedData,
+        ouputClaim: signedData,
       })
     );
 
@@ -665,7 +665,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.lessThan(field1, field2),
           Operation.equals(field1, zeroField)
         ),
-        data: field2,
+        ouputClaim: field2,
       })
     );
 
@@ -752,7 +752,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
-      data: age,
+      ouputClaim: age,
     })
   );
 
@@ -819,7 +819,7 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
         Operation.property(signedData, 'age'),
         targetAge
       ),
-      data: Operation.record({
+      ouputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         age: Operation.property(signedData, 'age'),

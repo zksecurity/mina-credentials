@@ -88,7 +88,7 @@ function convertSpecFromSerializable(parsedSpec: any): Spec {
     inputs,
     logic: {
       assert: deserializeNode(inputs, parsedSpec.logic.assert),
-      data: deserializeNode(inputs, parsedSpec.logic.data),
+      ouputClaim: deserializeNode(inputs, parsedSpec.logic.data),
     },
   };
 }

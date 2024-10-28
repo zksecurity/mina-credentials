@@ -32,7 +32,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ data, targetAge }) => ({
         assert: Operation.equals(Operation.property(data, 'age'), targetAge),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -42,7 +42,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(25));
@@ -66,7 +66,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.equals(Operation.property(data, 'age'), targetAge),
           Operation.equals(Operation.property(data, 'name'), targetName)
         ),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -77,7 +77,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
@@ -96,7 +96,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.equals(Operation.property(data, 'age'), targetAge),
           Operation.equals(Operation.property(data, 'name'), targetName)
         ),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -107,7 +107,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
@@ -126,7 +126,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.equals(Operation.property(data, 'age'), targetAge),
           Operation.equals(Operation.property(data, 'name'), targetName)
         ),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -137,7 +137,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
@@ -158,7 +158,7 @@ test(' Spec and Node operations', async (t) => {
             Operation.equals(Operation.property(data, 'age'), targetAge),
             Operation.equals(Operation.property(data, 'name'), targetName)
           ),
-          data: Operation.property(data, 'age'),
+          ouputClaim: Operation.property(data, 'age'),
         })
       );
       const root: DataInputs<typeof spec.inputs> = {
@@ -168,7 +168,7 @@ test(' Spec and Node operations', async (t) => {
       };
 
       const assertResult = Node.eval(root, spec.logic.assert);
-      const dataResult = Node.eval(root, spec.logic.data);
+      const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
       assert.strictEqual(assertResult.toBoolean(), true);
       assert.deepStrictEqual(dataResult, Field(11));
@@ -190,7 +190,7 @@ test(' Spec and Node operations', async (t) => {
           ),
           Operation.equals(Operation.property(data, 'name'), targetName)
         ),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -201,7 +201,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(11));
@@ -219,7 +219,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.hash(Operation.property(data, 'value')),
           expectedHash
         ),
-        data: Operation.property(data, 'value'),
+        ouputClaim: Operation.property(data, 'value'),
       })
     );
 
@@ -232,7 +232,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, inputValue);
@@ -251,7 +251,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.lessThan(targetAge, Operation.property(data, 'age')),
           Operation.equals(Operation.property(data, 'name'), targetName)
         ),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -262,7 +262,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
@@ -281,7 +281,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.lessThanEq(Operation.property(data, 'age'), targetAge),
           Operation.equals(Operation.property(data, 'name'), targetName)
         ),
-        data: Operation.property(data, 'age'),
+        ouputClaim: Operation.property(data, 'age'),
       })
     );
 
@@ -292,7 +292,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
@@ -307,7 +307,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ value1, value2, sum }) => ({
         assert: Operation.equals(Operation.add(value1, value2), sum),
-        data: Operation.add(value1, value2),
+        ouputClaim: Operation.add(value1, value2),
       })
     );
 
@@ -318,7 +318,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, UInt64.from(2000000));
@@ -333,7 +333,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ value1, value2, difference }) => ({
         assert: Operation.equals(Operation.sub(value1, value2), difference),
-        data: Operation.sub(value1, value2),
+        ouputClaim: Operation.sub(value1, value2),
       })
     );
 
@@ -344,7 +344,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, UInt32.from(800));
@@ -359,7 +359,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ value1, value2, product }) => ({
         assert: Operation.equals(Operation.mul(value1, value2), product),
-        data: Operation.mul(value1, value2),
+        ouputClaim: Operation.mul(value1, value2),
       })
     );
 
@@ -370,7 +370,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, UInt64.from(2000000));
@@ -385,7 +385,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ value1, value2, quotient }) => ({
         assert: Operation.equals(Operation.div(value1, value2), quotient),
-        data: Operation.div(value1, value2),
+        ouputClaim: Operation.div(value1, value2),
       })
     );
 
@@ -396,7 +396,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, UInt64.from(1000));
@@ -412,7 +412,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ data, threshold, zero }) => ({
         assert: Node.constant(Bool(true)),
-        data: Operation.ifThenElse(
+        ouputClaim: Operation.ifThenElse(
           Operation.lessThan(Operation.property(data, 'value'), threshold),
           zero,
           Operation.property(data, 'value')
@@ -427,7 +427,7 @@ test(' Spec and Node operations', async (t) => {
       zero: Field(0),
     };
 
-    const result1 = Node.eval(root1, spec.logic.data);
+    const result1 = Node.eval(root1, spec.logic.ouputClaim);
     assert.deepStrictEqual(result1, Field(0));
 
     // value >= threshold
@@ -437,7 +437,7 @@ test(' Spec and Node operations', async (t) => {
       zero: Field(0),
     };
 
-    const result2 = Node.eval(root2, spec.logic.data);
+    const result2 = Node.eval(root2, spec.logic.ouputClaim);
     assert.deepStrictEqual(result2, Field(15));
   });
 
@@ -458,7 +458,7 @@ test(' Spec and Node operations', async (t) => {
             Operation.lessThan(Operation.property(data, 'value'), highLimit)
           )
         ),
-        data: Operation.property(data, 'value'),
+        ouputClaim: Operation.property(data, 'value'),
       })
     );
 
@@ -525,7 +525,7 @@ test(' Spec and Node operations', async (t) => {
             Operation.equals(Operation.property(data, 'value'), highLimit)
           )
         ),
-        data: Operation.property(data, 'value'),
+        ouputClaim: Operation.property(data, 'value'),
       })
     );
 
@@ -581,7 +581,7 @@ test(' Spec and Node operations', async (t) => {
           input: Credential.Unsigned({ x: Field, y: Field }),
         },
         ({ input }) => ({
-          data: Operation.compute(
+          ouputClaim: Operation.compute(
             [Operation.property(input, 'x'), Operation.property(input, 'y')],
             Field,
             (x, y) => x.add(y)
@@ -593,7 +593,7 @@ test(' Spec and Node operations', async (t) => {
         input: cred({ x: Field(10), y: Field(5) }),
       };
 
-      const result = Node.eval(root, spec.logic.data);
+      const result = Node.eval(root, spec.logic.ouputClaim);
       assert.deepStrictEqual(result, Field(15));
     });
 
@@ -604,7 +604,7 @@ test(' Spec and Node operations', async (t) => {
           threshold: Claim(Field),
         },
         ({ value, threshold }) => ({
-          data: Operation.compute([value, threshold], Bool, (v, t) =>
+          ouputClaim: Operation.compute([value, threshold], Bool, (v, t) =>
             v.greaterThan(t)
           ),
         })
@@ -620,8 +620,8 @@ test(' Spec and Node operations', async (t) => {
         threshold: Field(10),
       };
 
-      const validResult = Node.eval(validRoot, spec.logic.data);
-      const invalidResult = Node.eval(invalidRoot, spec.logic.data);
+      const validResult = Node.eval(validRoot, spec.logic.ouputClaim);
+      const invalidResult = Node.eval(invalidRoot, spec.logic.ouputClaim);
 
       assert.strictEqual(validResult.toBoolean(), true);
       assert.strictEqual(invalidResult.toBoolean(), false);
@@ -662,7 +662,7 @@ test(' Spec and Node operations', async (t) => {
               Bool,
               (d, max) => d.lessThanOrEqual(max.mul(max))
             ),
-            data: distanceSquared,
+            ouputClaim: distanceSquared,
           };
         }
       );
@@ -680,7 +680,7 @@ test(' Spec and Node operations', async (t) => {
       };
 
       const assertResult = Node.eval(root, spec.logic.assert);
-      const dataResult = Node.eval(root, spec.logic.data);
+      const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
       assert.strictEqual(assertResult.toBoolean(), true);
       assert.deepStrictEqual(dataResult, Field(25));
@@ -705,7 +705,10 @@ test(' Spec and Node operations', async (t) => {
           ),
           Operation.equals(Operation.property(data, 'points'), targetPoints)
         ),
-        data: Operation.property(Operation.property(data, 'person'), 'name'),
+        ouputClaim: Operation.property(
+          Operation.property(data, 'person'),
+          'name'
+        ),
       })
     );
 
@@ -719,7 +722,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Bytes32.fromString('Bob'));
@@ -734,7 +737,7 @@ test(' Spec and Node operations', async (t) => {
       },
       ({ data, constAge }) => ({
         assert: Operation.equals(Operation.property(data, 'age'), constAge),
-        data: Operation.property(data, 'name'),
+        ouputClaim: Operation.property(data, 'name'),
       })
     );
 
@@ -744,7 +747,7 @@ test(' Spec and Node operations', async (t) => {
     };
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Bytes32.fromString('Charlie'));
@@ -763,7 +766,7 @@ test(' Spec and Node operations', async (t) => {
           Operation.equals(Operation.property(signedData, 'age'), targetAge),
           Operation.equals(Operation.property(signedData, 'name'), targetName)
         ),
-        data: Operation.property(signedData, 'age'),
+        ouputClaim: Operation.property(signedData, 'age'),
       })
     );
 
@@ -804,7 +807,7 @@ test(' Spec and Node operations', async (t) => {
     });
 
     const assertResult = Node.eval(root, spec.logic.assert);
-    const dataResult = Node.eval(root, spec.logic.data);
+    const dataResult = Node.eval(root, spec.logic.ouputClaim);
 
     assert.strictEqual(assertResult.toBoolean(), true);
     assert.deepStrictEqual(dataResult, Field(30));
