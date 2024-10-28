@@ -73,18 +73,14 @@ const spec = Spec(
   })
 );
 
-const targetNations = ['United States of America', 'Canada', 'Mexico'].map(
-  (s) => Bytes32.fromString(s)
-);
-const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()].map((pk) =>
-  Credential.Simple.issuer(pk)
-);
+const targetNations = ['United States of America', 'Canada', 'Mexico'];
+const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
 
 let request = PresentationRequest.https(
   spec,
   {
-    targetNations,
-    targetIssuers,
+    targetNations: targetNations.map((s) => Bytes32.fromString(s)),
+    targetIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
     appId: Bytes32.fromString('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
