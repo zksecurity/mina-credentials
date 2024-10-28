@@ -1,4 +1,4 @@
-import { Bytes, Field, PublicKey } from 'o1js';
+import { Bytes, Field } from 'o1js';
 import {
   Spec,
   Operation,
@@ -16,7 +16,6 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
-import { validateCredential } from '../src/credential-index.ts';
 import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
@@ -109,21 +108,25 @@ let presentation = await Presentation.create(ownerKey, {
   context: { verifierIdentity: 'my-app.xyz' },
 });
 console.timeEnd('create');
+
 // TODO: to send the presentation back we need to serialize it as well
 
 console.log('✅ WALLET: created presentation:', presentation);
 
 // ---------------------------------------------
-// VERIFIER: verify the presentation, and check that the nullifier was not used yet
+// VERIFIER: verify the presentation against the request we submitted, and check that the nullifier was not used yet
+
+let outputClaim = await Presentation.verify(request, presentation, {
+  verifierIdentity: 'my-app.xyz',
+});
+console.log('✅ VERIFIER: verified presentation');
 
 let existingNullifiers = new Set([0x13c43f30n, 0x370f3473n, 0xe1fe0cdan]);
 
 // TODO: claims and other I/O values should be plain JS types
-let { nullifier } = presentation.outputClaim;
+let { nullifier } = outputClaim;
 assert(
   !existingNullifiers.has(nullifier.toBigInt()),
   'Nullifier should be unique'
 );
 console.log('✅ VERIFIER: checked nullifier uniqueness');
-
-// TODO: implement verification
