@@ -78,21 +78,22 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with valid inputs', async () => {
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [provedData],
       context: undefined,
     });
 
+    let { claims, outputClaim, proof } = presentation;
     assert(proof, 'Proof should be generated');
 
     assert.deepStrictEqual(
-      proof.publicInput.claims.targetAge,
+      claims.targetAge,
       Field(18),
       'Public input should match'
     );
     assert.deepStrictEqual(
-      proof.publicOutput,
+      outputClaim,
       Field(18),
       'Public output should match the age'
     );

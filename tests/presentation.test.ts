@@ -47,21 +47,22 @@ test('program with simple spec and signature credential', async (t) => {
     let signedData = Credential.sign(issuerKey, { owner, data });
 
     // presentation
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
       context: undefined,
     });
 
+    let { claims, outputClaim, proof } = presentation;
     assert(proof, 'Proof should be generated');
 
     assert.deepStrictEqual(
-      proof.publicInput.claims.targetAge,
+      claims.targetAge,
       Field(18),
       'Public input should match'
     );
     assert.deepStrictEqual(
-      proof.publicOutput,
+      outputClaim,
       Field(18),
       'Public output should match the age'
     );
@@ -153,20 +154,21 @@ test('program with owner and issuer operations', async (t) => {
   await t.test('run program with valid input', async () => {
     let dummyData = { dummy: Field(123) };
     let signedData = Credential.sign(issuerKey, { owner, data: dummyData });
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
       context: undefined,
     });
 
+    let { outputClaim, proof } = presentation;
     assert(proof, 'Proof should be generated');
 
-    assert.deepStrictEqual(proof.publicOutput.owner, owner);
+    assert.deepStrictEqual(outputClaim.owner, owner);
 
     const expectedIssuerField = SignedData.issuer(signedData.witness);
-    assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
+    assert.deepStrictEqual(outputClaim.issuer, expectedIssuerField);
 
-    assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
+    assert.deepStrictEqual(outputClaim.dummy, Field(123));
   });
 });
 
