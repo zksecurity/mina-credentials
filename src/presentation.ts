@@ -297,35 +297,6 @@ async function createPresentation<R extends PresentationRequest>(
   };
 }
 
-function toJSON<Output, Inputs extends Record<string, Input>>(
-  presentation: Presentation<Output, Inputs>
-): string {
-  let json = {
-    version: presentation.version,
-    claims: serializeNestedProvableValue(presentation.claims),
-    outputClaim: serializeNestedProvableValue(presentation.outputClaim),
-    clientNonce: serializeProvable(presentation.clientNonce),
-    proof: presentation.proof,
-  };
-  return JSON.stringify(json);
-}
-
-function fromJSON(presentationJson: string): Presentation {
-  let presentation = JSON.parse(presentationJson);
-  assert(
-    presentation.version === 'v0',
-    `Unsupported presentation version: ${presentation.version}`
-  );
-
-  return {
-    version: presentation.version,
-    claims: deserializeNestedProvableValue(presentation.claims),
-    outputClaim: deserializeNestedProvableValue(presentation.outputClaim),
-    clientNonce: deserializeProvable(presentation.clientNonce),
-    proof: presentation.proof,
-  };
-}
-
 async function verifyPresentation<R extends PresentationRequest>(
   request: R,
   presentation: Presentation<any, Record<string, any>>,
@@ -369,6 +340,37 @@ async function verifyPresentation<R extends PresentationRequest>(
   // return the verified outputClaim
   return outputClaim;
 }
+
+function toJSON<Output, Inputs extends Record<string, Input>>(
+  presentation: Presentation<Output, Inputs>
+): string {
+  let json = {
+    version: presentation.version,
+    claims: serializeNestedProvableValue(presentation.claims),
+    outputClaim: serializeNestedProvableValue(presentation.outputClaim),
+    clientNonce: serializeProvable(presentation.clientNonce),
+    proof: presentation.proof,
+  };
+  return JSON.stringify(json);
+}
+
+function fromJSON(presentationJson: string): Presentation {
+  let presentation = JSON.parse(presentationJson);
+  assert(
+    presentation.version === 'v0',
+    `Unsupported presentation version: ${presentation.version}`
+  );
+
+  return {
+    version: presentation.version,
+    claims: deserializeNestedProvableValue(presentation.claims),
+    outputClaim: deserializeNestedProvableValue(presentation.outputClaim),
+    clientNonce: deserializeProvable(presentation.clientNonce),
+    proof: presentation.proof,
+  };
+}
+
+// helper
 
 function pickCredentials(
   credentialsNeeded: string[],
