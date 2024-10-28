@@ -42,7 +42,7 @@ console.log('✅ ISSUER: issued credential:', credentialJson);
 
 let storedCredential = Credential.fromJSON(credentialJson);
 
-await validateCredential(storedCredential);
+await Credential.validate(storedCredential);
 
 console.log('✅ WALLET: imported and validated credential');
 

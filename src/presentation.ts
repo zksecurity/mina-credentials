@@ -112,7 +112,7 @@ const PresentationRequest = {
       spec,
       claims,
       program: createProgram(spec),
-      inputContext: { ...context, type: 'zk-app', serverNonce },
+      inputContext: { type: 'zk-app', ...context, serverNonce },
     });
   },
 
