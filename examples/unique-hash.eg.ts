@@ -1,4 +1,4 @@
-import { Bytes } from 'o1js';
+import { Bytes, Field, PublicKey } from 'o1js';
 import {
   Spec,
   Operation,
@@ -9,7 +9,13 @@ import {
   assert,
   type InferSchema,
 } from '../src/index.ts';
-import { issuerKey, owner, ownerKey } from '../tests/test-utils.ts';
+import {
+  issuer,
+  issuerKey,
+  owner,
+  ownerKey,
+  randomPublicKey,
+} from '../tests/test-utils.ts';
 import { validateCredential } from '../src/credential-index.ts';
 import { array } from '../src/o1js-missing.ts';
 
@@ -46,29 +52,40 @@ console.log('✅ WALLET: imported and validated credential');
 const spec = Spec(
   {
     signedData: Credential.Simple(Schema), // schema needed here!
-    targetNationalities: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
+    targetNations: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
+    targetIssuers: Claim(array(Field, 3)),
     appId: Claim(Bytes32),
   },
-  ({ signedData, targetNationalities, appId }) => ({
-    // we assert that the owner has the target nationality
-    // TODO: add a one-of-many operation to make this more interesting
-    assert: Operation.equalsOneOf(
-      Operation.property(signedData, 'nationality'),
-      targetNationalities
+  ({ signedData, targetNations, targetIssuers, appId }) => ({
+    // we assert that:
+    // 1. the owner has one of the accepted nationalities
+    // 2. the credential was issued by one of the accepted issuers
+    assert: Operation.and(
+      Operation.equalsOneOf(
+        Operation.property(signedData, 'nationality'),
+        targetNations
+      ),
+      Operation.equalsOneOf(Operation.issuer(signedData), targetIssuers)
     ),
-    // we expose a unique hash of the credential data, as nullifier
+    // we expose a unique hash of the credential data, to be used as nullifier
     ouputClaim: Operation.record({
       nullifier: Operation.hash(signedData, appId),
     }),
   })
 );
 
-const targetNationalities = ['United States of America', 'Canada', 'Mexico'];
+const targetNations = ['United States of America', 'Canada', 'Mexico'].map(
+  (s) => Bytes32.fromString(s)
+);
+const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()].map((pk) =>
+  Credential.Simple.issuer(pk)
+);
 
 let request = PresentationRequest.https(
   spec,
   {
-    targetNationalities: targetNationalities.map((s) => Bytes32.fromString(s)),
+    targetNations,
+    targetIssuers,
     appId: Bytes32.fromString('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
