@@ -2,7 +2,6 @@ import {
   Bytes,
   Field,
   Hash,
-  Poseidon,
   Proof,
   Signature,
   VerificationKey,
@@ -43,23 +42,16 @@ type Program<Output, Inputs extends Record<string, Input>> = {
   >;
 };
 
-function deriveCircuitName(spec: Spec): string {
-  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
-  const specBytes = Bytes.fromString(serializedSpec);
-  const hashBytes = Hash.Keccak256.hash(specBytes);
-  return `credential-${hashBytes.toString()}`;
-}
-
 function createProgram<S extends Spec>(
   spec: S
 ): Program<GetSpecData<S>, S['inputs']> {
-  // 1. split spec inputs into public and private inputs
+  // split spec inputs into public and private inputs
   let PublicInput = NestedProvable.get(publicInputTypes(spec));
   let PublicOutput = publicOutputType(spec);
   let PrivateInput = NestedProvable.get(privateInputTypes(spec));
 
   let program = ZkProgram({
-    name: deriveCircuitName(spec),
+    name: programName(spec),
     publicInput: PublicInput,
     publicOutput: PublicOutput,
     methods: {
@@ -77,7 +69,6 @@ function createProgram<S extends Spec>(
             publicInput,
             privateInput
           );
-          // TODO return issuers from this function and pass it to app logic
           let credentialOutputs = verifyCredentials(credentials);
 
           let root = recombineDataInputs(
@@ -87,9 +78,9 @@ function createProgram<S extends Spec>(
             credentialOutputs
           );
           let assertion = Node.eval(root, spec.logic.assert);
-          let output = Node.eval(root, spec.logic.ouputClaim);
+          let outputClaim = Node.eval(root, spec.logic.ouputClaim);
           assertion.assertTrue('Program assertion failed!');
-          return { publicOutput: output };
+          return { publicOutput: outputClaim };
         },
       },
     },
@@ -116,6 +107,13 @@ function createProgram<S extends Spec>(
 }
 
 // helper
+
+function programName(spec: Spec): string {
+  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
+  const specBytes = Bytes.fromString(serializedSpec);
+  const hashBytes = Hash.Keccak256.hash(specBytes);
+  return `credential-${hashBytes.toHex().slice(0, 16)}`;
+}
 
 type GetSpecData<S extends Spec> = S extends Spec<infer Data, any>
   ? Data

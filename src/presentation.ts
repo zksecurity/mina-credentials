@@ -4,9 +4,11 @@ import {
   Field,
   Poseidon,
   PrivateKey,
+  Provable,
   PublicKey,
   Struct,
   VerificationKey,
+  verify,
 } from 'o1js';
 import {
   Spec,
@@ -115,7 +117,7 @@ const PresentationRequest = {
       spec,
       claims,
       program: createProgram(spec),
-      inputContext: { ...context, type: 'zk-app', serverNonce },
+      inputContext: { type: 'zk-app', ...context, serverNonce },
     });
   },
 
@@ -213,7 +215,20 @@ const Presentation = {
     return { ...request, program, verificationKey };
   },
 
+  /**
+   * Create a presentation, given the request, context, and credentials.
+   *
+   * The first argument is the private key of the credential's owner, which is needed to sign credentials.
+   */
   create: createPresentation,
+
+  /**
+   * Verify a presentation against a request and context.
+   *
+   * Returns the verified output claim of the proof, to be consumed by application-specific logic.
+   */
+  verify: verifyPresentation,
+
   toJSON: toJSON,
   fromJSON: fromJSON,
 };
@@ -308,6 +323,45 @@ function fromJSON<
     clientNonce: deserializeProvable(presentation.clientNonce),
     proof: presentation.proof,
   };
+}
+
+async function verifyPresentation<R extends PresentationRequest>(
+  request: R,
+  presentation: Presentation<any, Record<string, any>>,
+  context: WalletContext<R>
+): Promise<Output<R>> {
+  // make sure request is compiled
+  let { program, verificationKey } = await Presentation.compile(request);
+
+  // rederive context
+  let contextHash = request.deriveContext(request.inputContext, context, {
+    clientNonce: presentation.clientNonce,
+    vkHash: verificationKey.hash,
+    claims: hashClaims(request.claims),
+  });
+
+  // assert the correct claims were used, and claims match the proof public inputs
+  let { proof } = presentation;
+  let claimType = NestedProvable.get(NestedProvable.fromValue(request.claims));
+  let outputType = program.program.publicOutputType;
+  let claims = request.claims;
+  Provable.assertEqual(claimType, proof.publicInput.claims, claims);
+  Provable.assertEqual(claimType, presentation.claims, claims);
+  Provable.assertEqual(
+    outputType,
+    proof.publicOutput,
+    presentation.outputClaim
+  );
+
+  // assert that the correct context was used
+  proof.publicInput.context.assertEquals(contextHash, 'Invalid context');
+
+  // verify the proof against our verification key
+  let ok = await verify(proof, verificationKey);
+  assert(ok, 'Invalid proof');
+
+  // return the verified outputClaim
+  return proof.publicOutput;
 }
 
 function pickCredentials(
