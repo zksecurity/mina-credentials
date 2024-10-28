@@ -221,6 +221,8 @@ const Presentation = {
 
   /**
    * Verify a presentation against a request and context.
+   *
+   * Returns the verified output claim of the proof, to be consumed by application-specific logic.
    */
   verify: verifyPresentation,
 };
