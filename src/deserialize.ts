@@ -35,11 +35,13 @@ export {
   deserializeInput,
   deserializeNode,
   deserializeProvableType,
+  deserializeProvablePureType,
   deserializeProvable,
   deserializeNestedProvable,
   deserializeNestedProvableValue,
   deserializeInputContext,
   convertSpecFromSerializable,
+  replaceNull,
 };
 
 function deserializeInputContext(context: null | SerializedContext) {

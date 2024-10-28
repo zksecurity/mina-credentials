@@ -1,8 +1,9 @@
 import {
+  DynamicProof,
+  FeatureFlags,
   Field,
   Poseidon,
   PrivateKey,
-  Proof,
   PublicKey,
   Struct,
   VerificationKey,
@@ -26,11 +27,13 @@ import {
   convertSpecToSerializable,
   serializeInputContext,
   serializeNestedProvableValue,
+  serializeProvable,
 } from './serialize.ts';
 import {
   convertSpecFromSerializable,
   deserializeInputContext,
   deserializeNestedProvableValue,
+  deserializeProvable,
 } from './deserialize.ts';
 
 // external API
@@ -180,7 +183,7 @@ type Presentation<Output, Inputs extends Record<string, Input>> = {
   claims: Claims<Inputs>;
   outputClaim: Output;
   clientNonce: Field;
-  proof: Proof<PublicInputs<Inputs>, Output>;
+  proof: DynamicProof<PublicInputs<Inputs>, Output>;
 };
 
 type Output<R> = R extends PresentationRequest<any, infer O> ? O : never;
@@ -211,6 +214,8 @@ const Presentation = {
   },
 
   create: createPresentation,
+  toJSON: toJSON,
+  fromJSON: fromJSON,
 };
 
 async function createPresentation<R extends PresentationRequest>(
@@ -263,11 +268,67 @@ async function createPresentation<R extends PresentationRequest>(
     credentials: credentialsUsed as any,
   });
 
+  const featureFlags = await FeatureFlags.fromZkProgram(program.program);
+
+  // Create a proper DynamicProof subclass with the correct types and properties
+  class PresentationProof extends DynamicProof<
+    PublicInputs<Inputs<R>>,
+    Output<R>
+  > {
+    static publicInputType = program.program.publicInputType;
+    static publicOutputType = program.program.publicOutputType;
+    static maxProofsVerified = proof.maxProofsVerified;
+    static featureFlags = featureFlags;
+  }
+
+  // Create the dynamic proof using our properly typed subclass
+  const dynamicProof = PresentationProof.fromProof(proof);
+
   return {
     version: 'v0',
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
     clientNonce,
+    proof: dynamicProof,
+  };
+}
+
+function toJSON<Output, Inputs extends Record<string, Input>>(
+  presentation: Presentation<Output, Inputs>
+): string {
+  let json = {
+    version: presentation.version,
+    claims: serializeNestedProvableValue(presentation.claims),
+    outputClaim: serializeNestedProvableValue(presentation.outputClaim),
+    clientNonce: serializeProvable(presentation.clientNonce),
+    proof: presentation.proof.toJSON(),
+  };
+  return JSON.stringify(json);
+}
+
+async function fromJSON<Output, Inputs extends Record<string, Input>>(
+  presentationJson: string
+): Promise<Presentation<Output, Inputs>> {
+  let presentation = JSON.parse(presentationJson);
+  assert(
+    presentation.version === 'v0',
+    `Unsupported presentation version: ${presentation.version}`
+  );
+
+  class DeserializedProof extends DynamicProof<PublicInputs<Inputs>, Output> {
+    static publicInputType: any;
+    static publicOutputType: any;
+    static maxProofsVerified = presentation.maxProofsVerified;
+    static featureFlags = FeatureFlags.allMaybe;
+  }
+
+  const proof = await DeserializedProof.fromJSON(presentation.proof);
+
+  return {
+    version: presentation.version,
+    claims: deserializeNestedProvableValue(presentation.claims),
+    outputClaim: deserializeNestedProvableValue(presentation.outputClaim),
+    clientNonce: deserializeProvable(presentation.clientNonce),
     proof,
   };
 }
