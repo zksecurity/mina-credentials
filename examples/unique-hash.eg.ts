@@ -1,4 +1,4 @@
-import { Bytes } from 'o1js';
+import { Bytes, Field } from 'o1js';
 import {
   Spec,
   Operation,
@@ -92,17 +92,21 @@ let presentation = await Presentation.create(ownerKey, {
   context: { verifierIdentity: 'my-app.xyz' },
 });
 console.timeEnd('create');
-// TODO: to send the presentation back we need to serialize it as well
 
-console.log('✅ WALLET: created presentation:', presentation);
+let serialized = Presentation.toJSON(presentation);
+console.log(
+  '✅ WALLET: created presentation:',
+  serialized.slice(0, 1000) + '...'
+);
 
 // ---------------------------------------------
 // VERIFIER: verify the presentation, and check that the nullifier was not used yet
 
+let presentation2 = Presentation.fromJSON<{ nullifier: Field }>(serialized);
 let existingNullifiers = new Set([0x13c43f30n, 0x370f3473n, 0xe1fe0cdan]);
 
 // TODO: claims and other I/O values should be plain JS types
-let { nullifier } = presentation.outputClaim;
+let { nullifier } = presentation2.outputClaim;
 assert(
   !existingNullifiers.has(nullifier.toBigInt()),
   'Nullifier should be unique'

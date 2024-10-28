@@ -274,7 +274,7 @@ async function createPresentation<R extends PresentationRequest>(
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
     clientNonce,
-    proof: { proof: proofBase64, maxProofsVerified },
+    proof: { maxProofsVerified, proof: proofBase64 },
   };
 }
 
@@ -291,9 +291,10 @@ function toJSON<Output, Inputs extends Record<string, Input>>(
   return JSON.stringify(json);
 }
 
-async function fromJSON<Output, Inputs extends Record<string, Input>>(
-  presentationJson: string
-): Promise<Presentation<Output, Inputs>> {
+function fromJSON<
+  Output,
+  Inputs extends Record<string, Input> = Record<string, any>
+>(presentationJson: string): Presentation<Output, Inputs> {
   let presentation = JSON.parse(presentationJson);
   assert(
     presentation.version === 'v0',
