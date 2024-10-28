@@ -7,6 +7,7 @@ import {
   Presentation,
   PresentationRequest,
   assert,
+  type InferSchema,
 } from '../src/index.ts';
 import { issuerKey, owner, ownerKey } from '../tests/test-utils.ts';
 import { validateCredential } from '../src/credential-index.ts';
@@ -16,12 +17,12 @@ import { array } from '../src/o1js-missing.ts';
 const Bytes32 = Bytes(32);
 const Bytes16 = Bytes(16); // 16 bytes = 128 bits = enough entropy
 
-const Data = { nationality: Bytes32, id: Bytes16 };
+const Schema = { nationality: Bytes32, id: Bytes16 };
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
 
-let data = {
+let data: InferSchema<typeof Schema> = {
   nationality: Bytes32.fromString('United States of America'),
   id: Bytes16.random(),
 };
@@ -44,7 +45,7 @@ console.log('✅ WALLET: imported and validated credential');
 
 const spec = Spec(
   {
-    signedData: Credential.Simple(Data), // schema needed here!
+    signedData: Credential.Simple(Schema), // schema needed here!
     targetNationalities: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
     appId: Claim(Bytes32),
   },
