@@ -1,4 +1,12 @@
-import { Field, Poseidon, PrivateKey, Proof, PublicKey, Struct } from 'o1js';
+import {
+  Field,
+  Poseidon,
+  PrivateKey,
+  Proof,
+  PublicKey,
+  Struct,
+  VerificationKey,
+} from 'o1js';
 import {
   Spec,
   type Input,
@@ -25,16 +33,26 @@ import {
   deserializeNestedProvableValue,
 } from './deserialize-spec.ts';
 
+// external API
+export { PresentationRequest, Presentation };
+
+// internal
 export {
-  PresentationRequest,
-  Presentation,
   type ZkAppInputContext,
   type HttpsInputContext,
+  type WalletDerivedContext,
   ZkAppRequest,
   HttpsRequest,
+  hashClaims,
 };
 
 type PresentationRequestType = 'no-context' | 'zk-app' | 'https';
+
+type WalletDerivedContext = {
+  vkHash: Field;
+  claims: Field;
+  clientNonce: Field;
+};
 
 type PresentationRequest<
   RequestType extends PresentationRequestType = PresentationRequestType,
@@ -50,9 +68,18 @@ type PresentationRequest<
   program?: unknown;
 
   deriveContext(
+    /**
+     * Context that is passed in from the input request / server-side
+     */
     inputContext: InputContext,
-    clientNonce: Field,
-    walletContext: WalletContext
+    /**
+     * Application-specific context that is passed in from the wallet / client-side
+     */
+    walletContext: WalletContext,
+    /**
+     * Context automatically (re-)derived on the client
+     */
+    derivedContext: WalletDerivedContext
   ): Field;
 };
 
@@ -65,25 +92,15 @@ const PresentationRequest = {
     // generate random nonce on "the server"
     let serverNonce = Field.random();
 
-    // compile program to get the verification key
-    let program = createProgram(spec);
-    let verificationKey = await program.compile();
-
     return HttpsRequest({
       spec,
       claims,
-      program,
-      inputContext: {
-        type: 'https',
-        ...context,
-        vkHash: verificationKey.hash,
-        serverNonce,
-        claims: hashClaims(claims),
-      },
+      program: createProgram(spec),
+      inputContext: { type: 'https', ...context, serverNonce },
     });
   },
 
-  async zkApp<Output, Inputs extends Record<string, Input>>(
+  zkApp<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
     context: { action: Field }
@@ -93,19 +110,12 @@ const PresentationRequest = {
 
     // compile program to get the verification key
     let program = createProgram(spec);
-    let verificationKey = await program.compile();
 
     return ZkAppRequest({
       spec,
       claims,
       program,
-      inputContext: {
-        ...context,
-        type: 'zk-app',
-        vkHash: verificationKey.hash,
-        serverNonce,
-        claims: hashClaims(claims),
-      },
+      inputContext: { ...context, type: 'zk-app', serverNonce },
     });
   },
 
@@ -191,11 +201,16 @@ type WalletContext<R> = R extends PresentationRequest<
 const Presentation = {
   async compile<R extends PresentationRequest>(
     request: R
-  ): Promise<Omit<R, 'program'> & { program: Program<Output<R>, Inputs<R>> }> {
+  ): Promise<
+    Omit<R, 'program'> & {
+      program: Program<Output<R>, Inputs<R>>;
+      verificationKey: VerificationKey;
+    }
+  > {
     let program: Program<Output<R>, Inputs<R>> = (request as any).program ??
     createProgram(request.spec);
-    await program.compile();
-    return { ...request, program };
+    let verificationKey = await program.compile();
+    return { ...request, program, verificationKey };
   },
 
   create: createPresentation,
@@ -213,16 +228,20 @@ async function createPresentation<R extends PresentationRequest>(
     credentials: (StoredCredential & { key?: string })[];
   }
 ): Promise<Presentation<Output<R>, Inputs<R>>> {
+  // compile the program
+  let { program, verificationKey } = await Presentation.compile(request);
+
   // generate random client nonce
   let clientNonce = Field.random();
 
-  let context = request.deriveContext(
-    request.inputContext,
+  // derive context
+  let context = request.deriveContext(request.inputContext, walletContext, {
     clientNonce,
-    walletContext
-  );
-  let { program } = await Presentation.compile(request);
+    vkHash: verificationKey.hash,
+    claims: hashClaims(request.claims),
+  });
 
+  // find credentials and sign with owner key
   let credentialsNeeded = Object.entries(request.spec.inputs).filter(
     (c): c is [string, CredentialSpec] => c[1].type === 'credential'
   );
@@ -239,6 +258,7 @@ async function createPresentation<R extends PresentationRequest>(
     }))
   );
 
+  // create the presentation proof
   let proof = await program.run({
     context,
     claims: request.claims as any,
@@ -305,9 +325,7 @@ type NoContextRequest<
 > = PresentationRequest<'no-context', Output, Inputs, undefined, undefined>;
 
 type BaseInputContext = {
-  vkHash: Field;
   serverNonce: Field;
-  claims: Field;
 };
 
 type HttpsInputContext = BaseInputContext & {
@@ -336,11 +354,11 @@ function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
     type: 'https',
     ...request,
 
-    deriveContext(inputContext, clientNonce, walletContext) {
+    deriveContext(inputContext, walletContext, derivedContext) {
       const context = computeContext({
         ...inputContext,
         ...walletContext,
-        clientNonce,
+        ...derivedContext,
       });
       return generateContext(context);
     },
@@ -373,11 +391,11 @@ function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
     type: 'zk-app',
     ...request,
 
-    deriveContext(inputContext, clientNonce, walletContext) {
+    deriveContext(inputContext, walletContext, derivedContext) {
       const context = computeContext({
         ...inputContext,
         ...walletContext,
-        clientNonce,
+        ...derivedContext,
       });
       return generateContext(context);
     },

@@ -23,7 +23,7 @@ import {
   supportedTypes,
   type O1jsTypeName,
   type SerializedType,
-  type SerializedValue,
+  type SerializedContext,
 } from './serialize-spec.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
@@ -42,30 +42,14 @@ export {
   convertSpecFromSerializable,
 };
 
-function deserializeInputContext(
-  context: null | {
-    type: string;
-    vkHash: SerializedValue;
-    claims: SerializedValue;
-    action: SerializedValue | string;
-    serverNonce: SerializedValue;
-  }
-) {
+function deserializeInputContext(context: null | SerializedContext) {
   if (context === null) return undefined;
   return {
-    type: context.type as 'zk-app' | 'https',
-    vkHash: deserializeProvable({
-      _type: 'Field',
-      value: context.vkHash.value,
-    }),
-    claims: deserializeProvable(context.claims),
+    type: context.type,
     action:
       context.type === 'zk-app'
-        ? deserializeProvable({
-            _type: 'Field',
-            value: (context.action as { _type: string; value: string }).value,
-          })
-        : (context.action as string),
+        ? deserializeProvable({ _type: 'Field', value: context.action.value })
+        : context.action,
     serverNonce: deserializeProvable({
       _type: 'Field',
       value: context.serverNonce.value,

@@ -4,7 +4,6 @@ import { Spec, type Input, Node } from './program-spec.ts';
 import {
   type HttpsInputContext,
   type ZkAppInputContext,
-  type PresentationRequest,
 } from './presentation.ts';
 import {
   Field,
@@ -21,6 +20,25 @@ import {
   Struct,
 } from 'o1js';
 import { assert } from './util.ts';
+
+export {
+  type O1jsTypeName,
+  type SerializedType,
+  type SerializedValue,
+  type SerializedContext,
+  supportedTypes,
+  serializeProvableType,
+  serializeProvable,
+  serializeNestedProvable,
+  serializeNode,
+  serializeInputs,
+  serializeInput,
+  convertSpecToSerializable,
+  serializeSpec,
+  validateSpecHash,
+  serializeNestedProvableValue,
+  serializeInputContext,
+};
 
 // Supported o1js base types
 const supportedTypes = {
@@ -40,24 +58,6 @@ let mapProvableTypeToName = new Map<ProvableType<any>, O1jsTypeName>();
 for (let [key, value] of Object.entries(supportedTypes)) {
   mapProvableTypeToName.set(value, key as O1jsTypeName);
 }
-
-export {
-  type O1jsTypeName,
-  type SerializedType,
-  type SerializedValue,
-  supportedTypes,
-  serializeProvableType,
-  serializeProvable,
-  serializeNestedProvable,
-  serializeNode,
-  serializeInputs,
-  serializeInput,
-  convertSpecToSerializable,
-  serializeSpec,
-  validateSpecHash,
-  serializeNestedProvableValue,
-  serializeInputContext,
-};
 
 async function serializeSpec(spec: Spec): Promise<string> {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
@@ -195,32 +195,23 @@ function serializeNode(node: Node): object {
   }
 }
 
+type SerializedContext =
+  | { type: 'https'; action: string; serverNonce: SerializedValue }
+  | { type: 'zk-app'; action: SerializedValue; serverNonce: SerializedValue };
+
 function serializeInputContext(
-  context:
-    | undefined
-    | ({ type: 'zk-app' } & ZkAppInputContext)
-    | ({ type: 'https' } & HttpsInputContext)
-): null | {
-  type: string;
-  vkHash: SerializedValue;
-  claims: SerializedValue;
-  action: SerializedValue | string;
-  serverNonce: SerializedValue;
-} {
+  context: undefined | ZkAppInputContext | HttpsInputContext
+): null | SerializedContext {
   if (context === undefined) return null;
-  const serializedBase = {
-    type: context.type,
-    vkHash: serializeProvable(context.vkHash),
-    claims: serializeProvable(context.claims),
-    serverNonce: serializeProvable(context.serverNonce),
-  };
+
+  let serverNonce = serializeProvable(context.serverNonce);
 
   switch (context.type) {
     case 'zk-app':
       let action = serializeProvable(context.action);
-      return { ...serializedBase, action };
+      return { type: context.type, serverNonce, action };
     case 'https':
-      return { ...serializedBase, action: context.action };
+      return { type: context.type, serverNonce, action: context.action };
     default:
       throw Error(`Unsupported context type: ${(context as any).type}`);
   }
