@@ -64,10 +64,14 @@ const spec = Spec(
 
 const targetNationalities = ['United States of America', 'Canada', 'Mexico'];
 
-let request = PresentationRequest.noContext(spec, {
-  targetNationalities: targetNationalities.map((s) => Bytes32.fromString(s)),
-  appId: Bytes32.fromString('my-app-id:123'),
-});
+let request = await PresentationRequest.https(
+  spec,
+  {
+    targetNationalities: targetNationalities.map((s) => Bytes32.fromString(s)),
+    appId: Bytes32.fromString('my-app-id:123'),
+  },
+  { action: 'my-app-id:123:authenticate' }
+);
 let requestJson = PresentationRequest.toJSON(request);
 
 console.log('✅ VERIFIER: created presentation request:', requestJson);
@@ -76,7 +80,7 @@ console.log('✅ VERIFIER: created presentation request:', requestJson);
 // WALLET: deserialize request and create presentation
 
 console.time('compile');
-let deserialized = PresentationRequest.fromJSON('no-context', requestJson);
+let deserialized = PresentationRequest.fromJSON('https', requestJson);
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
 
@@ -84,7 +88,7 @@ console.time('create');
 let presentation = await Presentation.create(ownerKey, {
   request: compiled,
   credentials: [storedCredential],
-  context: undefined,
+  context: { verifierIdentity: 'my-app.xyz' },
 });
 console.timeEnd('create');
 // TODO: to send the presentation back we need to serialize it as well
