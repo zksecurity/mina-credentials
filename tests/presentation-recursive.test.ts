@@ -89,9 +89,9 @@ await describe('program with proof credential', async () => {
       undefined
     );
 
-    let { proof } = presentation;
+    let { claims } = presentation;
     assert.deepStrictEqual(
-      proof.publicInput.claims.targetAge,
+      claims.targetAge,
       Field(18),
       'Public input should match'
     );

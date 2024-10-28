@@ -1,20 +1,15 @@
 import {
   Field,
+  type JsonProof,
   Poseidon,
   PrivateKey,
-  Proof,
   Provable,
   PublicKey,
   Struct,
   VerificationKey,
   verify,
 } from 'o1js';
-import {
-  Spec,
-  type Input,
-  type Claims,
-  type PublicInputs,
-} from './program-spec.ts';
+import { Spec, type Input, type Claims } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
   signCredentials,
@@ -28,12 +23,14 @@ import {
   convertSpecToSerializable,
   serializeInputContext,
   serializeNestedProvableValue,
-} from './serialize-spec.ts';
+  serializeProvable,
+} from './serialize.ts';
 import {
   convertSpecFromSerializable,
   deserializeInputContext,
   deserializeNestedProvableValue,
-} from './deserialize-spec.ts';
+  deserializeProvable,
+} from './deserialize.ts';
 
 // external API
 export { PresentationRequest, Presentation };
@@ -177,12 +174,15 @@ function requestFromJson(
   }
 }
 
-type Presentation<Output, Inputs extends Record<string, Input>> = {
+type Presentation<
+  Output = any,
+  Inputs extends Record<string, Input> = Record<string, Input>
+> = {
   version: 'v0';
   claims: Claims<Inputs>;
   outputClaim: Output;
   clientNonce: Field;
-  proof: Proof<PublicInputs<Inputs>, Output>;
+  proof: { proof: string; maxProofsVerified: number };
 };
 
 type Output<R> = R extends PresentationRequest<any, infer O> ? O : never;
@@ -225,6 +225,16 @@ const Presentation = {
    * Returns the verified output claim of the proof, to be consumed by application-specific logic.
    */
   verify: verifyPresentation,
+
+  /**
+   * Serialize a presentation to JSON.
+   */
+  toJSON,
+
+  /**
+   * Deserialize a presentation from JSON.
+   */
+  fromJSON,
 };
 
 async function createPresentation<R extends PresentationRequest>(
@@ -276,13 +286,14 @@ async function createPresentation<R extends PresentationRequest>(
     ownerSignature,
     credentials: credentialsUsed as any,
   });
+  let { proof: proofBase64, maxProofsVerified } = proof.toJSON();
 
   return {
     version: 'v0',
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
     clientNonce,
-    proof,
+    proof: { maxProofsVerified, proof: proofBase64 },
   };
 }
 
@@ -302,28 +313,64 @@ async function verifyPresentation<R extends PresentationRequest>(
   });
 
   // assert the correct claims were used, and claims match the proof public inputs
-  let { proof } = presentation;
+  let { proof, outputClaim } = presentation;
   let claimType = NestedProvable.get(NestedProvable.fromValue(request.claims));
-  let outputType = program.program.publicOutputType;
   let claims = request.claims;
-  Provable.assertEqual(claimType, proof.publicInput.claims, claims);
   Provable.assertEqual(claimType, presentation.claims, claims);
-  Provable.assertEqual(
-    outputType,
-    proof.publicOutput,
-    presentation.outputClaim
-  );
 
-  // assert that the correct context was used
-  proof.publicInput.context.assertEquals(contextHash, 'Invalid context');
+  // reconstruct proof object
+  let inputType = program.program.publicInputType;
+  let outputType = program.program.publicOutputType;
+  let publicInputFields = inputType.toFields({
+    context: contextHash,
+    claims: claims as any,
+  });
+  let publicOutputFields = outputType.toFields(outputClaim);
+  let jsonProof: JsonProof = {
+    publicInput: publicInputFields.map((f) => f.toString()),
+    publicOutput: publicOutputFields.map((f) => f.toString()),
+    proof: proof.proof,
+    maxProofsVerified: proof.maxProofsVerified as 0 | 1 | 2,
+  };
 
   // verify the proof against our verification key
-  let ok = await verify(proof, verificationKey);
+  let ok = await verify(jsonProof, verificationKey);
   assert(ok, 'Invalid proof');
 
   // return the verified outputClaim
-  return proof.publicOutput;
+  return outputClaim;
 }
+
+function toJSON<Output, Inputs extends Record<string, Input>>(
+  presentation: Presentation<Output, Inputs>
+): string {
+  let json = {
+    version: presentation.version,
+    claims: serializeNestedProvableValue(presentation.claims),
+    outputClaim: serializeNestedProvableValue(presentation.outputClaim),
+    clientNonce: serializeProvable(presentation.clientNonce),
+    proof: presentation.proof,
+  };
+  return JSON.stringify(json);
+}
+
+function fromJSON(presentationJson: string): Presentation {
+  let presentation = JSON.parse(presentationJson);
+  assert(
+    presentation.version === 'v0',
+    `Unsupported presentation version: ${presentation.version}`
+  );
+
+  return {
+    version: presentation.version,
+    claims: deserializeNestedProvableValue(presentation.claims),
+    outputClaim: deserializeNestedProvableValue(presentation.outputClaim),
+    clientNonce: deserializeProvable(presentation.clientNonce),
+    proof: presentation.proof,
+  };
+}
+
+// helper
 
 function pickCredentials(
   credentialsNeeded: string[],

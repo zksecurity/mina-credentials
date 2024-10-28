@@ -62,15 +62,15 @@ test('program with simple spec and signature credential', async (t) => {
     // verifies
     await Presentation.verify(request, presentation, undefined);
 
-    let { proof } = presentation;
+    let { claims, outputClaim, proof } = presentation;
     assert(proof, 'Proof should be generated');
     assert.deepStrictEqual(
-      proof.publicInput.claims.targetAge,
+      claims.targetAge,
       Field(18),
       'Public input should match'
     );
     assert.deepStrictEqual(
-      proof.publicOutput,
+      outputClaim,
       Field(18),
       'Public output should match the age'
     );
@@ -147,12 +147,13 @@ test('program with owner and issuer operations', async (t) => {
     });
     await Presentation.verify(request, presentation, undefined);
 
-    let { proof } = presentation;
+    let { outputClaim, proof } = presentation;
     assert(proof, 'Proof should be generated');
-    assert.deepStrictEqual(proof.publicOutput.owner, owner);
+
+    assert.deepStrictEqual(outputClaim.owner, owner);
     const expectedIssuerField = SignedData.issuer(signedData.witness);
-    assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
-    assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
+    assert.deepStrictEqual(outputClaim.issuer, expectedIssuerField);
+    assert.deepStrictEqual(outputClaim.dummy, Field(123));
   });
 });
 
@@ -201,7 +202,7 @@ test('presentation with context binding', async (t) => {
         Presentation.verify(request, presentation, {
           verifierIdentity: randomPublicKey(),
         }),
-      /Invalid context/,
+      /Invalid proof/,
       'Should throw an error for invalid context'
     );
 
@@ -216,7 +217,7 @@ test('presentation with context binding', async (t) => {
         Presentation.verify(request2, presentation, {
           verifierIdentity: zkAppAddress,
         }),
-      /Invalid context/,
+      /Invalid proof/,
       'Should throw an error for invalid context'
     );
   });
@@ -237,5 +238,49 @@ test('presentation with context binding', async (t) => {
     await Presentation.verify(request, presentation, {
       verifierIdentity: 'test.com',
     });
+  });
+});
+
+test('serialize presentation', async (t) => {
+  const Bytes32 = Bytes(32);
+  const InputData = { age: Field, name: Bytes32 };
+
+  const spec = Spec(
+    {
+      signedData: Credential.Simple(InputData),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
+      assert: Operation.and(
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
+      ),
+      ouputClaim: Operation.property(signedData, 'age'),
+    })
+  );
+  const data = { age: Field(18), name: Bytes32.fromString('Alice') };
+  const signedData = Credential.sign(issuerKey, { owner, data });
+
+  await t.test('serialize presentation with zk-app context', async (t) => {
+    let request = PresentationRequest.zkApp(
+      spec,
+      { targetAge: Field(18) },
+      { action: Field(123) }
+    );
+
+    let presentation = await Presentation.create(ownerKey, {
+      request,
+      context: { verifierIdentity: zkAppAddress },
+      credentials: [signedData],
+    });
+
+    assert(presentation.proof, 'Proof should be generated');
+
+    let serialized = Presentation.toJSON(presentation);
+    let deserialized = await Presentation.fromJSON(serialized);
+    let reserialized = Presentation.toJSON(deserialized);
+
+    assert.deepStrictEqual(serialized, reserialized);
   });
 });
