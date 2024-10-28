@@ -45,7 +45,7 @@ export {
 function deserializeInputContext(
   context: null | {
     type: string;
-    presentationCircuitVKHash: SerializedValue;
+    vkHash: SerializedValue;
     claims: SerializedValue;
     action: SerializedValue | string;
     serverNonce: SerializedValue;
@@ -54,9 +54,9 @@ function deserializeInputContext(
   if (context === null) return undefined;
   return {
     type: context.type as 'zk-app' | 'https',
-    presentationCircuitVKHash: deserializeProvable({
+    vkHash: deserializeProvable({
       _type: 'Field',
-      value: context.presentationCircuitVKHash.value,
+      value: context.vkHash.value,
     }),
     claims: deserializeProvable(context.claims),
     action:

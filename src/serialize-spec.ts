@@ -202,7 +202,7 @@ function serializeInputContext(
     | ({ type: 'https' } & HttpsInputContext)
 ): null | {
   type: string;
-  presentationCircuitVKHash: SerializedValue;
+  vkHash: SerializedValue;
   claims: SerializedValue;
   action: SerializedValue | string;
   serverNonce: SerializedValue;
@@ -210,9 +210,7 @@ function serializeInputContext(
   if (context === undefined) return null;
   const serializedBase = {
     type: context.type,
-    presentationCircuitVKHash: serializeProvable(
-      context.presentationCircuitVKHash
-    ),
+    vkHash: serializeProvable(context.vkHash),
     claims: serializeProvable(context.claims),
     serverNonce: serializeProvable(context.serverNonce),
   };

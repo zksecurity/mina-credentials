@@ -1,37 +1,37 @@
 import { Field, PublicKey, Bytes, Poseidon, Hash } from 'o1js';
 import { prefixes } from './constants.ts';
 
-export type { ContextInput };
+export type { Context as ContextInput };
 
 export { computeContext, generateContext };
 
 type ContextType = 'zk-app' | 'https';
 
-type BaseContextInput = {
+type BaseContext = {
   type: ContextType;
-  presentationCircuitVKHash: Field;
+  vkHash: Field;
   clientNonce: Field;
   serverNonce: Field;
   claims: Field;
 };
 
-type ZkAppContextInput = BaseContextInput & {
+type ZkAppContext = BaseContext & {
   type: 'zk-app';
   verifierIdentity: PublicKey;
   action: Field;
 };
 
-type HttpsContextInput = BaseContextInput & {
+type HttpsContext = BaseContext & {
   type: 'https';
   verifierIdentity: string;
   action: string;
 };
 
-type ContextInput = ZkAppContextInput | HttpsContextInput;
+type Context = ZkAppContext | HttpsContext;
 
 type ContextOutput = {
   type: ContextType;
-  presentationCircuitVKHash: Field;
+  vkHash: Field;
   nonce: Field;
   verifierIdentity: PublicKey | Bytes;
   action: Field | Bytes;
@@ -42,7 +42,7 @@ function computeNonce(serverNonce: Field, clientNonce: Field): Field {
   return Poseidon.hashWithPrefix(prefixes.nonce, [serverNonce, clientNonce]);
 }
 
-function computeContext(input: ContextInput): ContextOutput {
+function computeContext(input: Context): ContextOutput {
   const nonce = computeNonce(input.serverNonce, input.clientNonce);
   const type = input.type;
 
@@ -57,11 +57,11 @@ function computeContext(input: ContextInput): ContextOutput {
       : Hash.Keccak256.hash(Bytes.fromString(input.action));
 
   const context: ContextOutput = {
-    type: type,
-    presentationCircuitVKHash: input.presentationCircuitVKHash,
-    nonce: nonce,
-    verifierIdentity: verifierIdentity,
-    action: action,
+    type,
+    vkHash: input.vkHash,
+    nonce,
+    verifierIdentity,
+    action,
     claims: input.claims,
   };
 
@@ -79,7 +79,7 @@ function generateContext(input: ContextOutput): Field {
       : input.action.toFields().flat();
 
   const context = Poseidon.hashWithPrefix(prefix, [
-    input.presentationCircuitVKHash,
+    input.vkHash,
     input.nonce,
     ...verifierIdentity,
     ...action,

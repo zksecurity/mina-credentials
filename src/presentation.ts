@@ -76,7 +76,7 @@ const PresentationRequest = {
       inputContext: {
         type: 'https',
         ...context,
-        presentationCircuitVKHash: verificationKey.hash,
+        vkHash: verificationKey.hash,
         serverNonce,
         claims: hashClaims(claims),
       },
@@ -102,7 +102,7 @@ const PresentationRequest = {
       inputContext: {
         ...context,
         type: 'zk-app',
-        presentationCircuitVKHash: verificationKey.hash,
+        vkHash: verificationKey.hash,
         serverNonce,
         claims: hashClaims(claims),
       },
@@ -305,7 +305,7 @@ type NoContextRequest<
 > = PresentationRequest<'no-context', Output, Inputs, undefined, undefined>;
 
 type BaseInputContext = {
-  presentationCircuitVKHash: Field;
+  vkHash: Field;
   serverNonce: Field;
   claims: Field;
 };

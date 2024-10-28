@@ -801,7 +801,7 @@ test('deserializePresentationRequest with context', async (t) => {
       claims: { targetAge: Field(18) },
       inputContext: {
         type: 'zk-app',
-        presentationCircuitVKHash: Field(123),
+        vkHash: Field(123),
         action: Field(123), // Mock method ID + args hash
         claims: Field(456),
         serverNonce: Field(789),
@@ -822,7 +822,7 @@ test('deserializePresentationRequest with context', async (t) => {
 
     const context = deserialized.inputContext;
     assert(context, 'Context should exist');
-    assert.deepStrictEqual(context.presentationCircuitVKHash, Field(123));
+    assert.deepStrictEqual(context.vkHash, Field(123));
     assert.deepStrictEqual(context.action, Field(123));
     assert.deepStrictEqual(context.serverNonce, Field(789));
 
@@ -854,7 +854,7 @@ test('deserializePresentationRequest with context', async (t) => {
       claims: { targetAge: Field(18) },
       inputContext: {
         type: 'https',
-        presentationCircuitVKHash: Field(123),
+        vkHash: Field(123),
         action: 'POST /api/verify',
         claims: Field(456),
         serverNonce: Field(789),
@@ -875,7 +875,7 @@ test('deserializePresentationRequest with context', async (t) => {
 
     const context = deserialized.inputContext;
     assert(context, 'Context should exist');
-    assert.deepStrictEqual(context.presentationCircuitVKHash, Field(123));
+    assert.deepStrictEqual(context.vkHash, Field(123));
     assert.strictEqual(context.action, 'POST /api/verify');
     assert.deepStrictEqual(context.serverNonce, Field(789));
 

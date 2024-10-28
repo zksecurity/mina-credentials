@@ -845,7 +845,7 @@ test('serializeInputContext', async (t) => {
   await t.test('should serialize zk-app context', () => {
     const context = {
       type: 'zk-app' as const,
-      presentationCircuitVKHash: Field(123),
+      vkHash: Field(123),
       claims: Field(111),
       action: Field(456),
       serverNonce: Field(789),
@@ -855,7 +855,7 @@ test('serializeInputContext', async (t) => {
 
     assert.deepStrictEqual(serialized, {
       type: 'zk-app',
-      presentationCircuitVKHash: { _type: 'Field', value: '123' },
+      vkHash: { _type: 'Field', value: '123' },
       claims: { _type: 'Field', value: '111' },
       action: { _type: 'Field', value: '456' },
       serverNonce: { _type: 'Field', value: '789' },
@@ -871,7 +871,7 @@ test('serializeInputContext', async (t) => {
   await t.test('should serialize https context', () => {
     const context = {
       type: 'https' as const,
-      presentationCircuitVKHash: Field(123),
+      vkHash: Field(123),
       claims: Field(111),
       action: 'POST /api/verify',
       serverNonce: Field(789),
@@ -881,7 +881,7 @@ test('serializeInputContext', async (t) => {
 
     assert.deepStrictEqual(serialized, {
       type: 'https',
-      presentationCircuitVKHash: { _type: 'Field', value: '123' },
+      vkHash: { _type: 'Field', value: '123' },
       claims: { _type: 'Field', value: '111' },
       action: 'POST /api/verify',
       serverNonce: { _type: 'Field', value: '789' },
