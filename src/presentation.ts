@@ -51,6 +51,7 @@ type PresentationRequest<
 
   deriveContext(
     inputContext: InputContext,
+    clientNonce: Field,
     walletContext: WalletContext
   ): Field;
 };
@@ -171,6 +172,7 @@ type Presentation<Output, Inputs extends Record<string, Input>> = {
   version: 'v0';
   claims: Claims<Inputs>;
   outputClaim: Output;
+  clientNonce: Field;
   proof: Proof<PublicInputs<Inputs>, Output>;
 };
 
@@ -211,7 +213,14 @@ async function createPresentation<R extends PresentationRequest>(
     credentials: (StoredCredential & { key?: string })[];
   }
 ): Promise<Presentation<Output<R>, Inputs<R>>> {
-  let context = request.deriveContext(request.inputContext, walletContext);
+  // generate random client nonce
+  let clientNonce = Field.random();
+
+  let context = request.deriveContext(
+    request.inputContext,
+    clientNonce,
+    walletContext
+  );
   let { program } = await Presentation.compile(request);
 
   let credentialsNeeded = Object.entries(request.spec.inputs).filter(
@@ -241,6 +250,7 @@ async function createPresentation<R extends PresentationRequest>(
     version: 'v0',
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
+    clientNonce,
     proof,
   };
 }
@@ -326,10 +336,7 @@ function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
     type: 'zk-app',
     ...request,
 
-    deriveContext(inputContext, walletContext) {
-      // generate random nonce in the wallet
-      const clientNonce = Field.random();
-
+    deriveContext(inputContext, clientNonce, walletContext) {
       const context = computeContext({
         ...inputContext,
         ...walletContext,
@@ -366,10 +373,7 @@ function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
     type: 'https',
     ...request,
 
-    deriveContext(inputContext, walletContext) {
-      // generate random nonce in the wallet
-      const clientNonce = Field.random();
-
+    deriveContext(inputContext, clientNonce, walletContext) {
       const context = computeContext({
         ...inputContext,
         ...walletContext,
