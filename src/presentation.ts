@@ -37,9 +37,9 @@ export {
 type PresentationRequestType = 'no-context' | 'zk-app' | 'https';
 
 type PresentationRequest<
+  RequestType extends PresentationRequestType = PresentationRequestType,
   Output = any,
   Inputs extends Record<string, Input> = Record<string, Input>,
-  RequestType extends PresentationRequestType = PresentationRequestType,
   InputContext = any,
   WalletContext = any
 > = {
@@ -57,17 +57,30 @@ type PresentationRequest<
 };
 
 const PresentationRequest = {
-  noContext<Output, Inputs extends Record<string, Input>>(
+  async https<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
-    claims: Claims<Inputs>
-  ): NoContextRequest<Output, Inputs> {
-    return {
-      type: 'no-context',
+    claims: Claims<Inputs>,
+    context: { action: string }
+  ) {
+    // generate random nonce on "the server"
+    let serverNonce = Field.random();
+
+    // compile program to get the verification key
+    let program = createProgram(spec);
+    let verificationKey = await program.compile();
+
+    return HttpsRequest({
       spec,
       claims,
-      inputContext: undefined,
-      deriveContext: () => Field(0),
-    };
+      program,
+      inputContext: {
+        type: 'https',
+        ...context,
+        presentationCircuitVKHash: verificationKey.hash,
+        serverNonce,
+        claims: hashClaims(claims),
+      },
+    });
   },
 
   async zkApp<Output, Inputs extends Record<string, Input>>(
@@ -96,30 +109,17 @@ const PresentationRequest = {
     });
   },
 
-  async https<Output, Inputs extends Record<string, Input>>(
+  noContext<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
-    claims: Claims<Inputs>,
-    context: { action: string }
-  ) {
-    // generate random nonce on "the server"
-    let serverNonce = Field.random();
-
-    // compile program to get the verification key
-    let program = createProgram(spec);
-    let verificationKey = await program.compile();
-
-    return HttpsRequest({
+    claims: Claims<Inputs>
+  ): NoContextRequest<Output, Inputs> {
+    return {
+      type: 'no-context',
       spec,
       claims,
-      program,
-      inputContext: {
-        type: 'https',
-        ...context,
-        presentationCircuitVKHash: verificationKey.hash,
-        serverNonce,
-        claims: hashClaims(claims),
-      },
-    });
+      inputContext: undefined,
+      deriveContext: () => Field(0),
+    };
   },
 
   toJSON(request: PresentationRequest) {
@@ -133,7 +133,7 @@ const PresentationRequest = {
   },
 
   fromJSON<
-    R extends RequestFromType<any, any, K>,
+    R extends RequestFromType<K>,
     K extends PresentationRequestType = PresentationRequestType
   >(expectedType: K, json: string): R {
     let parsed = JSON.parse(json);
@@ -176,8 +176,8 @@ type Presentation<Output, Inputs extends Record<string, Input>> = {
   proof: Proof<PublicInputs<Inputs>, Output>;
 };
 
-type Output<R> = R extends PresentationRequest<infer O> ? O : never;
-type Inputs<R> = R extends PresentationRequest<any, infer I> ? I : never;
+type Output<R> = R extends PresentationRequest<any, infer O> ? O : never;
+type Inputs<R> = R extends PresentationRequest<any, any, infer I> ? I : never;
 type WalletContext<R> = R extends PresentationRequest<
   any,
   any,
@@ -288,9 +288,9 @@ function pickCredentials(
 // specific types of requests
 
 type RequestFromType<
-  Output,
-  Inputs extends Record<string, Input>,
-  Type extends PresentationRequestType
+  Type extends PresentationRequestType,
+  Output = any,
+  Inputs extends Record<string, Input> = Record<string, Input>
 > = Type extends 'no-context'
   ? NoContextRequest<Output, Inputs>
   : Type extends 'zk-app'
@@ -302,7 +302,7 @@ type RequestFromType<
 type NoContextRequest<
   Output = any,
   Inputs extends Record<string, Input> = Record<string, Input>
-> = PresentationRequest<Output, Inputs, 'no-context', undefined, undefined>;
+> = PresentationRequest<'no-context', Output, Inputs, undefined, undefined>;
 
 type BaseInputContext = {
   presentationCircuitVKHash: Field;
@@ -310,30 +310,30 @@ type BaseInputContext = {
   claims: Field;
 };
 
-type ZkAppInputContext = BaseInputContext & {
-  type: 'zk-app';
-  action: Field;
+type HttpsInputContext = BaseInputContext & {
+  type: 'https';
+  action: string;
 };
 
-type ZkAppRequest<
+type HttpsRequest<
   Output = any,
   Inputs extends Record<string, Input> = Record<string, Input>
 > = PresentationRequest<
+  'https',
   Output,
   Inputs,
-  'zk-app',
-  ZkAppInputContext,
-  { verifierIdentity: PublicKey }
+  HttpsInputContext,
+  { verifierIdentity: string }
 >;
 
-function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
+function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
-  inputContext: ZkAppInputContext;
+  inputContext: HttpsInputContext;
   program?: Program<Output, Inputs>;
-}): ZkAppRequest<Output, Inputs> {
+}): HttpsRequest<Output, Inputs> {
   return {
-    type: 'zk-app',
+    type: 'https',
     ...request,
 
     deriveContext(inputContext, clientNonce, walletContext) {
@@ -347,30 +347,30 @@ function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
   };
 }
 
-type HttpsInputContext = BaseInputContext & {
-  type: 'https';
-  action: string;
+type ZkAppInputContext = BaseInputContext & {
+  type: 'zk-app';
+  action: Field;
 };
 
-type HttpsRequest<
+type ZkAppRequest<
   Output = any,
   Inputs extends Record<string, Input> = Record<string, Input>
 > = PresentationRequest<
+  'zk-app',
   Output,
   Inputs,
-  'https',
-  HttpsInputContext,
-  { verifierIdentity: string }
+  ZkAppInputContext,
+  { verifierIdentity: PublicKey }
 >;
 
-function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
+function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
   spec: Spec<Output, Inputs>;
   claims: Claims<Inputs>;
-  inputContext: HttpsInputContext;
+  inputContext: ZkAppInputContext;
   program?: Program<Output, Inputs>;
-}): HttpsRequest<Output, Inputs> {
+}): ZkAppRequest<Output, Inputs> {
   return {
-    type: 'https',
+    type: 'zk-app',
     ...request,
 
     deriveContext(inputContext, clientNonce, walletContext) {
