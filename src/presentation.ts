@@ -1,7 +1,6 @@
 import {
-  DynamicProof,
-  FeatureFlags,
   Field,
+  type JsonProof,
   Poseidon,
   PrivateKey,
   Provable,
@@ -10,12 +9,7 @@ import {
   VerificationKey,
   verify,
 } from 'o1js';
-import {
-  Spec,
-  type Input,
-  type Claims,
-  type PublicInputs,
-} from './program-spec.ts';
+import { Spec, type Input, type Claims } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
   signCredentials,
@@ -341,27 +335,32 @@ async function verifyPresentation<R extends PresentationRequest>(
   });
 
   // assert the correct claims were used, and claims match the proof public inputs
-  let { proof } = presentation;
+  let { proof, outputClaim } = presentation;
   let claimType = NestedProvable.get(NestedProvable.fromValue(request.claims));
-  let outputType = program.program.publicOutputType;
   let claims = request.claims;
-  Provable.assertEqual(claimType, proof.publicInput.claims, claims);
   Provable.assertEqual(claimType, presentation.claims, claims);
-  Provable.assertEqual(
-    outputType,
-    proof.publicOutput,
-    presentation.outputClaim
-  );
 
-  // assert that the correct context was used
-  proof.publicInput.context.assertEquals(contextHash, 'Invalid context');
+  // reconstruct proof object
+  let inputType = program.program.publicInputType;
+  let outputType = program.program.publicOutputType;
+  let publicInputFields = inputType.toFields({
+    context: contextHash,
+    claims: claims as any,
+  });
+  let publicOutputFields = outputType.toFields(outputClaim);
+  let jsonProof: JsonProof = {
+    publicInput: publicInputFields.map((f) => f.toString()),
+    publicOutput: publicOutputFields.map((f) => f.toString()),
+    proof: proof.proof,
+    maxProofsVerified: proof.maxProofsVerified as 0 | 1 | 2,
+  };
 
   // verify the proof against our verification key
-  let ok = await verify(proof, verificationKey);
+  let ok = await verify(jsonProof, verificationKey);
   assert(ok, 'Invalid proof');
 
   // return the verified outputClaim
-  return proof.publicOutput;
+  return outputClaim;
 }
 
 function pickCredentials(
