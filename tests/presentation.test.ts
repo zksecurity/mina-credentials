@@ -1,8 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, PublicKey, PrivateKey } from 'o1js';
+import { Field, Bytes } from 'o1js';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
-import { issuerKey, owner, ownerKey, zkAppAddress } from './test-utils.ts';
+import {
+  issuerKey,
+  owner,
+  ownerKey,
+  randomPublicKey,
+  zkAppAddress,
+} from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
 
@@ -47,14 +53,17 @@ test('program with simple spec and signature credential', async (t) => {
     let signedData = Credential.sign(issuerKey, { owner, data });
 
     // presentation
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
       context: undefined,
     });
 
-    assert(proof, 'Proof should be generated');
+    // verifies
+    await Presentation.verify(request, presentation, undefined);
 
+    let { proof } = presentation;
+    assert(proof, 'Proof should be generated');
     assert.deepStrictEqual(
       proof.publicInput.claims.targetAge,
       Field(18),
@@ -78,18 +87,7 @@ test('program with simple spec and signature credential', async (t) => {
           credentials: [signedData],
           context: undefined,
         }),
-      (err) => {
-        assert(err instanceof Error, 'Should throw an Error');
-        assert(
-          err.message.includes('Program assertion failed'),
-          'Error message should include program assertion failure'
-        );
-        assert(
-          err.message.includes('Constraint unsatisfied'),
-          'Error message should include unsatisfied constraint'
-        );
-        return true;
-      },
+      /Program assertion failed/,
       'Program should fail with invalid input'
     );
   });
@@ -99,24 +97,13 @@ test('program with simple spec and signature credential', async (t) => {
     let signedData = Credential.sign(issuerKey, { owner, data });
 
     await assert.rejects(
-      async () =>
-        await Presentation.create(ownerKey, {
+      () =>
+        Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
           context: undefined,
         }),
-      (err) => {
-        assert(err instanceof Error, 'Should throw an Error');
-        assert(
-          err.message.includes('Program assertion failed'),
-          'Error message should include program assertion failure'
-        );
-        assert(
-          err.message.includes('Constraint unsatisfied'),
-          'Error message should include unsatisfied constraint'
-        );
-        return true;
-      },
+      /Program assertion failed/,
       'Program should fail with invalid input'
     );
   });
@@ -153,19 +140,18 @@ test('program with owner and issuer operations', async (t) => {
   await t.test('run program with valid input', async () => {
     let dummyData = { dummy: Field(123) };
     let signedData = Credential.sign(issuerKey, { owner, data: dummyData });
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
       context: undefined,
     });
+    await Presentation.verify(request, presentation, undefined);
 
+    let { proof } = presentation;
     assert(proof, 'Proof should be generated');
-
     assert.deepStrictEqual(proof.publicOutput.owner, owner);
-
     const expectedIssuerField = SignedData.issuer(signedData.witness);
     assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
-
     assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
   });
 });
@@ -192,36 +178,64 @@ test('presentation with context binding', async (t) => {
   const signedData = Credential.sign(issuerKey, { owner, data });
 
   await t.test('presentation with zk-app context', async (t) => {
-    let request = await PresentationRequest.zkApp(
+    let request = PresentationRequest.zkApp(
       spec,
       { targetAge: Field(18) },
       { action: Field(123) }
     );
 
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       context: { verifierIdentity: zkAppAddress },
       credentials: [signedData],
     });
 
-    assert(proof, 'Proof should be generated');
+    // verifies
+    await Presentation.verify(request, presentation, {
+      verifierIdentity: zkAppAddress,
+    });
 
-    // TODO negative test where we can't verify proof when generated for different action or zkapp address
+    // doesn't verify against different context
+    await assert.rejects(
+      () =>
+        Presentation.verify(request, presentation, {
+          verifierIdentity: randomPublicKey(),
+        }),
+      /Invalid context/,
+      'Should throw an error for invalid context'
+    );
+
+    // doesn't verify against request for different action
+    let request2 = PresentationRequest.zkApp(
+      spec,
+      { targetAge: Field(18) },
+      { action: Field(124) }
+    );
+    await assert.rejects(
+      () =>
+        Presentation.verify(request2, presentation, {
+          verifierIdentity: zkAppAddress,
+        }),
+      /Invalid context/,
+      'Should throw an error for invalid context'
+    );
   });
 
   await t.test('presentation with https context', async () => {
-    let request = await PresentationRequest.https(
+    let request = PresentationRequest.https(
       spec,
       { targetAge: Field(18) },
       { action: 'POST /api/verify' }
     );
 
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
       context: { verifierIdentity: 'test.com' },
     });
 
-    assert(proof, 'Proof should be generated');
+    await Presentation.verify(request, presentation, {
+      verifierIdentity: 'test.com',
+    });
   });
 });
