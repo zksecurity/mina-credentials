@@ -183,7 +183,7 @@ type Presentation<Output, Inputs extends Record<string, Input>> = {
   claims: Claims<Inputs>;
   outputClaim: Output;
   clientNonce: Field;
-  proof: DynamicProof<PublicInputs<Inputs>, Output>;
+  proof: { proof: string; maxProofsVerified: number };
 };
 
 type Output<R> = R extends PresentationRequest<any, infer O> ? O : never;
@@ -267,29 +267,14 @@ async function createPresentation<R extends PresentationRequest>(
     ownerSignature,
     credentials: credentialsUsed as any,
   });
-
-  const featureFlags = await FeatureFlags.fromZkProgram(program.program);
-
-  // Create a proper DynamicProof subclass with the correct types and properties
-  class PresentationProof extends DynamicProof<
-    PublicInputs<Inputs<R>>,
-    Output<R>
-  > {
-    static publicInputType = program.program.publicInputType;
-    static publicOutputType = program.program.publicOutputType;
-    static maxProofsVerified = proof.maxProofsVerified;
-    static featureFlags = featureFlags;
-  }
-
-  // Create the dynamic proof using our properly typed subclass
-  const dynamicProof = PresentationProof.fromProof(proof);
+  let { proof: proofBase64, maxProofsVerified } = proof.toJSON();
 
   return {
     version: 'v0',
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
     clientNonce,
-    proof: dynamicProof,
+    proof: { proof: proofBase64, maxProofsVerified },
   };
 }
 
@@ -301,7 +286,7 @@ function toJSON<Output, Inputs extends Record<string, Input>>(
     claims: serializeNestedProvableValue(presentation.claims),
     outputClaim: serializeNestedProvableValue(presentation.outputClaim),
     clientNonce: serializeProvable(presentation.clientNonce),
-    proof: presentation.proof.toJSON(),
+    proof: presentation.proof,
   };
   return JSON.stringify(json);
 }
@@ -315,21 +300,12 @@ async function fromJSON<Output, Inputs extends Record<string, Input>>(
     `Unsupported presentation version: ${presentation.version}`
   );
 
-  class DeserializedProof extends DynamicProof<PublicInputs<Inputs>, Output> {
-    static publicInputType: any;
-    static publicOutputType: any;
-    static maxProofsVerified = presentation.maxProofsVerified;
-    static featureFlags = FeatureFlags.allMaybe;
-  }
-
-  const proof = await DeserializedProof.fromJSON(presentation.proof);
-
   return {
     version: presentation.version,
     claims: deserializeNestedProvableValue(presentation.claims),
     outputClaim: deserializeNestedProvableValue(presentation.outputClaim),
     clientNonce: deserializeProvable(presentation.clientNonce),
-    proof,
+    proof: presentation.proof,
   };
 }
 
