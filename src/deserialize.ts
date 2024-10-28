@@ -24,7 +24,8 @@ import {
   type O1jsTypeName,
   type SerializedType,
   type SerializedContext,
-} from './serialize-spec.ts';
+  type SerializedValue,
+} from './serialize.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { array, ProvableType } from './o1js-missing.ts';
@@ -35,11 +36,13 @@ export {
   deserializeInput,
   deserializeNode,
   deserializeProvableType,
+  deserializeProvablePureType,
   deserializeProvable,
   deserializeNestedProvable,
   deserializeNestedProvableValue,
   deserializeInputContext,
   convertSpecFromSerializable,
+  replaceNull,
 };
 
 function deserializeInputContext(context: null | SerializedContext) {
@@ -242,10 +245,8 @@ function deserializeProvableType(type: SerializedType): ProvableType<any> {
 function deserializeProvable({
   _type,
   value,
-}: {
-  _type: string;
-  value: any;
-}): any {
+  properties,
+}: SerializedValue): any {
   switch (_type) {
     case 'Field':
       return Field.fromJSON(value);
@@ -265,6 +266,9 @@ function deserializeProvable({
       return Bytes.fromHex(value);
     case 'Array':
       return (value as any[]).map((v: any) => deserializeProvable(v));
+    case 'Struct':
+      let type = deserializeProvableType({ _type, properties }) as Struct<any>;
+      return type.fromJSON(value);
     default:
       throw Error(`Unsupported provable type: ${_type}`);
   }

@@ -267,7 +267,7 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   return { _type };
 }
 
-type SerializedValue = { _type: string; value: any };
+type SerializedValue = { _type: string; properties?: any; value: any };
 
 function serializeProvable(value: any): SerializedValue {
   let typeClass = ProvableType.fromValue(value);
@@ -277,6 +277,10 @@ function serializeProvable(value: any): SerializedValue {
   }
   if (_type === 'Array') {
     return { _type, value: value.map((x: any) => serializeProvable(x)) };
+  }
+  if (_type === 'Struct') {
+    let structType = serializeStruct(typeClass as Struct<any>);
+    return { ...structType, value: (typeClass as Struct<any>).toJSON(value) };
   }
   switch (typeClass) {
     case Bool: {

@@ -105,14 +105,17 @@ let presentation = await Presentation.create(ownerKey, {
 });
 console.timeEnd('create');
 
-// TODO: to send the presentation back we need to serialize it as well
-
-console.log('✅ WALLET: created presentation:', presentation);
+let serialized = Presentation.toJSON(presentation);
+console.log(
+  '✅ WALLET: created presentation:',
+  serialized.slice(0, 1000) + '...'
+);
 
 // ---------------------------------------------
 // VERIFIER: verify the presentation against the request we submitted, and check that the nullifier was not used yet
 
-let outputClaim = await Presentation.verify(request, presentation, {
+let presentation2 = Presentation.fromJSON(serialized);
+let outputClaim = await Presentation.verify(request, presentation2, {
   verifierIdentity: 'my-app.xyz',
 });
 console.log('✅ VERIFIER: verified presentation');
