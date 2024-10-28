@@ -21,7 +21,7 @@ import {
   serializeNode,
   serializeInput,
   serializeSpec,
-} from '../src/serialize-spec.ts';
+} from '../src/serialize.ts';
 import {
   deserializeSpec,
   deserializeInputs,
@@ -29,7 +29,7 @@ import {
   deserializeNode,
   deserializeProvableType,
   deserializeProvable,
-} from '../src/deserialize-spec.ts';
+} from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
 import {

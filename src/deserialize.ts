@@ -24,7 +24,7 @@ import {
   type O1jsTypeName,
   type SerializedType,
   type SerializedContext,
-} from './serialize-spec.ts';
+} from './serialize.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { array, ProvableType } from './o1js-missing.ts';

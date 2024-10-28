@@ -26,12 +26,12 @@ import {
   convertSpecToSerializable,
   serializeInputContext,
   serializeNestedProvableValue,
-} from './serialize-spec.ts';
+} from './serialize.ts';
 import {
   convertSpecFromSerializable,
   deserializeInputContext,
   deserializeNestedProvableValue,
-} from './deserialize-spec.ts';
+} from './deserialize.ts';
 
 // external API
 export { PresentationRequest, Presentation };

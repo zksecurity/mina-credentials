@@ -10,12 +10,12 @@ import {
   serializeSpec,
   validateSpecHash,
   serializeInputContext,
-} from '../src/serialize-spec.ts';
+} from '../src/serialize.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
 import {
   deserializeInputContext,
   deserializeSpec,
-} from '../src/deserialize-spec.ts';
+} from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
 
 test('Serialize Inputs', async (t) => {

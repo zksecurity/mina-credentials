@@ -24,7 +24,7 @@ import {
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 import { verifyCredentials } from './credential.ts';
-import { convertSpecToSerializable } from './serialize-spec.ts';
+import { convertSpecToSerializable } from './serialize.ts';
 
 export { createProgram, type Program };
 
