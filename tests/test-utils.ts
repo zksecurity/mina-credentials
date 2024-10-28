@@ -7,6 +7,7 @@ import {
 
 export {
   createOwnerSignature,
+  randomPublicKey,
   owner,
   ownerKey,
   issuer,
@@ -16,7 +17,11 @@ export {
 
 const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
 const { publicKey: issuer, privateKey: issuerKey } = PrivateKey.randomKeypair();
-const zkAppAddress = PrivateKey.random().toPublicKey();
+const zkAppAddress = randomPublicKey();
+
+function randomPublicKey() {
+  return PrivateKey.random().toPublicKey();
+}
 
 function createOwnerSignature<Witness, Data>(
   context: Field,

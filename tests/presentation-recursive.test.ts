@@ -78,23 +78,27 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with valid inputs', async () => {
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [provedData],
       context: undefined,
     });
+    let outputClaim = await Presentation.verify(
+      request,
+      presentation,
+      undefined
+    );
 
-    assert(proof, 'Proof should be generated');
-
+    let { proof } = presentation;
     assert.deepStrictEqual(
       proof.publicInput.claims.targetAge,
       Field(18),
       'Public input should match'
     );
     assert.deepStrictEqual(
-      proof.publicOutput,
+      outputClaim,
       Field(18),
-      'Public output should match the age'
+      'Output claim should match the age'
     );
   });
 
@@ -102,20 +106,13 @@ await describe('program with proof credential', async () => {
     let provedData = await Recursive.dummy({ owner, data });
 
     await assert.rejects(
-      async () =>
-        await Presentation.create(ownerKey, {
+      () =>
+        Presentation.create(ownerKey, {
           request,
           credentials: [provedData],
           context: undefined,
         }),
-      (err) => {
-        assert(err instanceof Error, 'Should throw an Error');
-        assert(
-          err.message.includes('Constraint unsatisfied'),
-          'Error message should include unsatisfied constraint'
-        );
-        return true;
-      },
+      /Constraint unsatisfied/,
       'Program should fail with invalid input'
     );
   });
@@ -130,21 +127,14 @@ await describe('program with proof credential', async () => {
     });
 
     await assert.rejects(
-      async () =>
-        await request.program.run({
+      () =>
+        request.program.run({
           context: invalidContext,
           ownerSignature,
           credentials: { provedData },
           claims: { targetAge: Field(18) },
         }),
-      (err) => {
-        assert(err instanceof Error, 'Should throw an Error');
-        assert(
-          err.message.includes('Invalid owner signature'),
-          'Error message should include unsatisfied constraint'
-        );
-        return true;
-      }
+      /Invalid owner signature/
     );
   });
 });

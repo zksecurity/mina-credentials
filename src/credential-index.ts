@@ -73,6 +73,11 @@ const Credential = {
       credential: deserializeNestedProvableValue(obj.credential),
     };
   },
+
+  /**
+   * Validate a credential.
+   */
+  validate: validateCredential,
 };
 
 // validating generic credential
