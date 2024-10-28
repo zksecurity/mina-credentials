@@ -22,12 +22,12 @@ import {
   validateSpecHash,
   supportedTypes,
   type O1jsTypeName,
-  type SerializedProvableType,
+  type SerializedType,
+  type SerializedContext,
 } from './serialize-spec.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { array, ProvableType } from './o1js-missing.ts';
-import { PresentationRequest } from './presentation.ts';
 
 export {
   deserializeSpec,
@@ -37,51 +37,19 @@ export {
   deserializeProvableType,
   deserializeProvable,
   deserializeNestedProvable,
-  deserializePresentationRequest,
   deserializeNestedProvableValue,
   deserializeInputContext,
+  convertSpecFromSerializable,
 };
 
-function deserializePresentationRequest(request: any): PresentationRequest {
-  let type = request.type;
-  let spec = convertSpecFromSerializable(request.spec);
-  let claims = deserializeNestedProvableValue(request.claims);
-
-  switch (type) {
-    case 'no-context':
-      return PresentationRequest.noContext(spec, claims);
-    case 'zk-app': {
-      const inputContext = deserializeInputContext(request.inputContext);
-      return PresentationRequest.zkApp(spec, claims, inputContext);
-    }
-    case 'https': {
-      const inputContext = deserializeInputContext(request.inputContext);
-      return PresentationRequest.https(spec, claims, inputContext);
-    }
-    default:
-      throw Error(`Invalid presentation request type: ${type}`);
-  }
-}
-
-function deserializeInputContext(context: {
-  type: string;
-  presentationCircuitVKHash: { _type: string; value: string };
-  action: { _type: string; value: string } | string;
-  serverNonce: { _type: string; value: string };
-}) {
+function deserializeInputContext(context: null | SerializedContext) {
+  if (context === null) return undefined;
   return {
-    type: context.type as 'zk-app' | 'https',
-    presentationCircuitVKHash: deserializeProvable({
-      _type: 'Field',
-      value: context.presentationCircuitVKHash.value,
-    }),
+    type: context.type,
     action:
       context.type === 'zk-app'
-        ? deserializeProvable({
-            _type: 'Field',
-            value: (context.action as { _type: string; value: string }).value,
-          })
-        : (context.action as string),
+        ? deserializeProvable({ _type: 'Field', value: context.action.value })
+        : context.action,
     serverNonce: deserializeProvable({
       _type: 'Field',
       value: context.serverNonce.value,
@@ -104,7 +72,7 @@ function convertSpecFromSerializable(parsedSpec: any): Spec {
     inputs,
     logic: {
       assert: deserializeNode(inputs, parsedSpec.logic.assert),
-      data: deserializeNode(inputs, parsedSpec.logic.data),
+      ouputClaim: deserializeNode(inputs, parsedSpec.logic.data),
     },
   };
 }
@@ -237,9 +205,7 @@ function deserializeNode(
   }
 }
 
-function deserializeProvableType(
-  type: SerializedProvableType
-): ProvableType<any> {
+function deserializeProvableType(type: SerializedType): ProvableType<any> {
   if (type._type === 'Constant') {
     return ProvableType.constant((type as any).value);
   }

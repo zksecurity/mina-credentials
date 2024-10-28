@@ -32,8 +32,14 @@ import {
 } from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
-import { PresentationRequest } from '../src/presentation.ts';
-import { zkAppVerifierIdentity } from './test-utils.ts';
+import {
+  HttpsRequest,
+  PresentationRequest,
+  type WalletDerivedContext,
+  ZkAppRequest,
+} from '../src/presentation.ts';
+import { zkAppAddress } from './test-utils.ts';
+import { computeContext, generateContext } from '../src/context.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -582,7 +588,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ age, isAdmin, maxAge }) => ({
           assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-          data: age,
+          ouputClaim: age,
         })
       );
 
@@ -620,7 +626,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'field'),
             zeroField
           ),
-          data: signedData,
+          ouputClaim: signedData,
         })
       );
 
@@ -666,7 +672,7 @@ test('deserializeSpec', async (t) => {
             Operation.lessThan(field1, field2),
             Operation.lessThanEq(field2, threshold)
           ),
-          data: Operation.equals(field1, field2),
+          ouputClaim: Operation.equals(field1, field2),
         })
       );
 
@@ -698,7 +704,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'age'),
             targetAge
           ),
-          data: Operation.record({
+          ouputClaim: Operation.record({
             owner: Operation.owner,
             issuer: Operation.issuer(signedData),
             age: Operation.property(signedData, 'age'),
@@ -731,7 +737,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ provedData, zeroField }) => ({
           assert: Operation.equals(provedData, zeroField),
-          data: provedData,
+          ouputClaim: provedData,
         })
       );
 
@@ -786,26 +792,26 @@ test('deserializePresentationRequest with context', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      data: Operation.property(signedData, 'age'),
+      ouputClaim: Operation.property(signedData, 'age'),
     })
   );
 
   await t.test('should deserialize zk-app context correctly', () => {
-    const inputContext = {
-      type: 'zk-app' as const,
-      presentationCircuitVKHash: Field(123),
-      action: Field(123), // Mock method ID + args hash
-      serverNonce: Field(456),
-    };
-
-    const originalRequest = PresentationRequest.zkApp(
+    const originalRequest = ZkAppRequest({
       spec,
-      { targetAge: Field(18) },
-      inputContext
-    );
+      claims: { targetAge: Field(18) },
+      inputContext: {
+        type: 'zk-app',
+        action: Field(123), // Mock method ID + args hash
+        serverNonce: Field(789),
+      },
+    });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
-    const deserialized = PresentationRequest.fromJSON(serialized);
+    const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
+      'zk-app',
+      serialized
+    );
 
     assert.strictEqual(deserialized.type, 'zk-app');
     assert.strictEqual(deserialized.claims.targetAge.toString(), '18');
@@ -815,38 +821,50 @@ test('deserializePresentationRequest with context', async (t) => {
 
     const context = deserialized.inputContext;
     assert(context, 'Context should exist');
-    assert.deepStrictEqual(context.presentationCircuitVKHash, Field(123));
     assert.deepStrictEqual(context.action, Field(123));
-    assert.deepStrictEqual(context.serverNonce, Field(456));
+    assert.deepStrictEqual(context.serverNonce, Field(789));
 
-    const walletContext = {
-      verifierIdentity: zkAppVerifierIdentity,
+    let derivedContext: WalletDerivedContext = {
       clientNonce: Field(999),
+      vkHash: Field(123),
+      claims: Field(456),
     };
 
-    const originalContext = originalRequest.deriveContext(walletContext);
-    const deserializedContext = deserialized.deriveContext(walletContext);
+    const originalContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: zkAppAddress,
+        ...derivedContext,
+      })
+    );
+    const deserializedContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: zkAppAddress,
+        ...derivedContext,
+      })
+    );
     assert.deepStrictEqual(deserializedContext, originalContext);
   });
 
-  await t.test('should deserialize https context correctly', () => {
+  await t.test('should deserialize https context correctly', async () => {
     const serverUrl = 'test.com';
 
-    const inputContext = {
-      type: 'https' as const,
-      presentationCircuitVKHash: Field(123),
-      action: 'POST /api/verify',
-      serverNonce: Field(789),
-    };
-
-    const originalRequest = PresentationRequest.https(
+    const originalRequest = HttpsRequest({
       spec,
-      { targetAge: Field(18) },
-      inputContext
-    );
+      claims: { targetAge: Field(18) },
+      inputContext: {
+        type: 'https',
+        action: 'POST /api/verify',
+        serverNonce: Field(789),
+      },
+    });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
-    const deserialized = PresentationRequest.fromJSON(serialized);
+    const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
+      'https',
+      serialized
+    );
 
     assert.strictEqual(deserialized.type, 'https');
     assert.strictEqual(deserialized.claims.targetAge.toString(), '18');
@@ -856,17 +874,29 @@ test('deserializePresentationRequest with context', async (t) => {
 
     const context = deserialized.inputContext;
     assert(context, 'Context should exist');
-    assert.deepStrictEqual(context.presentationCircuitVKHash, Field(123));
     assert.strictEqual(context.action, 'POST /api/verify');
     assert.deepStrictEqual(context.serverNonce, Field(789));
 
-    const walletContext = {
-      verifierIdentity: serverUrl,
+    let derivedContext: WalletDerivedContext = {
       clientNonce: Field(999),
+      vkHash: Field(123),
+      claims: Field(456),
     };
 
-    const originalContext = originalRequest.deriveContext(walletContext);
-    const deserializedContext = deserialized.deriveContext(walletContext);
+    const originalContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: serverUrl,
+        ...derivedContext,
+      })
+    );
+    const deserializedContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: serverUrl,
+        ...derivedContext,
+      })
+    );
     assert.deepStrictEqual(deserializedContext, originalContext);
   });
 });

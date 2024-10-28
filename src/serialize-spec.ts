@@ -4,7 +4,6 @@ import { Spec, type Input, Node } from './program-spec.ts';
 import {
   type HttpsInputContext,
   type ZkAppInputContext,
-  type PresentationRequest,
 } from './presentation.ts';
 import {
   Field,
@@ -21,6 +20,25 @@ import {
   Struct,
 } from 'o1js';
 import { assert } from './util.ts';
+
+export {
+  type O1jsTypeName,
+  type SerializedType,
+  type SerializedValue,
+  type SerializedContext,
+  supportedTypes,
+  serializeProvableType,
+  serializeProvable,
+  serializeNestedProvable,
+  serializeNode,
+  serializeInputs,
+  serializeInput,
+  convertSpecToSerializable,
+  serializeSpec,
+  validateSpecHash,
+  serializeNestedProvableValue,
+  serializeInputContext,
+};
 
 // Supported o1js base types
 const supportedTypes = {
@@ -41,46 +59,6 @@ for (let [key, value] of Object.entries(supportedTypes)) {
   mapProvableTypeToName.set(value, key as O1jsTypeName);
 }
 
-export {
-  type O1jsTypeName,
-  type SerializedType as SerializedProvableType,
-  supportedTypes,
-  serializeProvableType,
-  serializeProvable,
-  serializeNestedProvable,
-  serializeNode,
-  serializeInputs,
-  serializeInput,
-  convertSpecToSerializable,
-  serializeSpec,
-  validateSpecHash,
-  serializePresentationRequest,
-  serializeNestedProvableValue,
-  serializeInputContext,
-};
-
-function serializePresentationRequest(request: PresentationRequest) {
-  let spec = convertSpecToSerializable(request.spec);
-  let claims = serializeNestedProvableValue(request.claims);
-
-  switch (request.type) {
-    case 'no-context':
-      return {
-        type: request.type,
-        spec,
-        claims,
-      };
-    case 'zk-app':
-    case 'https':
-      return {
-        type: request.type,
-        spec,
-        claims,
-        inputContext: serializeInputContext(request.inputContext),
-      };
-  }
-}
-
 async function serializeSpec(spec: Spec): Promise<string> {
   const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
   const hash = await hashSpec(serializedSpec);
@@ -92,7 +70,7 @@ function convertSpecToSerializable(spec: Spec): Record<string, any> {
     inputs: serializeInputs(spec.inputs),
     logic: {
       assert: serializeNode(spec.logic.assert),
-      data: serializeNode(spec.logic.data),
+      data: serializeNode(spec.logic.ouputClaim),
     },
   };
 }
@@ -217,38 +195,25 @@ function serializeNode(node: Node): object {
   }
 }
 
-function serializeInputContext(context: {
-  type: 'zk-app' | 'https';
-  presentationCircuitVKHash: Field;
-  action: Field | string;
-  serverNonce: Field;
-}): {
-  type: string;
-  presentationCircuitVKHash: ReturnType<typeof serializeProvable>;
-  action: ReturnType<typeof serializeProvable> | string;
-  serverNonce: ReturnType<typeof serializeProvable>;
-} {
-  const serializedBase = {
-    type: context.type,
-    presentationCircuitVKHash: serializeProvable(
-      context.presentationCircuitVKHash
-    ),
-    serverNonce: serializeProvable(context.serverNonce),
-  };
+type SerializedContext =
+  | { type: 'https'; action: string; serverNonce: SerializedValue }
+  | { type: 'zk-app'; action: SerializedValue; serverNonce: SerializedValue };
+
+function serializeInputContext(
+  context: undefined | ZkAppInputContext | HttpsInputContext
+): null | SerializedContext {
+  if (context === undefined) return null;
+
+  let serverNonce = serializeProvable(context.serverNonce);
 
   switch (context.type) {
     case 'zk-app':
-      return {
-        ...serializedBase,
-        action: serializeProvable(context.action as Field),
-      };
+      let action = serializeProvable(context.action);
+      return { type: context.type, serverNonce, action };
     case 'https':
-      return {
-        ...serializedBase,
-        action: context.action as string,
-      };
+      return { type: context.type, serverNonce, action: context.action };
     default:
-      throw Error(`Unsupported context type: ${context.type}`);
+      throw Error(`Unsupported context type: ${(context as any).type}`);
   }
 }
 
@@ -302,7 +267,9 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   return { _type };
 }
 
-function serializeProvable(value: any): { _type: string; value: any } {
+type SerializedValue = { _type: string; value: any };
+
+function serializeProvable(value: any): SerializedValue {
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
   if (_type === 'Bytes') {

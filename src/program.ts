@@ -87,7 +87,7 @@ function createProgram<S extends Spec>(
             credentialOutputs
           );
           let assertion = Node.eval(root, spec.logic.assert);
-          let output = Node.eval(root, spec.logic.data);
+          let output = Node.eval(root, spec.logic.ouputClaim);
           assertion.assertTrue('Program assertion failed!');
           return { publicOutput: output };
         },

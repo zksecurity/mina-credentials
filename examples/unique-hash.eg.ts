@@ -7,6 +7,7 @@ import {
   Presentation,
   PresentationRequest,
   assert,
+  type InferSchema,
 } from '../src/index.ts';
 import { issuerKey, owner, ownerKey } from '../tests/test-utils.ts';
 import { validateCredential } from '../src/credential-index.ts';
@@ -16,12 +17,12 @@ import { array } from '../src/o1js-missing.ts';
 const Bytes32 = Bytes(32);
 const Bytes16 = Bytes(16); // 16 bytes = 128 bits = enough entropy
 
-const Data = { nationality: Bytes32, id: Bytes16 };
+const Schema = { nationality: Bytes32, id: Bytes16 };
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
 
-let data = {
+let data: InferSchema<typeof Schema> = {
   nationality: Bytes32.fromString('United States of America'),
   id: Bytes16.random(),
 };
@@ -44,7 +45,7 @@ console.log('✅ WALLET: imported and validated credential');
 
 const spec = Spec(
   {
-    signedData: Credential.Simple(Data), // schema needed here!
+    signedData: Credential.Simple(Schema), // schema needed here!
     targetNationalities: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
     appId: Claim(Bytes32),
   },
@@ -56,7 +57,7 @@ const spec = Spec(
       targetNationalities
     ),
     // we expose a unique hash of the credential data, as nullifier
-    data: Operation.record({
+    ouputClaim: Operation.record({
       nullifier: Operation.hash(signedData, appId),
     }),
   })
@@ -64,10 +65,14 @@ const spec = Spec(
 
 const targetNationalities = ['United States of America', 'Canada', 'Mexico'];
 
-let request = PresentationRequest.noContext(spec, {
-  targetNationalities: targetNationalities.map((s) => Bytes32.fromString(s)),
-  appId: Bytes32.fromString('my-app-id:123'),
-});
+let request = PresentationRequest.https(
+  spec,
+  {
+    targetNationalities: targetNationalities.map((s) => Bytes32.fromString(s)),
+    appId: Bytes32.fromString('my-app-id:123'),
+  },
+  { action: 'my-app-id:123:authenticate' }
+);
 let requestJson = PresentationRequest.toJSON(request);
 
 console.log('✅ VERIFIER: created presentation request:', requestJson);
@@ -76,7 +81,7 @@ console.log('✅ VERIFIER: created presentation request:', requestJson);
 // WALLET: deserialize request and create presentation
 
 console.time('compile');
-let deserialized = PresentationRequest.fromJSON<typeof request>(requestJson);
+let deserialized = PresentationRequest.fromJSON('https', requestJson);
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
 
@@ -84,6 +89,7 @@ console.time('create');
 let presentation = await Presentation.create(ownerKey, {
   request: compiled,
   credentials: [storedCredential],
+  context: { verifierIdentity: 'my-app.xyz' },
 });
 console.timeEnd('create');
 // TODO: to send the presentation back we need to serialize it as well

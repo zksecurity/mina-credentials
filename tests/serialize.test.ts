@@ -527,7 +527,7 @@ test('convertSpecToSerializable', async (t) => {
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-        data: age,
+        ouputClaim: age,
       })
     );
 
@@ -596,7 +596,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.property(signedData, 'field'),
           zeroField
         ),
-        data: signedData,
+        ouputClaim: signedData,
       })
     );
 
@@ -665,7 +665,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.lessThan(field1, field2),
           Operation.equals(field1, zeroField)
         ),
-        data: field2,
+        ouputClaim: field2,
       })
     );
 
@@ -752,7 +752,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
-      data: age,
+      ouputClaim: age,
     })
   );
 
@@ -819,7 +819,7 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
         Operation.property(signedData, 'age'),
         targetAge
       ),
-      data: Operation.record({
+      ouputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         age: Operation.property(signedData, 'age'),
@@ -845,7 +845,6 @@ test('serializeInputContext', async (t) => {
   await t.test('should serialize zk-app context', () => {
     const context = {
       type: 'zk-app' as const,
-      presentationCircuitVKHash: Field(123),
       action: Field(456),
       serverNonce: Field(789),
     };
@@ -854,7 +853,6 @@ test('serializeInputContext', async (t) => {
 
     assert.deepStrictEqual(serialized, {
       type: 'zk-app',
-      presentationCircuitVKHash: { _type: 'Field', value: '123' },
       action: { _type: 'Field', value: '456' },
       serverNonce: { _type: 'Field', value: '789' },
     });
@@ -869,7 +867,6 @@ test('serializeInputContext', async (t) => {
   await t.test('should serialize https context', () => {
     const context = {
       type: 'https' as const,
-      presentationCircuitVKHash: Field(123),
       action: 'POST /api/verify',
       serverNonce: Field(789),
     };
@@ -878,7 +875,6 @@ test('serializeInputContext', async (t) => {
 
     assert.deepStrictEqual(serialized, {
       type: 'https',
-      presentationCircuitVKHash: { _type: 'Field', value: '123' },
       action: 'POST /api/verify',
       serverNonce: { _type: 'Field', value: '789' },
     });
