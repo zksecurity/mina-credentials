@@ -6,4 +6,5 @@ const prefixes = {
   issuerSimple: `${pre}:simple`,
   issuerRecursive: `${pre}:recursive`,
   context: `${pre}:context`,
+  nonce: `${pre}:nonce`,
 };

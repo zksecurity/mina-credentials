@@ -1,4 +1,12 @@
-import { Field, Proof, Signature, VerificationKey, ZkProgram } from 'o1js';
+import {
+  Bytes,
+  Field,
+  Hash,
+  Proof,
+  Signature,
+  VerificationKey,
+  ZkProgram,
+} from 'o1js';
 import {
   type Input,
   Node,
@@ -15,6 +23,7 @@ import {
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 import { verifyCredentials } from './credential.ts';
+import { convertSpecToSerializable } from './serialize-spec.ts';
 
 export { createProgram, type Program };
 
@@ -36,13 +45,13 @@ type Program<Output, Inputs extends Record<string, Input>> = {
 function createProgram<S extends Spec>(
   spec: S
 ): Program<GetSpecData<S>, S['inputs']> {
-  // 1. split spec inputs into public and private inputs
+  // split spec inputs into public and private inputs
   let PublicInput = NestedProvable.get(publicInputTypes(spec));
   let PublicOutput = publicOutputType(spec);
   let PrivateInput = NestedProvable.get(privateInputTypes(spec));
 
   let program = ZkProgram({
-    name: `todo`, // we should create a name deterministically derived from the spec, e.g. `credential-${hash(spec)}`
+    name: programName(spec),
     publicInput: PublicInput,
     publicOutput: PublicOutput,
     methods: {
@@ -60,7 +69,6 @@ function createProgram<S extends Spec>(
             publicInput,
             privateInput
           );
-          // TODO return issuers from this function and pass it to app logic
           let credentialOutputs = verifyCredentials(credentials);
 
           let root = recombineDataInputs(
@@ -70,9 +78,9 @@ function createProgram<S extends Spec>(
             credentialOutputs
           );
           let assertion = Node.eval(root, spec.logic.assert);
-          let output = Node.eval(root, spec.logic.data);
+          let outputClaim = Node.eval(root, spec.logic.ouputClaim);
           assertion.assertTrue('Program assertion failed!');
-          return { publicOutput: output };
+          return { publicOutput: outputClaim };
         },
       },
     },
@@ -99,6 +107,13 @@ function createProgram<S extends Spec>(
 }
 
 // helper
+
+function programName(spec: Spec): string {
+  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
+  const specBytes = Bytes.fromString(serializedSpec);
+  const hashBytes = Hash.Keccak256.hash(specBytes);
+  return `credential-${hashBytes.toHex().slice(0, 16)}`;
+}
 
 type GetSpecData<S extends Spec> = S extends Spec<infer Data, any>
   ? Data

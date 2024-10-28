@@ -1,5 +1,6 @@
 export {
   assert,
+  assertDefined,
   assertHasProperty,
   hasProperty,
   assertIsObject,
@@ -11,6 +12,15 @@ export {
 function assert(condition: boolean, message?: string): asserts condition {
   if (!condition) {
     throw Error(message ?? 'Assertion failed');
+  }
+}
+
+function assertDefined<T>(
+  input: T | undefined,
+  message?: string
+): asserts input is T {
+  if (input === undefined) {
+    throw Error(message ?? 'Input is undefined');
   }
 }
 

@@ -9,6 +9,8 @@ import {
   Poseidon,
   Signature,
   PublicKey,
+  Bytes,
+  Hash,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import {
@@ -16,7 +18,7 @@ import {
   type InferProvableType,
   ProvableType,
 } from './o1js-missing.ts';
-import { assert, assertHasProperty } from './util.ts';
+import { assert, assertHasProperty, zip } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
@@ -25,13 +27,14 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 import {
+  type CredentialSpec,
   type CredentialType,
-  type CredentialId,
   type Credential,
   type CredentialInputs,
   withOwner,
   type CredentialOutputs,
 } from './credential.ts';
+import { prefixes } from './constants.ts';
 
 export type {
   PublicInputs,
@@ -72,7 +75,7 @@ function Spec<Output, Inputs extends Record<string, Input>>(
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => {
     assert?: Node<Bool>;
-    data: Node<Output>;
+    ouputClaim: Node<Output>;
   }
 ): Spec<Output, Inputs>;
 
@@ -87,12 +90,12 @@ function Spec<Inputs extends Record<string, Input>>(
 ): Spec<undefined, Inputs>;
 
 // implementation
-function Spec<Data, Inputs extends Record<string, Input>>(
+function Spec<Output, Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
-  }) => OutputNode<Data>
-): Spec<Data, Inputs> {
+  }) => OutputNode<Output>
+): Spec<Output, Inputs> {
   let rootNode = root(inputs);
   let inputNodes: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
@@ -113,9 +116,10 @@ function Spec<Data, Inputs extends Record<string, Input>>(
   }
   let logic = spec(inputNodes);
   let assertNode = logic.assert ?? Node.constant(Bool(true));
-  let data: Node<Data> = logic.data ?? (Node.constant(undefined) as any);
+  let ouputClaim: Node<Output> =
+    logic.ouputClaim ?? (Node.constant(undefined) as any);
 
-  return { inputs, logic: { assert: assertNode, data } };
+  return { inputs, logic: { assert: assertNode, ouputClaim } };
 }
 
 const Operation = {
@@ -124,6 +128,7 @@ const Operation = {
   property,
   record,
   equals,
+  equalsOneOf,
   lessThan,
   lessThanEq,
   add,
@@ -134,7 +139,9 @@ const Operation = {
   or,
   not,
   hash,
+  hashWithPrefix,
   ifThenElse,
+  compute,
 };
 
 type Constant<Data> = {
@@ -145,7 +152,7 @@ type Constant<Data> = {
 type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
 
 type Input<Data = any> =
-  | CredentialType<CredentialId, any, Data>
+  | CredentialSpec<CredentialType, any, Data>
   | Constant<Data>
   | Claim<Data>;
 
@@ -157,6 +164,7 @@ type Node<Data = any> =
   | { type: 'property'; key: string; inner: Node }
   | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
+  | { type: 'equalsOneOf'; input: Node; options: Node[] | Node<any[]> }
   | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
@@ -166,17 +174,23 @@ type Node<Data = any> =
   | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
-  | { type: 'hash'; inner: Node }
+  | { type: 'hash'; inputs: Node[]; prefix?: string }
   | {
       type: 'ifThenElse';
       condition: Node<Bool>;
       thenNode: Node;
       elseNode: Node;
+    }
+  | {
+      type: 'compute';
+      inputs: readonly Node[];
+      computation: (...inputs: any[]) => any;
+      outputType: ProvableType;
     };
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
-  data?: Node<Data>;
+  ouputClaim?: Node<Data>;
 };
 
 const Node = {
@@ -223,6 +237,18 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let bool = Provable.equal(ProvableType.fromValue(left), left, right);
       return bool as Data;
     }
+    case 'equalsOneOf': {
+      let input = evalNode(root, node.input);
+      let type = NestedProvable.get(NestedProvable.fromValue(input));
+      let options: any[];
+      if (Array.isArray(node.options)) {
+        options = node.options.map((i) => evalNode(root, i));
+      } else {
+        options = evalNode(root, node.options);
+      }
+      let bools = options.map((o) => Provable.equal(type, input, o));
+      return bools.reduce(Bool.or) as Data;
+    }
     case 'lessThan':
     case 'lessThanEq':
       return compareNodes(root, node, node.type === 'lessThanEq') as Data;
@@ -245,11 +271,18 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let inner = evalNode(root, node.inner);
       return inner.not() as Data;
     }
-    // TODO: handle composite types
     case 'hash': {
-      let inner = evalNode(root, node.inner);
-      let innerFields = inner.toFields();
-      let hash = Poseidon.hash(innerFields);
+      let inputs = node.inputs.map((i) => evalNode(root, i));
+      let types = inputs.map((i) =>
+        NestedProvable.get(NestedProvable.fromValue(i))
+      );
+      let fields = zip(types, inputs).flatMap(([type, value]) =>
+        type.toFields(value)
+      );
+      let hash =
+        node.prefix === undefined
+          ? Poseidon.hash(fields)
+          : Poseidon.hashWithPrefix(node.prefix, fields);
       return hash as Data;
     }
     case 'ifThenElse': {
@@ -258,6 +291,12 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       let elseNode = evalNode(root, node.elseNode);
       let result = Provable.if(condition, thenNode, elseNode);
       return result as Data;
+    }
+    case 'compute': {
+      const computationInputs = node.inputs.map((input) =>
+        evalNode(root, input)
+      );
+      return node.computation(...computationInputs);
     }
   }
 }
@@ -354,6 +393,7 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
       return inner[node.key] as any;
     }
     case 'equals':
+    case 'equalsOneOf':
     case 'lessThan':
     case 'lessThanEq':
     case 'and':
@@ -378,6 +418,9 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
         result[key] = evalNodeType(rootType, node.data[key]!);
       }
       return result;
+    }
+    case 'compute': {
+      return node.outputType;
     }
   }
 }
@@ -435,6 +478,13 @@ function record<Nodes extends Record<string, Node>>(
 
 function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
   return { type: 'equals', left, right };
+}
+
+function equalsOneOf<Data>(
+  input: Node<Data>,
+  options: Node<Data>[] | Node<Data[]>
+): Node<Bool> {
+  return { type: 'equalsOneOf', input, options };
 }
 
 type NumericType = Field | UInt64 | UInt32 | UInt8;
@@ -495,8 +545,11 @@ function not(inner: Node<Bool>): Node<Bool> {
   return { type: 'not', inner };
 }
 
-function hash(inner: Node): Node<Field> {
-  return { type: 'hash', inner };
+function hash(...inputs: Node[]): Node<Field> {
+  return { type: 'hash', inputs };
+}
+function hashWithPrefix(prefix: string, ...inputs: Node[]): Node<Field> {
+  return { type: 'hash', inputs, prefix };
 }
 
 function issuer(credential: Node): Node<Field> {
@@ -513,6 +566,23 @@ function ifThenElse<Data>(
   elseNode: Node<Data>
 ): Node<Data> {
   return { type: 'ifThenElse', condition, thenNode, elseNode };
+}
+
+function compute<Inputs extends readonly Node[], Output>(
+  inputs: [...Inputs],
+  outputType: ProvableType<Output>,
+  computation: (
+    ...args: {
+      [K in keyof Inputs]: Inputs[K] extends Node<infer T> ? T : never;
+    }
+  ) => Output
+): Node<Output> {
+  return {
+    type: 'compute',
+    inputs: inputs,
+    computation: computation as (inputs: any[]) => Output,
+    outputType,
+  };
 }
 
 // helpers to extract/recombine portions of the spec inputs
@@ -555,7 +625,7 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
 
 function publicOutputType(spec: Spec): ProvablePure<any> {
   let root = dataInputTypes(spec);
-  let outputTypeNested = Node.evalType(root, spec.logic.data);
+  let outputTypeNested = Node.evalType(root, spec.logic.ouputClaim);
   let outputType = NestedProvable.get(outputTypeNested);
   assertPure(outputType);
   return outputType;
@@ -602,7 +672,7 @@ function extractCredentialInputs(
     if (input.type === 'credential') {
       let value: any = credentials[key];
       credentialInputs.push({
-        credentialType: input,
+        spec: input,
         credential: value.credential,
         witness: value.witness,
       });
@@ -693,16 +763,16 @@ type MapToDataInput<T extends Record<string, Input>> = {
 
 type ToClaim<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
-type ToCredential<T extends Input> = T extends CredentialType<
-  CredentialId,
+type ToCredential<T extends Input> = T extends CredentialSpec<
+  CredentialType,
   infer Witness,
   infer Data
 >
   ? { credential: Credential<Data>; witness: Witness }
   : never;
 
-type ToDataInput<T extends Input> = T extends CredentialType<
-  CredentialId,
+type ToDataInput<T extends Input> = T extends CredentialSpec<
+  CredentialType,
   any,
   infer Data
 >

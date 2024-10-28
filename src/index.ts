@@ -1,4 +1,6 @@
-// run with node --experimental-strip-types
-import './program-spec.ts';
-import './program.ts';
-import './types.ts';
+export { Spec, Operation, Claim, Constant } from './program-spec.ts';
+export { Credential } from './credential-index.ts';
+export { Presentation, PresentationRequest } from './presentation.ts';
+export { assert } from './util.ts';
+
+export type { InferProvable as InferSchema } from 'o1js';

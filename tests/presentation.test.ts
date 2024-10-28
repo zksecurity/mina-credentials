@@ -2,7 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
-import { issuerKey, owner, ownerKey } from './test-utils.ts';
+import {
+  issuerKey,
+  owner,
+  ownerKey,
+  randomPublicKey,
+  zkAppAddress,
+} from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
 
@@ -20,19 +26,18 @@ test('program with simple spec and signature credential', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      data: Operation.property(signedData, 'age'),
+      ouputClaim: Operation.property(signedData, 'age'),
     })
   );
 
   // presentation request
-  // TODO proper context
   let requestInitial = PresentationRequest.noContext(spec, {
     targetAge: Field(18),
   });
   let json = PresentationRequest.toJSON(requestInitial);
 
   // wallet: deserialize and compile request
-  let deserialized = PresentationRequest.fromJSON<typeof requestInitial>(json);
+  let deserialized = PresentationRequest.fromJSON('no-context', json);
   let request = await Presentation.compile(deserialized);
 
   await t.test('compile program', async () => {
@@ -48,13 +53,17 @@ test('program with simple spec and signature credential', async (t) => {
     let signedData = Credential.sign(issuerKey, { owner, data });
 
     // presentation
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
       credentials: [signedData],
+      context: undefined,
     });
 
-    assert(proof, 'Proof should be generated');
+    // verifies
+    await Presentation.verify(request, presentation, undefined);
 
+    let { proof } = presentation;
+    assert(proof, 'Proof should be generated');
     assert.deepStrictEqual(
       proof.publicInput.claims.targetAge,
       Field(18),
@@ -76,19 +85,9 @@ test('program with simple spec and signature credential', async (t) => {
         await Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
+          context: undefined,
         }),
-      (err) => {
-        assert(err instanceof Error, 'Should throw an Error');
-        assert(
-          err.message.includes('Program assertion failed'),
-          'Error message should include program assertion failure'
-        );
-        assert(
-          err.message.includes('Constraint unsatisfied'),
-          'Error message should include unsatisfied constraint'
-        );
-        return true;
-      },
+      /Program assertion failed/,
       'Program should fail with invalid input'
     );
   });
@@ -98,23 +97,13 @@ test('program with simple spec and signature credential', async (t) => {
     let signedData = Credential.sign(issuerKey, { owner, data });
 
     await assert.rejects(
-      async () =>
-        await Presentation.create(ownerKey, {
+      () =>
+        Presentation.create(ownerKey, {
           request,
           credentials: [signedData],
+          context: undefined,
         }),
-      (err) => {
-        assert(err instanceof Error, 'Should throw an Error');
-        assert(
-          err.message.includes('Program assertion failed'),
-          'Error message should include program assertion failure'
-        );
-        assert(
-          err.message.includes('Constraint unsatisfied'),
-          'Error message should include unsatisfied constraint'
-        );
-        return true;
-      },
+      /Program assertion failed/,
       'Program should fail with invalid input'
     );
   });
@@ -134,7 +123,7 @@ test('program with owner and issuer operations', async (t) => {
         Operation.property(signedData, 'dummy'),
         expectedDummy
       ),
-      data: Operation.record({
+      ouputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         dummy: Operation.property(signedData, 'dummy'),
@@ -151,18 +140,102 @@ test('program with owner and issuer operations', async (t) => {
   await t.test('run program with valid input', async () => {
     let dummyData = { dummy: Field(123) };
     let signedData = Credential.sign(issuerKey, { owner, data: dummyData });
-    let { proof } = await Presentation.create(ownerKey, {
+    let presentation = await Presentation.create(ownerKey, {
       request,
+      credentials: [signedData],
+      context: undefined,
+    });
+    await Presentation.verify(request, presentation, undefined);
+
+    let { proof } = presentation;
+    assert(proof, 'Proof should be generated');
+    assert.deepStrictEqual(proof.publicOutput.owner, owner);
+    const expectedIssuerField = SignedData.issuer(signedData.witness);
+    assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
+    assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
+  });
+});
+
+test('presentation with context binding', async (t) => {
+  const Bytes32 = Bytes(32);
+  const InputData = { age: Field, name: Bytes32 };
+
+  const spec = Spec(
+    {
+      signedData: Credential.Simple(InputData),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
+      assert: Operation.and(
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
+      ),
+      ouputClaim: Operation.property(signedData, 'age'),
+    })
+  );
+  const data = { age: Field(18), name: Bytes32.fromString('Alice') };
+  const signedData = Credential.sign(issuerKey, { owner, data });
+
+  await t.test('presentation with zk-app context', async (t) => {
+    let request = PresentationRequest.zkApp(
+      spec,
+      { targetAge: Field(18) },
+      { action: Field(123) }
+    );
+
+    let presentation = await Presentation.create(ownerKey, {
+      request,
+      context: { verifierIdentity: zkAppAddress },
       credentials: [signedData],
     });
 
-    assert(proof, 'Proof should be generated');
+    // verifies
+    await Presentation.verify(request, presentation, {
+      verifierIdentity: zkAppAddress,
+    });
 
-    assert.deepStrictEqual(proof.publicOutput.owner, owner);
+    // doesn't verify against different context
+    await assert.rejects(
+      () =>
+        Presentation.verify(request, presentation, {
+          verifierIdentity: randomPublicKey(),
+        }),
+      /Invalid context/,
+      'Should throw an error for invalid context'
+    );
 
-    const expectedIssuerField = SignedData.issuer(signedData.witness);
-    assert.deepStrictEqual(proof.publicOutput.issuer, expectedIssuerField);
+    // doesn't verify against request for different action
+    let request2 = PresentationRequest.zkApp(
+      spec,
+      { targetAge: Field(18) },
+      { action: Field(124) }
+    );
+    await assert.rejects(
+      () =>
+        Presentation.verify(request2, presentation, {
+          verifierIdentity: zkAppAddress,
+        }),
+      /Invalid context/,
+      'Should throw an error for invalid context'
+    );
+  });
 
-    assert.deepStrictEqual(proof.publicOutput.dummy, Field(123));
+  await t.test('presentation with https context', async () => {
+    let request = PresentationRequest.https(
+      spec,
+      { targetAge: Field(18) },
+      { action: 'POST /api/verify' }
+    );
+
+    let presentation = await Presentation.create(ownerKey, {
+      request,
+      credentials: [signedData],
+      context: { verifierIdentity: 'test.com' },
+    });
+
+    await Presentation.verify(request, presentation, {
+      verifierIdentity: 'test.com',
+    });
   });
 });

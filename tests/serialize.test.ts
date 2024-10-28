@@ -9,9 +9,13 @@ import {
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
+  serializeInputContext,
 } from '../src/serialize-spec.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
-import { deserializeSpec } from '../src/deserialize-spec.ts';
+import {
+  deserializeInputContext,
+  deserializeSpec,
+} from '../src/deserialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 
 test('Serialize Inputs', async (t) => {
@@ -334,7 +338,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'hash',
-      inner: { type: 'constant', data: { _type: 'Field', value: '123' } },
+      inputs: [{ type: 'constant', data: { _type: 'Field', value: '123' } }],
+      prefix: null,
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -431,7 +436,7 @@ test('serializeInput', async (t) => {
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'public',
+      type: 'claim',
       data: { _type: 'Field' },
     };
 
@@ -445,7 +450,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: { _type: 'Field' },
     };
@@ -460,7 +465,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'signature-native',
+      credentialType: 'simple',
       witness: {
         type: { type: 'Constant', value: 'simple' },
         issuer: { _type: 'PublicKey' },
@@ -489,7 +494,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: {
         personal: {
@@ -522,7 +527,7 @@ test('convertSpecToSerializable', async (t) => {
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-        data: age,
+        ouputClaim: age,
       })
     );
 
@@ -532,11 +537,11 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         age: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
-        isAdmin: { type: 'public', data: { _type: 'Bool' } },
+        isAdmin: { type: 'claim', data: { _type: 'Bool' } },
         maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
       logic: {
@@ -591,7 +596,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.property(signedData, 'field'),
           zeroField
         ),
-        data: signedData,
+        ouputClaim: signedData,
       })
     );
 
@@ -600,7 +605,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          id: 'signature-native',
+          credentialType: 'simple',
           witness: {
             type: { type: 'Constant', value: 'simple' },
             issuer: { _type: 'PublicKey' },
@@ -660,7 +665,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.lessThan(field1, field2),
           Operation.equals(field1, zeroField)
         ),
-        data: field2,
+        ouputClaim: field2,
       })
     );
 
@@ -669,13 +674,13 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         field1: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
         field2: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
@@ -747,7 +752,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
-      data: age,
+      ouputClaim: age,
     })
   );
 
@@ -767,7 +772,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
   await t.test('should detect tampering', async () => {
     const tampered = JSON.parse(serialized);
     const tamperedSpec = JSON.parse(tampered.spec);
-    tamperedSpec.inputs.age.type = 'public';
+    tamperedSpec.inputs.age.type = 'claim';
     tampered.spec = JSON.stringify(tamperedSpec);
     const tamperedString = JSON.stringify(tampered);
     assert(
@@ -781,7 +786,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     async () => {
       const tampered = JSON.parse(serialized);
       const tamperedSpec = JSON.parse(tampered.spec);
-      tamperedSpec.inputs.age.type = 'public';
+      tamperedSpec.inputs.age.type = 'claim';
       tampered.spec = JSON.stringify(tamperedSpec);
       const tamperedString = JSON.stringify(tampered);
 
@@ -814,7 +819,7 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
         Operation.property(signedData, 'age'),
         targetAge
       ),
-      data: Operation.record({
+      ouputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         age: Operation.property(signedData, 'age'),
@@ -833,5 +838,51 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
   assert.deepStrictEqual(serializedSpec.logic.data.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
+  });
+});
+
+test('serializeInputContext', async (t) => {
+  await t.test('should serialize zk-app context', () => {
+    const context = {
+      type: 'zk-app' as const,
+      action: Field(456),
+      serverNonce: Field(789),
+    };
+
+    const serialized = serializeInputContext(context);
+
+    assert.deepStrictEqual(serialized, {
+      type: 'zk-app',
+      action: { _type: 'Field', value: '456' },
+      serverNonce: { _type: 'Field', value: '789' },
+    });
+
+    const deserialized = deserializeInputContext(serialized);
+    assert.deepStrictEqual(deserialized, context);
+
+    const reserialized = serializeInputContext(deserialized);
+    assert.deepStrictEqual(serialized, reserialized);
+  });
+
+  await t.test('should serialize https context', () => {
+    const context = {
+      type: 'https' as const,
+      action: 'POST /api/verify',
+      serverNonce: Field(789),
+    };
+
+    const serialized = serializeInputContext(context);
+
+    assert.deepStrictEqual(serialized, {
+      type: 'https',
+      action: 'POST /api/verify',
+      serverNonce: { _type: 'Field', value: '789' },
+    });
+
+    const deserialized = deserializeInputContext(serialized);
+    assert.deepStrictEqual(deserialized, context);
+
+    const reserialized = serializeInputContext(deserialized);
+    assert.deepStrictEqual(serialized, reserialized);
   });
 });

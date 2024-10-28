@@ -3,7 +3,7 @@
  * wrap types in `Struct` and similar.
  */
 import { type InferProvable, Provable, type ProvablePure, Struct } from 'o1js';
-import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
+import { array, type ProvablePureType, ProvableType } from './o1js-missing.ts';
 import { assertIsObject } from './util.ts';
 
 export { NestedProvable };
@@ -34,6 +34,9 @@ const NestedProvable = {
     } catch {
       // case 2: value is a record of values from provable types
       if (typeof value === 'string') return String as any;
+
+      if (Array.isArray(value))
+        return array(NestedProvable.fromValue(value[0]), value.length) as any;
 
       assertIsObject(value);
       return Object.fromEntries(
