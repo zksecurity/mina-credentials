@@ -114,7 +114,7 @@ console.log(
 // ---------------------------------------------
 // VERIFIER: verify the presentation against the request we submitted, and check that the nullifier was not used yet
 
-let presentation2 = Presentation.fromJSON<{ nullifier: Field }>(serialized);
+let presentation2 = Presentation.fromJSON(serialized);
 let outputClaim = await Presentation.verify(request, presentation2, {
   verifierIdentity: 'my-app.xyz',
 });

@@ -174,7 +174,10 @@ function requestFromJson(
   }
 }
 
-type Presentation<Output, Inputs extends Record<string, Input>> = {
+type Presentation<
+  Output = any,
+  Inputs extends Record<string, Input> = Record<string, Input>
+> = {
   version: 'v0';
   claims: Claims<Inputs>;
   outputClaim: Output;
@@ -223,8 +226,15 @@ const Presentation = {
    */
   verify: verifyPresentation,
 
-  toJSON: toJSON,
-  fromJSON: fromJSON,
+  /**
+   * Serialize a presentation to JSON.
+   */
+  toJSON,
+
+  /**
+   * Deserialize a presentation from JSON.
+   */
+  fromJSON,
 };
 
 async function createPresentation<R extends PresentationRequest>(
@@ -300,10 +310,7 @@ function toJSON<Output, Inputs extends Record<string, Input>>(
   return JSON.stringify(json);
 }
 
-function fromJSON<
-  Output,
-  Inputs extends Record<string, Input> = Record<string, any>
->(presentationJson: string): Presentation<Output, Inputs> {
+function fromJSON(presentationJson: string): Presentation {
   let presentation = JSON.parse(presentationJson);
   assert(
     presentation.version === 'v0',
