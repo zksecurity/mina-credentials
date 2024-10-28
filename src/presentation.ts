@@ -84,7 +84,7 @@ type PresentationRequest<
 };
 
 const PresentationRequest = {
-  async https<Output, Inputs extends Record<string, Input>>(
+  https<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
     context: { action: string }
@@ -108,13 +108,10 @@ const PresentationRequest = {
     // generate random nonce on "the server"
     let serverNonce = Field.random();
 
-    // compile program to get the verification key
-    let program = createProgram(spec);
-
     return ZkAppRequest({
       spec,
       claims,
-      program,
+      program: createProgram(spec),
       inputContext: { ...context, type: 'zk-app', serverNonce },
     });
   },
