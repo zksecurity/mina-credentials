@@ -37,7 +37,7 @@ import {
   PresentationRequest,
   ZkAppRequest,
 } from '../src/presentation.ts';
-import { zkAppVerifierIdentity } from './test-utils.ts';
+import { zkAppAddress } from './test-utils.ts';
 import { computeContext, generateContext } from '../src/context.ts';
 
 test('Deserialize Spec', async (t) => {
@@ -824,9 +824,10 @@ test('deserializePresentationRequest with context', async (t) => {
     assert(context, 'Context should exist');
     assert.deepStrictEqual(context.presentationCircuitVKHash, Field(123));
     assert.deepStrictEqual(context.action, Field(123));
+    assert.deepStrictEqual(context.serverNonce, Field(789));
 
     const walletContext = {
-      verifierIdentity: zkAppVerifierIdentity,
+      verifierIdentity: zkAppAddress,
       clientNonce: Field(999),
     };
 
@@ -876,6 +877,7 @@ test('deserializePresentationRequest with context', async (t) => {
     assert(context, 'Context should exist');
     assert.deepStrictEqual(context.presentationCircuitVKHash, Field(123));
     assert.strictEqual(context.action, 'POST /api/verify');
+    assert.deepStrictEqual(context.serverNonce, Field(789));
 
     const walletContext = {
       verifierIdentity: serverUrl,

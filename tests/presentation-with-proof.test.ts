@@ -11,9 +11,6 @@ import { signCredentials } from '../src/credential.ts';
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
 
-// TODO
-let context = Field(0);
-
 // simple spec to create a proof credential that's used recursively
 // TODO create a more interesting input proof
 const inputProofSpec = Spec(
@@ -125,8 +122,9 @@ await describe('program with proof credential', async () => {
 
   await test('run program with invalid signature', async () => {
     // changing the context makes the signature invalid
-    let invalidContext = context.add(1);
-    let ownerSignature = signCredentials(ownerKey, invalidContext, {
+    let actualContext = Field(0);
+    let invalidContext = Field(1);
+    let ownerSignature = signCredentials(ownerKey, actualContext, {
       ...provedData,
       credentialType: Recursive,
     });
@@ -134,7 +132,7 @@ await describe('program with proof credential', async () => {
     await assert.rejects(
       async () =>
         await request.program.run({
-          context,
+          context: invalidContext,
           ownerSignature,
           credentials: { provedData },
           claims: { targetAge: Field(18) },

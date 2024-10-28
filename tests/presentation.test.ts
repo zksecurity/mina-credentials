@@ -1,16 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes } from 'o1js';
+import { Field, Bytes, PublicKey, PrivateKey } from 'o1js';
 import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
-import {
-  issuerKey,
-  owner,
-  ownerKey,
-  zkAppVerifierIdentity,
-} from './test-utils.ts';
+import { issuerKey, owner, ownerKey, zkAppAddress } from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
-import { createProgram } from '../src/program.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
@@ -31,7 +25,6 @@ test('program with simple spec and signature credential', async (t) => {
   );
 
   // presentation request
-  // TODO proper context
   let requestInitial = PresentationRequest.noContext(spec, {
     targetAge: Field(18),
   });
@@ -195,11 +188,10 @@ test('presentation with context binding', async (t) => {
       data: Operation.property(signedData, 'age'),
     })
   );
+  const data = { age: Field(18), name: Bytes32.fromString('Alice') };
+  const signedData = Credential.sign(issuerKey, { owner, data });
 
-  await t.test('presentation with zk-app context', async () => {
-    const data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    const signedData = Credential.sign(issuerKey, { owner, data });
-
+  await t.test('presentation with zk-app context', async (t) => {
     let request = await PresentationRequest.zkApp(
       spec,
       { targetAge: Field(18) },
@@ -208,17 +200,16 @@ test('presentation with context binding', async (t) => {
 
     let { proof } = await Presentation.create(ownerKey, {
       request,
-      context: { verifierIdentity: zkAppVerifierIdentity },
+      context: { verifierIdentity: zkAppAddress },
       credentials: [signedData],
     });
 
     assert(proof, 'Proof should be generated');
+
+    // TODO negative test where we can't verify proof when generated for different action or zkapp address
   });
 
   await t.test('presentation with https context', async () => {
-    const data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    const signedData = Credential.sign(issuerKey, { owner, data });
-
     let request = await PresentationRequest.https(
       spec,
       { targetAge: Field(18) },
