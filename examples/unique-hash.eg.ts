@@ -1,4 +1,4 @@
-import { Bytes, Field } from 'o1js';
+import { Bytes, Field, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -22,7 +22,22 @@ import { array } from '../src/o1js-missing.ts';
 const Bytes32 = Bytes(32);
 const Bytes16 = Bytes(16); // 16 bytes = 128 bits = enough entropy
 
-const Schema = { nationality: Bytes32, id: Bytes16 };
+const Schema = {
+  /**
+   * Nationality of the owner.
+   */
+  nationality: Bytes32,
+
+  /**
+   * Owner ID (16 bytes).
+   */
+  id: Bytes16,
+
+  /**
+   * Timestamp when the credential expires.
+   */
+  expiresAt: UInt64,
+};
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
@@ -30,6 +45,7 @@ const Schema = { nationality: Bytes32, id: Bytes16 };
 let data: InferSchema<typeof Schema> = {
   nationality: Bytes32.fromString('United States of America'),
   id: Bytes16.random(),
+  expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
 };
 let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);
@@ -50,27 +66,37 @@ console.log('✅ WALLET: imported and validated credential');
 
 const spec = Spec(
   {
-    signedData: Credential.Simple(Schema), // schema needed here!
-    targetNations: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
-    targetIssuers: Claim(array(Field, 3)),
+    credential: Credential.Simple(Schema), // schema needed here!
+    acceptedNations: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
+    acceptedIssuers: Claim(array(Field, 3)),
+    currentDate: Claim(UInt64),
     appId: Claim(Bytes32),
   },
-  ({ signedData, targetNations, targetIssuers, appId }) => ({
-    // we assert that:
-    // 1. the owner has one of the accepted nationalities
-    // 2. the credential was issued by one of the accepted issuers
-    assert: Operation.and(
-      Operation.equalsOneOf(
-        Operation.property(signedData, 'nationality'),
-        targetNations
+  ({ credential, acceptedNations, acceptedIssuers, currentDate, appId }) => {
+    // extract properties from the credential
+    let nationality = Operation.property(credential, 'nationality');
+    let issuer = Operation.issuer(credential);
+    let expiresAt = Operation.property(credential, 'expiresAt');
+
+    return {
+      // we assert that:
+      // 1. the owner has one of the accepted nationalities
+      // 2. the credential was issued by one of the accepted issuers
+      // 3. the credential is not expired (by comparing with the current date)
+      assert: Operation.and(
+        Operation.and(
+          Operation.equalsOneOf(nationality, acceptedNations),
+          Operation.equalsOneOf(issuer, acceptedIssuers)
+        ),
+        Operation.lessThanEq(currentDate, expiresAt)
       ),
-      Operation.equalsOneOf(Operation.issuer(signedData), targetIssuers)
-    ),
-    // we expose a unique hash of the credential data, to be used as nullifier
-    ouputClaim: Operation.record({
-      nullifier: Operation.hash(signedData, appId),
-    }),
-  })
+
+      // we expose a unique hash of the credential data, to be used as nullifier
+      ouputClaim: Operation.record({
+        nullifier: Operation.hash(credential, appId),
+      }),
+    };
+  }
 );
 
 const targetNations = ['United States of America', 'Canada', 'Mexico'];
@@ -79,8 +105,9 @@ const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
 let request = PresentationRequest.https(
   spec,
   {
-    targetNations: targetNations.map((s) => Bytes32.fromString(s)),
-    targetIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
+    acceptedNations: targetNations.map((s) => Bytes32.fromString(s)),
+    acceptedIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
+    currentDate: UInt64.from(Date.now()),
     appId: Bytes32.fromString('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
@@ -108,7 +135,7 @@ console.timeEnd('create');
 let serialized = Presentation.toJSON(presentation);
 console.log(
   '✅ WALLET: created presentation:',
-  serialized.slice(0, 1000) + '...'
+  serialized.slice(0, 2000) + '...'
 );
 
 // ---------------------------------------------
