@@ -53,9 +53,7 @@ const ProvableType = {
 
   synthesize<T>(type_: ProvableType<T>): T {
     let type = ProvableType.get(type_);
-    let fields = Array.from({ length: type.sizeInFields() }, (_, i) =>
-      Field(0)
-    );
+    let fields = Array.from({ length: type.sizeInFields() }, () => Field(0));
     return type.fromFields(fields, type.toAuxiliary());
   },
 
@@ -97,6 +95,7 @@ function assertPure<T>(
 type NestedArray = any[] | NestedArray[];
 
 function lengthRecursive(array: NestedArray): number {
+  if (!Array.isArray(array)) return 1;
   let length = 0;
   for (let i = 0; i < array.length; i++) {
     length += lengthRecursive(array[i]);
