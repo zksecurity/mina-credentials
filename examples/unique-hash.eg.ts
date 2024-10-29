@@ -78,24 +78,22 @@ const spec = Spec(
     let issuer = Operation.issuer(credential);
     let expiresAt = Operation.property(credential, 'expiresAt');
 
-    return {
-      // we assert that:
-      // 1. the owner has one of the accepted nationalities
-      // 2. the credential was issued by one of the accepted issuers
-      // 3. the credential is not expired (by comparing with the current date)
-      assert: Operation.and(
-        Operation.and(
-          Operation.equalsOneOf(nationality, acceptedNations),
-          Operation.equalsOneOf(issuer, acceptedIssuers)
-        ),
-        Operation.lessThanEq(currentDate, expiresAt)
-      ),
+    // we assert that:
+    // 1. the owner has one of the accepted nationalities
+    // 2. the credential was issued by one of the accepted issuers
+    // 3. the credential is not expired (by comparing with the current date)
+    let assert = Operation.and(
+      Operation.equalsOneOf(nationality, acceptedNations),
+      Operation.equalsOneOf(issuer, acceptedIssuers),
+      Operation.lessThanEq(currentDate, expiresAt)
+    );
 
-      // we expose a unique hash of the credential data, to be used as nullifier
-      ouputClaim: Operation.record({
-        nullifier: Operation.hash(credential, appId),
-      }),
-    };
+    // we expose a unique hash of the credential data, to be used as nullifier
+    let ouputClaim = Operation.record({
+      nullifier: Operation.hash(credential, appId),
+    });
+
+    return { assert, ouputClaim };
   }
 );
 
