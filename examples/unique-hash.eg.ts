@@ -20,7 +20,7 @@ import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const Bytes32 = Bytes(32);
-const Bytes16 = Bytes(16); // 16 bytes = 128 bits = enough entropy
+const Bytes16 = Bytes(16);
 
 const Schema = {
   /**
@@ -89,6 +89,8 @@ const spec = Spec(
     );
 
     // we expose a unique hash of the credential data, to be used as nullifier
+    // note: since the credential contains a 16 byte = 128 bit random ID, it has enough
+    // entropy such that exposing this hash will not reveal the credential data
     let ouputClaim = Operation.record({
       nullifier: Operation.hash(credential, appId),
     });
@@ -140,6 +142,7 @@ console.log(
 // VERIFIER: verify the presentation against the request we submitted, and check that the nullifier was not used yet
 
 let presentation2 = Presentation.fromJSON(serialized);
+
 let outputClaim = await Presentation.verify(request, presentation2, {
   verifierIdentity: 'my-app.xyz',
 });
@@ -147,7 +150,6 @@ console.log('✅ VERIFIER: verified presentation');
 
 let existingNullifiers = new Set([0x13c43f30n, 0x370f3473n, 0xe1fe0cdan]);
 
-// TODO: claims and other I/O values should be plain JS types
 let { nullifier } = outputClaim;
 assert(
   !existingNullifiers.has(nullifier.toBigInt()),
