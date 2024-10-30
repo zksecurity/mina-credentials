@@ -5,15 +5,20 @@ import { assert, chunk } from '../util.ts';
 
 export { DynamicBytes };
 
+type DynamicBytes = DynamicBytesBase;
+
 /**
  * Specialization of `DynamicArray` to bytes,
- * with added helper methods to create instances.
+ * with added helper methods to convert instances to/from values.
  *
  * ```ts
  * const Bytes = DynamicBytes({ maxLength: 120 });
  *
  * let bytes = Bytes.fromString('hello');
  * let bytes2 = Bytes.fromBytes([1, 2, 3]);
+ *
+ * let string = bytes.toString();
+ * let uint8array = bytes2.toBytes();
  * ```
  */
 function DynamicBytes({ maxLength }: { maxLength: number }) {
@@ -62,35 +67,13 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
     static fromString(s: string) {
       return DynamicBytes.fromBytes(new TextEncoder().encode(s));
     }
-
-    /**
-     * Convert DynamicBytes to a byte array.
-     */
-    static toBytes(bytes: DynamicBytes) {
-      return new Uint8Array(bytes.toValue().map(({ value }) => Number(value)));
-    }
-
-    /**
-     * Convert DynamicBytes to a hex string.
-     */
-    static toHex(bytes: DynamicBytes) {
-      return [...DynamicBytes.toBytes(bytes)]
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-    }
-
-    /**
-     * Convert DynamicBytes to a string.
-     */
-    static toString(bytes: DynamicBytes) {
-      return new TextDecoder().decode(DynamicBytes.toBytes(bytes));
-    }
   }
 
-  const provableArray = provableDynamicArray<UInt8, { value: bigint }>(
-    UInt8 as any,
-    DynamicBytes
-  );
+  const provableArray = provableDynamicArray<
+    UInt8,
+    { value: bigint },
+    typeof DynamicBytesBase
+  >(UInt8 as any, DynamicBytes);
 
   return DynamicBytes;
 }
@@ -98,6 +81,29 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
 class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   get innerType() {
     return UInt8 as any as Provable<UInt8, { value: bigint }>;
+  }
+
+  /**
+   * Convert DynamicBytes to a byte array.
+   */
+  toBytes() {
+    return new Uint8Array(this.toValue().map(({ value }) => Number(value)));
+  }
+
+  /**
+   * Convert DynamicBytes to a hex string.
+   */
+  toHex() {
+    return [...this.toBytes()]
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  /**
+   * Convert DynamicBytes to a string.
+   */
+  toString() {
+    return new TextDecoder().decode(this.toBytes());
   }
 }
 
@@ -114,8 +120,8 @@ ProvableFactory.register(DynamicBytes, {
     return DynamicBytes({ maxLength: json.maxLength });
   },
 
-  valueToJSON(type, value) {
-    return type.toHex(value);
+  valueToJSON(_, value) {
+    return value.toHex();
   },
 
   valueFromJSON(type, value) {

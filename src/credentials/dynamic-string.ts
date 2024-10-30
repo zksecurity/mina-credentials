@@ -5,6 +5,8 @@ import { assert } from '../util.ts';
 
 export { DynamicString };
 
+type DynamicString = DynamicStringBase;
+
 /**
  * Specialization of `DynamicArray` to string (represented as array of bytes),
  * with added helper methods to create instances.
@@ -20,7 +22,7 @@ function DynamicString({ maxLength }: { maxLength: number }) {
   assert(maxLength >= 0, 'maxLength must be >= 0');
   assert(maxLength < 2 ** 16, 'maxLength must be < 2^16');
 
-  class DynamicString extends DynamicBytesBase {
+  class DynamicString extends DynamicStringBase {
     static get maxLength() {
       return maxLength;
     }
@@ -44,37 +46,38 @@ function DynamicString({ maxLength }: { maxLength: number }) {
     static from(s: string) {
       return DynamicString.fromBytes(new TextEncoder().encode(s));
     }
-
-    /**
-     * Convert DynamicBytes to a byte array.
-     */
-    static toBytes(bytes: DynamicString) {
-      return new Uint8Array(bytes.toValue().map(({ value }) => Number(value)));
-    }
-
-    /**
-     * Convert DynamicBytes to a string.
-     */
-    static toString(bytes: DynamicString) {
-      return new TextDecoder().decode(DynamicString.toBytes(bytes));
-    }
   }
 
-  const provableArray = provableDynamicArray<UInt8, { value: bigint }>(
-    UInt8 as any,
-    DynamicString
-  );
+  const provableArray = provableDynamicArray<
+    UInt8,
+    { value: bigint },
+    typeof DynamicStringBase
+  >(UInt8 as any, DynamicString);
 
   return DynamicString;
 }
 
-class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {
+class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   get innerType() {
     return UInt8 as any as Provable<UInt8, { value: bigint }>;
   }
+
+  /**
+   * Convert DynamicBytes to a byte array.
+   */
+  toBytes() {
+    return new Uint8Array(this.toValue().map(({ value }) => Number(value)));
+  }
+
+  /**
+   * Convert DynamicBytes to a string.
+   */
+  toString() {
+    return new TextDecoder().decode(this.toBytes());
+  }
 }
 
-DynamicString.Base = DynamicBytesBase;
+DynamicString.Base = DynamicStringBase;
 
 // serialize/deserialize
 
@@ -87,8 +90,8 @@ ProvableFactory.register(DynamicString, {
     return DynamicString({ maxLength: json.maxLength });
   },
 
-  valueToJSON(type, value) {
-    return type.toString(value);
+  valueToJSON(_, value) {
+    return value.toString();
   },
 
   valueFromJSON(type, value) {

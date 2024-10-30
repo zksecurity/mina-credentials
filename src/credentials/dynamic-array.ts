@@ -107,7 +107,10 @@ function DynamicArray<
       return provableArray.fromValue(input);
     }
   }
-  const provableArray = provable<T, V>(innerType, DynamicArray_);
+  const provableArray = provable<T, V, typeof DynamicArrayBase<T, V>>(
+    innerType,
+    DynamicArray_
+  );
 
   return DynamicArray_;
 }
@@ -377,15 +380,15 @@ class DynamicArrayBase<T = any, V = any> {
  */
 DynamicArray.Base = DynamicArrayBase;
 
-function provable<T, V>(
+function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
   type: ProvablePure<T, V>,
-  Class: typeof DynamicArrayBase<T, V>
-): ProvableHashable<DynamicArrayBase<T, V>, V[]> &
-  ProvablePure<DynamicArrayBase<T, V>, V[]>;
-function provable<T, V>(
+  Class: Class
+): ProvableHashable<InstanceType<Class>, V[]> &
+  ProvablePure<InstanceType<Class>, V[]>;
+function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
   type: Provable<T, V>,
-  Class: typeof DynamicArrayBase<T, V>
-): ProvableHashable<DynamicArrayBase<T, V>, V[]>;
+  Class: Class
+): ProvableHashable<InstanceType<Class>, V[]>;
 function provable<T, V>(
   type: Provable<T, V>,
   Class: typeof DynamicArrayBase<T, V>
