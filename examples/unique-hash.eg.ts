@@ -8,6 +8,7 @@ import {
   PresentationRequest,
   assert,
   type InferSchema,
+  DynamicBytes,
 } from '../src/index.ts';
 import {
   issuer,
@@ -19,14 +20,14 @@ import {
 import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
-const Bytes32 = Bytes(32); // TODO replace with DynamicBytes / String type once non-pure types are supported as public inputs
+const String = DynamicBytes({ maxLength: 50 });
 const Bytes16 = Bytes(16);
 
 const Schema = {
   /**
    * Nationality of the owner.
    */
-  nationality: Bytes32,
+  nationality: String,
 
   /**
    * Owner ID (16 bytes).
@@ -43,7 +44,7 @@ const Schema = {
 // ISSUER: issue a signed credential to the owner
 
 let data: InferSchema<typeof Schema> = {
-  nationality: Bytes32.fromString('United States of America'),
+  nationality: String.fromString('United States of America'),
   id: Bytes16.random(),
   expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
 };
@@ -67,10 +68,10 @@ console.log('✅ WALLET: imported and validated credential');
 const spec = Spec(
   {
     credential: Credential.Simple(Schema), // schema needed here!
-    acceptedNations: Claim(array(Bytes32, 3)),
+    acceptedNations: Claim(array(String, 3)),
     acceptedIssuers: Claim(array(Field, 3)),
     currentDate: Claim(UInt64),
-    appId: Claim(Bytes32),
+    appId: Claim(Bytes16),
   },
   ({ credential, acceptedNations, acceptedIssuers, currentDate, appId }) => {
     // extract properties from the credential
@@ -105,10 +106,10 @@ const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: targetNations.map((s) => Bytes32.fromString(s)),
+    acceptedNations: targetNations.map((s) => String.fromString(s)),
     acceptedIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
     currentDate: UInt64.from(Date.now()),
-    appId: Bytes32.fromString('my-app-id:123'),
+    appId: Bytes16.fromString('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
 );
