@@ -30,5 +30,19 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
     static fromString(s: string) {
       return DynamicBytes.fromBytes(new TextEncoder().encode(s));
     }
+
+    /**
+     * Convert DynamicBytes to a byte array.
+     */
+    static toBytes(bytes: DynamicBytes) {
+      return new Uint8Array(bytes.toValue().map(({ value }) => Number(value)));
+    }
+
+    /**
+     * Convert DynamicBytes to a string.
+     */
+    static toString(bytes: DynamicBytes) {
+      return new TextDecoder().decode(DynamicBytes.toBytes(bytes));
+    }
   };
 }

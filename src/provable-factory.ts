@@ -81,7 +81,6 @@ const ProvableFactory = {
   tryValueToJSON(value: unknown): (Serialized & { value: any }) | undefined {
     let factory = ProvableFactory.getRegisteredValue(value);
     if (factory === undefined) return undefined;
-    console.log('factory', factory);
     let serializedType = factory.typeToJSON(value!.constructor as any);
     return {
       _isFactory: true as const,
@@ -107,7 +106,6 @@ const ProvableFactory = {
   },
 
   valueFromJSON(json: Serialized & { value: any }): any {
-    console.log('json', json);
     let factory = factories.get(json._type);
     assert(factory !== undefined, `Type '${json._type}' not registered`);
 
