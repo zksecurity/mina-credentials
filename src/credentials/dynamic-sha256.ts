@@ -10,14 +10,21 @@ const DynamicSHA256 = {
   /**
    * Hash a dynamic-length byte array.
    *
-   * The input type `DynamicArray<UInt8>` can be created as follows:
+   * The input type `DynamicArray<UInt8>` is compatible with both `DynamicString` and `DynamicBytes`:
    *
    * ```ts
-   * const Bytes = DynamicBytes({ maxLength: 120 });
-   * let bytes = Bytes.fromString('hello');
+   * // using DynamicString
+   * const String = DynamicString({ maxLength: 120 });
+   * let string = String.from('hello');
+   * let hash = DynamicSHA256.hash(string);
    *
+   * // using DynamicBytes
+   * const Bytes = DynamicBytes({ maxLength: 120 });
+   * let bytes = Bytes.fromHex('010203');
    * let hash = DynamicSHA256.hash(bytes);
    * ```
+   *
+   *
    */
   hash,
   /**

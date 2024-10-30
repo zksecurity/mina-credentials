@@ -8,6 +8,8 @@ import {
   PresentationRequest,
   assert,
   type InferSchema,
+  DynamicString,
+  DynamicArray,
 } from '../src/index.ts';
 import {
   issuer,
@@ -16,17 +18,16 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
-import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
-const Bytes32 = Bytes(32); // TODO replace with DynamicBytes / String type once non-pure types are supported as public inputs
+const String = DynamicString({ maxLength: 50 });
 const Bytes16 = Bytes(16);
 
 const Schema = {
   /**
    * Nationality of the owner.
    */
-  nationality: Bytes32,
+  nationality: String,
 
   /**
    * Owner ID (16 bytes).
@@ -43,7 +44,7 @@ const Schema = {
 // ISSUER: issue a signed credential to the owner
 
 let data: InferSchema<typeof Schema> = {
-  nationality: Bytes32.fromString('United States of America'),
+  nationality: String.from('United States of America'),
   id: Bytes16.random(),
   expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
 };
@@ -64,13 +65,16 @@ console.log('✅ WALLET: imported and validated credential');
 // ---------------------------------------------
 // VERIFIER: request a presentation
 
+const StringArray = DynamicArray(String, { maxLength: 20 });
+const FieldArray = DynamicArray(Field, { maxLength: 20 });
+
 const spec = Spec(
   {
     credential: Credential.Simple(Schema), // schema needed here!
-    acceptedNations: Claim(array(Bytes32, 3)),
-    acceptedIssuers: Claim(array(Field, 3)),
+    acceptedNations: Claim(StringArray),
+    acceptedIssuers: Claim(FieldArray),
     currentDate: Claim(UInt64),
-    appId: Claim(Bytes32),
+    appId: Claim(String),
   },
   ({ credential, acceptedNations, acceptedIssuers, currentDate, appId }) => {
     // extract properties from the credential
@@ -99,22 +103,27 @@ const spec = Spec(
   }
 );
 
-const targetNations = ['United States of America', 'Canada', 'Mexico'];
-const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
+const acceptedNations = ['United States of America', 'Canada', 'Mexico'];
+const acceptedIssuers = [issuer, randomPublicKey(), randomPublicKey()].map(
+  (pk) => Credential.Simple.issuer(pk)
+);
 
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: targetNations.map((s) => Bytes32.fromString(s)),
-    acceptedIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
+    acceptedNations: StringArray.from(acceptedNations),
+    acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
-    appId: Bytes32.fromString('my-app-id:123'),
+    appId: String.from('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
 );
 let requestJson = PresentationRequest.toJSON(request);
 
-console.log('✅ VERIFIER: created presentation request:', requestJson);
+console.log(
+  '✅ VERIFIER: created presentation request:',
+  requestJson.slice(0, 500) + '...'
+);
 
 // ---------------------------------------------
 // WALLET: deserialize request and create presentation

@@ -20,6 +20,7 @@ import {
   Struct,
 } from 'o1js';
 import { assert } from './util.ts';
+import { ProvableFactory, type SerializedFactory } from './provable-factory.ts';
 
 export {
   type O1jsTypeName,
@@ -228,13 +229,17 @@ type SerializedType =
   | { _type: 'Constant'; value: unknown }
   | { _type: 'Bytes'; size: number }
   | { _type: 'Proof'; proof: Record<string, any> }
-  | { _type: 'String' };
+  | { _type: 'String' }
+  | SerializedFactory;
 
 type SerializedNestedType =
   | SerializedType
   | { [key: string]: SerializedNestedType };
 
 function serializeProvableType(type: ProvableType<any>): SerializedType {
+  let serialized = ProvableFactory.tryToJSON(type);
+  if (serialized !== undefined) return serialized;
+
   if ('serialize' in type && typeof type.serialize === 'function') {
     return type.serialize();
   }
@@ -274,6 +279,9 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
 type SerializedValue = { _type: string; properties?: any; value: any };
 
 function serializeProvable(value: any): SerializedValue {
+  let serialized = ProvableFactory.tryValueToJSON(value);
+  if (serialized !== undefined) return serialized;
+
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
   if (_type === 'Bytes') {
@@ -291,7 +299,7 @@ function serializeProvable(value: any): SerializedValue {
       return { _type, value: value.toJSON().toString() };
     }
     case UInt8: {
-      return { _type, value: value.toJSON().value };
+      return { _type, value: (value as UInt8).toString() };
     }
     default: {
       return { _type, value: value.toJSON() };

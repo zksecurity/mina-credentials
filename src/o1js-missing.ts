@@ -14,13 +14,7 @@ import {
 import { assert, assertHasProperty, hasProperty } from './util.ts';
 import type { NestedProvable } from './nested.ts';
 
-export {
-  ProvableType,
-  assertPure,
-  type ProvablePureType,
-  type InferProvableType,
-  array,
-};
+export { ProvableType, assertPure, type ProvablePureType, array, mapValue };
 
 const ProvableType = {
   get<A extends WithProvable<any>>(type: A): ToProvable<A> {
@@ -124,7 +118,6 @@ type ToProvable<A extends WithProvable<any>> = A extends {
 }
   ? P
   : A;
-type InferProvableType<T extends ProvableType> = InferProvable<ToProvable<T>>;
 
 // temporary, until we land `StaticArray`
 // this is copied from o1js and then modified: https://github.com/o1-labs/o1js
@@ -199,5 +192,48 @@ function array<A extends NestedProvable>(elementType: A, length: number) {
     _isArray: true;
     innerType: A;
     size: number;
+  };
+}
+
+// this is copied from o1js and then modified: https://github.com/o1-labs/o1js
+// License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
+function mapValue<
+  A extends ProvablePure<any>,
+  V extends InferValue<A>,
+  W,
+  T extends InferProvable<A>
+>(
+  provable: A,
+  there: (x: V) => W,
+  back: (x: W | T) => V | T
+): ProvablePure<T, W>;
+
+function mapValue<
+  A extends Provable<any>,
+  V extends InferValue<A>,
+  W,
+  T extends InferProvable<A>
+>(provable: A, there: (x: V) => W, back: (x: W | T) => V | T): Provable<T, W>;
+
+function mapValue<
+  A extends Provable<any>,
+  V extends InferValue<A>,
+  W,
+  T extends InferProvable<A>
+>(provable: A, there: (x: V) => W, back: (x: W | T) => V | T): Provable<T, W> {
+  return {
+    sizeInFields: provable.sizeInFields,
+    toFields: provable.toFields,
+    toAuxiliary: provable.toAuxiliary,
+    fromFields: provable.fromFields,
+    check: provable.check,
+    toCanonical: provable.toCanonical,
+
+    toValue(value) {
+      return there(provable.toValue(value));
+    },
+    fromValue(value) {
+      return provable.fromValue(back(value));
+    },
   };
 }

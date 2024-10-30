@@ -10,14 +10,41 @@ import {
   Gadgets,
   type ProvableHashable,
   type From,
+  type ProvablePure,
+  type IsPure,
 } from 'o1js';
 import { assert, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
+import { ProvableFactory } from '../provable-factory.ts';
+import { serializeProvable, serializeProvableType } from '../serialize.ts';
+import {
+  deserializeProvable,
+  deserializeProvableType,
+} from '../deserialize.ts';
 
 export { DynamicArray };
 
+export { DynamicArrayBase, provable as provableDynamicArray };
+
 type DynamicArray<T = any, V = any> = DynamicArrayBase<T, V>;
+
+type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
+  provable: ProvableHashable<DynamicArrayBase<T, V>, V[]>;
+
+  /**
+   * Create a new DynamicArray from an array of values.
+   *
+   * Note: Both the actual length and the values beyond the original ones will be constant.
+   */
+  from(v: (T | V)[] | DynamicArrayBase<T, V>): DynamicArrayBase<T, V>;
+};
+
+type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
+  Omit<DynamicArrayClass<T, V>, 'provable'> & {
+    provable: ProvableHashable<DynamicArrayBase<T, V>, V[]> &
+      ProvablePure<DynamicArrayBase<T, V>, V[]>;
+  };
 
 /**
  * Dynamic-length array type that has a
@@ -42,30 +69,30 @@ function DynamicArray<
   V extends InferValue<A> = InferValue<A>
 >(
   type: A,
+  options: { maxLength: number }
+): IsPure<A, Field> extends true
+  ? DynamicArrayClassPure<T, V>
+  : DynamicArrayClass<T, V>;
+
+function DynamicArray<
+  A extends ProvableType,
+  T extends InferProvable<A> = InferProvable<A>,
+  V extends InferValue<A> = InferValue<A>
+>(
+  type: A,
   {
     maxLength,
   }: {
     maxLength: number;
   }
-): typeof DynamicArrayBase<T, V> & {
-  provable: ProvableHashable<DynamicArrayBase<T, V>, V[]>;
-
-  /**
-   * Create a new DynamicArray from an array of values.
-   *
-   * Note: Both the actual length and the values beyond the original ones will be constant.
-   */
-  from(v: (T | V)[] | DynamicArrayBase<T, V>): DynamicArrayBase<T, V>;
-} {
-  let innerType: Provable<T, V> = ProvableType.get(type);
-
+): DynamicArrayClass<T, V> {
   // assert maxLength bounds
   assert(maxLength >= 0, 'maxLength must be >= 0');
   assert(maxLength < 2 ** 16, 'maxLength must be < 2^16');
 
   class DynamicArray_ extends DynamicArrayBase<T, V> {
     get innerType() {
-      return innerType;
+      return type;
     }
     static get maxLength() {
       return maxLength;
@@ -78,7 +105,10 @@ function DynamicArray<
       return provableArray.fromValue(input);
     }
   }
-  const provableArray = provable<T, V>(innerType, DynamicArray_);
+  const provableArray = provable<T, V, typeof DynamicArrayBase<T, V>>(
+    ProvableType.get(type),
+    DynamicArray_
+  );
 
   return DynamicArray_;
 }
@@ -95,7 +125,7 @@ class DynamicArrayBase<T = any, V = any> {
   length: Field;
 
   // props to override
-  get innerType(): Provable<T, V> {
+  get innerType(): ProvableType<T, V> {
     throw Error('Inner type must be defined in a subclass.');
   }
   static get maxLength(): number {
@@ -161,7 +191,7 @@ class DynamicArrayBase<T = any, V = any> {
    * Cost: T*N where T = size of the type
    */
   getOrUnconstrained(i: Field): T {
-    let type = this.innerType;
+    let type = ProvableType.get(this.innerType);
     let NULL = ProvableType.synthesize(type);
     let ai = Provable.witness(type, () => this.array[Number(i)] ?? NULL);
     let aiFields = type.toFields(ai);
@@ -348,6 +378,15 @@ class DynamicArrayBase<T = any, V = any> {
  */
 DynamicArray.Base = DynamicArrayBase;
 
+function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
+  type: ProvablePure<T, V>,
+  Class: Class
+): ProvableHashable<InstanceType<Class>, V[]> &
+  ProvablePure<InstanceType<Class>, V[]>;
+function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
+  type: Provable<T, V>,
+  Class: Class
+): ProvableHashable<InstanceType<Class>, V[]>;
 function provable<T, V>(
   type: Provable<T, V>,
   Class: typeof DynamicArrayBase<T, V>
@@ -398,3 +437,28 @@ function provable<T, V>(
     },
   };
 }
+
+// serialize/deserialize
+
+ProvableFactory.register(DynamicArray, {
+  typeToJSON(constructor) {
+    return {
+      maxLength: constructor.maxLength,
+      innerType: serializeProvableType(constructor.prototype.innerType),
+    };
+  },
+
+  typeFromJSON(json) {
+    let innerType = deserializeProvableType(json.innerType);
+    return DynamicArray(innerType, { maxLength: json.maxLength });
+  },
+
+  valueToJSON(_, { array, length }) {
+    return array.slice(0, Number(length)).map((v) => serializeProvable(v));
+  },
+
+  valueFromJSON(type, value) {
+    let array = value.map((v) => deserializeProvable(v));
+    return type.from(array);
+  },
+});
