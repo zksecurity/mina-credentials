@@ -249,11 +249,10 @@ function deserializeProvableType(type: SerializedType): ProvableType<any> {
   return result;
 }
 
-function deserializeProvable({
-  _type,
-  value,
-  properties,
-}: SerializedValue): any {
+function deserializeProvable(json: SerializedValue): any {
+  if (ProvableFactory.isSerialized(json)) return ProvableFactory.fromJSON(json);
+
+  let { _type, value, properties } = json;
   switch (_type) {
     case 'Field':
       return Field.fromJSON(value);

@@ -279,6 +279,9 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
 type SerializedValue = { _type: string; properties?: any; value: any };
 
 function serializeProvable(value: any): SerializedValue {
+  let serialized = ProvableFactory.tryValueToJSON(value);
+  if (serialized !== undefined) return serialized;
+
   let typeClass = ProvableType.fromValue(value);
   let { _type } = serializeProvableType(typeClass);
   if (_type === 'Bytes') {
@@ -296,7 +299,7 @@ function serializeProvable(value: any): SerializedValue {
       return { _type, value: value.toJSON().toString() };
     }
     case UInt8: {
-      return { _type, value: value.toJSON().value };
+      return { _type, value: (value as UInt8).toBigInt().toString() };
     }
     default: {
       return { _type, value: value.toJSON() };

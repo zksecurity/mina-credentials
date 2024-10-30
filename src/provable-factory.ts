@@ -17,18 +17,26 @@ type ProvableFactory<N extends string = string, T = any, V = any> = ((
 
 type Serializer<
   A extends ProvableFactory = ProvableFactory,
-  S extends UntaggedSerializedFactory = UntaggedSerializedFactory
+  S extends Serialized = Serialized,
+  V = any
 > = {
   typeToJSON(constructor: ReturnType<A>): S;
 
   typeFromJSON(json: S): ReturnType<A> | undefined;
+
+  valueToJSON(value: InstanceType<ReturnType<A>>): V;
+
+  valueFromJSON(
+    type: ReturnType<A>,
+    json: V
+  ): InstanceType<ReturnType<A>> | undefined;
 };
 
 type SerializedFactory = {
   _isFactory: true;
-} & UntaggedSerializedFactory;
+} & Serialized;
 
-type UntaggedSerializedFactory = {
+type Serialized = {
   _type: string;
 } & Record<string, any>;
 
@@ -38,9 +46,9 @@ const factories = new Map<
 >();
 
 const ProvableFactory = {
-  register<A extends ProvableFactory, S extends UntaggedSerializedFactory>(
+  register<A extends ProvableFactory, S extends Serialized, V>(
     factory: A,
-    serialize: Serializer<A, S>
+    serialize: Serializer<A, S, V>
   ) {
     assert(!factories.has(factory.name), 'Factory already registered');
     factories.set(factory.name, { base: factory.Base, ...serialize });
@@ -49,8 +57,7 @@ const ProvableFactory = {
   getRegistered(constructor: unknown) {
     for (let factory of factories.values()) {
       if (!hasProperty(constructor, 'prototype')) continue;
-      if (!(constructor.prototype instanceof factory.base)) continue;
-      return factory;
+      if (constructor.prototype instanceof factory.base) return factory;
     }
     return undefined;
   },
@@ -64,19 +71,48 @@ const ProvableFactory = {
     });
   },
 
+  getRegisteredValue(value: unknown) {
+    for (let factory of factories.values()) {
+      if (value instanceof factory.base) return factory;
+    }
+    return undefined;
+  },
+
+  tryValueToJSON(value: unknown): (Serialized & { value: any }) | undefined {
+    let factory = ProvableFactory.getRegisteredValue(value);
+    if (factory === undefined) return undefined;
+    console.log('factory', factory);
+    let serializedType = factory.typeToJSON(value!.constructor as any);
+    return {
+      _isFactory: true as const,
+      ...serializedType,
+      value: factory.valueToJSON(value),
+    };
+  },
+
   isSerialized(json: unknown): json is SerializedFactory {
     return hasProperty(json, '_isFactory') && json._isFactory === true;
   },
 
   fromJSON(json: SerializedFactory): Constructor & ProvableType {
-    let factory = factories.get(json.type);
-    assert(factory !== undefined, 'Factory not registered');
+    let factory = factories.get(json._type);
+    assert(factory !== undefined, `Type '${json._type}' not registered`);
 
     let serialized = factory.typeFromJSON(json);
     assert(
       serialized !== undefined,
-      `Invalid serialization of type '${json.type}'`
+      `Invalid serialization of type '${json._type}'`
     );
     return serialized;
+  },
+
+  valueFromJSON(json: Serialized & { value: any }): any {
+    console.log('json', json);
+    let factory = factories.get(json._type);
+    assert(factory !== undefined, `Type '${json._type}' not registered`);
+
+    let type = factory.typeFromJSON(json);
+    assert(type !== undefined, `Invalid serialization of type '${json._type}'`);
+    return factory.valueFromJSON(type, json.value);
   },
 };
