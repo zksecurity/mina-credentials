@@ -10,6 +10,8 @@ import {
   Gadgets,
   type ProvableHashable,
   type From,
+  type ProvablePure,
+  type IsPure,
 } from 'o1js';
 import { assert, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
@@ -18,6 +20,23 @@ import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
 export { DynamicArray };
 
 type DynamicArray<T = any, V = any> = DynamicArrayBase<T, V>;
+
+type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
+  provable: ProvableHashable<DynamicArrayBase<T, V>, V[]>;
+
+  /**
+   * Create a new DynamicArray from an array of values.
+   *
+   * Note: Both the actual length and the values beyond the original ones will be constant.
+   */
+  from(v: (T | V)[] | DynamicArrayBase<T, V>): DynamicArrayBase<T, V>;
+};
+
+type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
+  Omit<DynamicArrayClass<T, V>, 'provable'> & {
+    provable: ProvableHashable<DynamicArrayBase<T, V>, V[]> &
+      ProvablePure<DynamicArrayBase<T, V>, V[]>;
+  };
 
 /**
  * Dynamic-length array type that has a
@@ -42,21 +61,23 @@ function DynamicArray<
   V extends InferValue<A> = InferValue<A>
 >(
   type: A,
+  options: { maxLength: number }
+): IsPure<A, Field> extends true
+  ? DynamicArrayClassPure<T, V>
+  : DynamicArrayClass<T, V>;
+
+function DynamicArray<
+  A extends ProvableType,
+  T extends InferProvable<A> = InferProvable<A>,
+  V extends InferValue<A> = InferValue<A>
+>(
+  type: A,
   {
     maxLength,
   }: {
     maxLength: number;
   }
-): typeof DynamicArrayBase<T, V> & {
-  provable: ProvableHashable<DynamicArrayBase<T, V>, V[]>;
-
-  /**
-   * Create a new DynamicArray from an array of values.
-   *
-   * Note: Both the actual length and the values beyond the original ones will be constant.
-   */
-  from(v: (T | V)[] | DynamicArrayBase<T, V>): DynamicArrayBase<T, V>;
-} {
+): DynamicArrayClass<T, V> {
   let innerType: Provable<T, V> = ProvableType.get(type);
 
   // assert maxLength bounds
@@ -348,6 +369,15 @@ class DynamicArrayBase<T = any, V = any> {
  */
 DynamicArray.Base = DynamicArrayBase;
 
+function provable<T, V>(
+  type: ProvablePure<T, V>,
+  Class: typeof DynamicArrayBase<T, V>
+): ProvableHashable<DynamicArrayBase<T, V>, V[]> &
+  ProvablePure<DynamicArrayBase<T, V>, V[]>;
+function provable<T, V>(
+  type: Provable<T, V>,
+  Class: typeof DynamicArrayBase<T, V>
+): ProvableHashable<DynamicArrayBase<T, V>, V[]>;
 function provable<T, V>(
   type: Provable<T, V>,
   Class: typeof DynamicArrayBase<T, V>
