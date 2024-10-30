@@ -117,9 +117,9 @@ function deserializeInput(input: any): Input {
   }
 }
 
-function deserializeNode(input: any, node: any): Node;
+function deserializeNode(root: any, node: any): Node;
 function deserializeNode(
-  input: any,
+  root: any,
   node: { type: Node['type'] } & Record<string, any>
 ): Node {
   switch (node.type) {
@@ -140,31 +140,35 @@ function deserializeNode(
         data: deserializeProvable(node.data),
       };
     case 'root':
-      return { type: 'root', input };
+      return { type: 'root', input: root };
     case 'property':
       return {
         type: 'property',
         key: node.key,
-        inner: deserializeNode(input, node.inner),
+        inner: deserializeNode(root, node.inner),
       };
     case 'equals':
     case 'lessThan':
     case 'lessThanEq':
       return {
         type: node.type,
-        left: deserializeNode(input, node.left),
-        right: deserializeNode(input, node.right),
+        left: deserializeNode(root, node.left),
+        right: deserializeNode(root, node.right),
       };
     case 'equalsOneOf': {
       return {
         type: 'equalsOneOf',
-        input: deserializeNode(input, node.input),
+        input: deserializeNode(root, node.input),
         options: Array.isArray(node.options)
-          ? node.options.map((o) => deserializeNode(input, o))
-          : deserializeNode(input, node.options),
+          ? node.options.map((o) => deserializeNode(root, o))
+          : deserializeNode(root, node.options),
       };
     }
     case 'and':
+      return {
+        type: node.type,
+        inputs: node.inputs.map((i: any) => deserializeNode(root, i)),
+      };
     case 'or':
     case 'add':
     case 'sub':
@@ -172,32 +176,32 @@ function deserializeNode(
     case 'div':
       return {
         type: node.type,
-        left: deserializeNode(input, node.left),
-        right: deserializeNode(input, node.right),
+        left: deserializeNode(root, node.left),
+        right: deserializeNode(root, node.right),
       };
     case 'hash':
       let result: Node = {
         type: node.type,
-        inputs: node.inputs.map((i: any) => deserializeNode(input, i)),
+        inputs: node.inputs.map((i: any) => deserializeNode(root, i)),
       };
       if (node.prefix !== null) result.prefix = node.prefix;
       return result;
     case 'not':
       return {
         type: node.type,
-        inner: deserializeNode(input, node.inner),
+        inner: deserializeNode(root, node.inner),
       };
     case 'ifThenElse':
       return {
         type: 'ifThenElse',
-        condition: deserializeNode(input, node.condition),
-        thenNode: deserializeNode(input, node.thenNode),
-        elseNode: deserializeNode(input, node.elseNode),
+        condition: deserializeNode(root, node.condition),
+        thenNode: deserializeNode(root, node.thenNode),
+        elseNode: deserializeNode(root, node.elseNode),
       };
     case 'record':
       const deserializedData: Record<string, Node> = {};
       for (const [key, value] of Object.entries(node.data)) {
-        deserializedData[key] = deserializeNode(input, value as any);
+        deserializedData[key] = deserializeNode(root, value as any);
       }
       return {
         type: 'record',

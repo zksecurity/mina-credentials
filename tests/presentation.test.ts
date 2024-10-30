@@ -278,7 +278,7 @@ test('serialize presentation', async (t) => {
     assert(presentation.proof, 'Proof should be generated');
 
     let serialized = Presentation.toJSON(presentation);
-    let deserialized = await Presentation.fromJSON(serialized);
+    let deserialized = Presentation.fromJSON(serialized);
     let reserialized = Presentation.toJSON(deserialized);
 
     assert.deepStrictEqual(serialized, reserialized);

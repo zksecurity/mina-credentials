@@ -220,8 +220,10 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'and',
-      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+      inputs: [
+        { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+      ],
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -399,16 +401,18 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'and',
-      left: {
-        type: 'lessThan',
-        left: { type: 'constant', data: { _type: 'Field', value: '5' } },
-        right: { type: 'constant', data: { _type: 'Field', value: '10' } },
-      },
-      right: {
-        type: 'equals',
-        left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-        right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-      },
+      inputs: [
+        {
+          type: 'lessThan',
+          left: { type: 'constant', data: { _type: 'Field', value: '5' } },
+          right: { type: 'constant', data: { _type: 'Field', value: '10' } },
+        },
+        {
+          type: 'equals',
+          left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+          right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        },
+      ],
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -547,28 +551,30 @@ test('convertSpecToSerializable', async (t) => {
       logic: {
         assert: {
           type: 'and',
-          left: {
-            type: 'lessThan',
-            left: {
-              type: 'property',
-              key: 'data',
-              inner: {
+          inputs: [
+            {
+              type: 'lessThan',
+              left: {
                 type: 'property',
-                key: 'age',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'age',
+                  inner: { type: 'root' },
+                },
+              },
+              right: {
+                type: 'property',
+                key: 'maxAge',
                 inner: { type: 'root' },
               },
             },
-            right: {
+            {
               type: 'property',
-              key: 'maxAge',
+              key: 'isAdmin',
               inner: { type: 'root' },
             },
-          },
-          right: {
-            type: 'property',
-            key: 'isAdmin',
-            inner: { type: 'root' },
-          },
+          ],
         },
         data: {
           type: 'property',
@@ -689,44 +695,46 @@ test('convertSpecToSerializable', async (t) => {
       logic: {
         assert: {
           type: 'and',
-          left: {
-            type: 'lessThan',
-            left: {
-              type: 'property',
-              key: 'data',
-              inner: {
+          inputs: [
+            {
+              type: 'lessThan',
+              left: {
                 type: 'property',
-                key: 'field1',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'field1',
+                  inner: { type: 'root' },
+                },
+              },
+              right: {
+                type: 'property',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'field2',
+                  inner: { type: 'root' },
+                },
+              },
+            },
+            {
+              type: 'equals',
+              left: {
+                type: 'property',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'field1',
+                  inner: { type: 'root' },
+                },
+              },
+              right: {
+                type: 'property',
+                key: 'zeroField',
                 inner: { type: 'root' },
               },
             },
-            right: {
-              type: 'property',
-              key: 'data',
-              inner: {
-                type: 'property',
-                key: 'field2',
-                inner: { type: 'root' },
-              },
-            },
-          },
-          right: {
-            type: 'equals',
-            left: {
-              type: 'property',
-              key: 'data',
-              inner: {
-                type: 'property',
-                key: 'field1',
-                inner: { type: 'root' },
-              },
-            },
-            right: {
-              type: 'property',
-              key: 'zeroField',
-              inner: { type: 'root' },
-            },
-          },
+          ],
         },
         data: {
           type: 'property',

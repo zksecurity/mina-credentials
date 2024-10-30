@@ -171,7 +171,7 @@ type Node<Data = any> =
   | { type: 'sub'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'mul'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'div'; left: Node<NumericType>; right: Node<NumericType> }
-  | { type: 'and'; left: Node<Bool>; right: Node<Bool> }
+  | { type: 'and'; inputs: Node<Bool>[] }
   | { type: 'or'; left: Node<Bool>; right: Node<Bool> }
   | { type: 'not'; inner: Node<Bool> }
   | { type: 'hash'; inputs: Node[]; prefix?: string }
@@ -216,7 +216,12 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       return root as any;
     case 'property': {
       let inner = evalNode<unknown>(root, node.inner);
-      if (inner && typeof inner === 'object' && 'credential' in inner) {
+      if (
+        inner &&
+        typeof inner === 'object' &&
+        'credential' in inner &&
+        'issuer' in inner
+      ) {
         assertHasProperty(inner.credential, node.key);
         return inner.credential[node.key] as Data;
       } else {
@@ -258,9 +263,8 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'div':
       return arithmeticOperation(root, node) as Data;
     case 'and': {
-      let left = evalNode(root, node.left);
-      let right = evalNode(root, node.right);
-      return left.and(right) as Data;
+      let inputs = node.inputs.map((i) => evalNode(root, i));
+      return inputs.reduce(Bool.and) as Data;
     }
     case 'or': {
       let left = evalNode(root, node.left);
@@ -533,8 +537,8 @@ function div<Left extends NumericType, Right extends NumericType>(
   return { type: 'div', left, right };
 }
 
-function and(left: Node<Bool>, right: Node<Bool>): Node<Bool> {
-  return { type: 'and', left, right };
+function and(...inputs: Node<Bool>[]): Node<Bool> {
+  return { type: 'and', inputs };
 }
 
 function or(left: Node<Bool>, right: Node<Bool>): Node<Bool> {

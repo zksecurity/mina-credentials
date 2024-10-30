@@ -1,4 +1,4 @@
-import { Bytes, Field } from 'o1js';
+import { Bytes, Field, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -19,10 +19,25 @@ import {
 import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
-const Bytes32 = Bytes(32);
-const Bytes16 = Bytes(16); // 16 bytes = 128 bits = enough entropy
+const Bytes32 = Bytes(32); // TODO replace with DynamicBytes / String type once non-pure types are supported as public inputs
+const Bytes16 = Bytes(16);
 
-const Schema = { nationality: Bytes32, id: Bytes16 };
+const Schema = {
+  /**
+   * Nationality of the owner.
+   */
+  nationality: Bytes32,
+
+  /**
+   * Owner ID (16 bytes).
+   */
+  id: Bytes16,
+
+  /**
+   * Timestamp when the credential expires.
+   */
+  expiresAt: UInt64,
+};
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
@@ -30,6 +45,7 @@ const Schema = { nationality: Bytes32, id: Bytes16 };
 let data: InferSchema<typeof Schema> = {
   nationality: Bytes32.fromString('United States of America'),
   id: Bytes16.random(),
+  expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
 };
 let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);
@@ -50,27 +66,37 @@ console.log('✅ WALLET: imported and validated credential');
 
 const spec = Spec(
   {
-    signedData: Credential.Simple(Schema), // schema needed here!
-    targetNations: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
-    targetIssuers: Claim(array(Field, 3)),
+    credential: Credential.Simple(Schema), // schema needed here!
+    acceptedNations: Claim(array(Bytes32, 3)),
+    acceptedIssuers: Claim(array(Field, 3)),
+    currentDate: Claim(UInt64),
     appId: Claim(Bytes32),
   },
-  ({ signedData, targetNations, targetIssuers, appId }) => ({
+  ({ credential, acceptedNations, acceptedIssuers, currentDate, appId }) => {
+    // extract properties from the credential
+    let nationality = Operation.property(credential, 'nationality');
+    let issuer = Operation.issuer(credential);
+    let expiresAt = Operation.property(credential, 'expiresAt');
+
     // we assert that:
     // 1. the owner has one of the accepted nationalities
     // 2. the credential was issued by one of the accepted issuers
-    assert: Operation.and(
-      Operation.equalsOneOf(
-        Operation.property(signedData, 'nationality'),
-        targetNations
-      ),
-      Operation.equalsOneOf(Operation.issuer(signedData), targetIssuers)
-    ),
+    // 3. the credential is not expired (by comparing with the current date)
+    let assert = Operation.and(
+      Operation.equalsOneOf(nationality, acceptedNations),
+      Operation.equalsOneOf(issuer, acceptedIssuers),
+      Operation.lessThanEq(currentDate, expiresAt)
+    );
+
     // we expose a unique hash of the credential data, to be used as nullifier
-    ouputClaim: Operation.record({
-      nullifier: Operation.hash(signedData, appId),
-    }),
-  })
+    // note: since the credential contains a 16 byte = 128 bit random ID, it has enough
+    // entropy such that exposing this hash will not reveal the credential data
+    let ouputClaim = Operation.record({
+      nullifier: Operation.hash(credential, appId),
+    });
+
+    return { assert, ouputClaim };
+  }
 );
 
 const targetNations = ['United States of America', 'Canada', 'Mexico'];
@@ -79,8 +105,9 @@ const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
 let request = PresentationRequest.https(
   spec,
   {
-    targetNations: targetNations.map((s) => Bytes32.fromString(s)),
-    targetIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
+    acceptedNations: targetNations.map((s) => Bytes32.fromString(s)),
+    acceptedIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
+    currentDate: UInt64.from(Date.now()),
     appId: Bytes32.fromString('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
@@ -108,13 +135,14 @@ console.timeEnd('create');
 let serialized = Presentation.toJSON(presentation);
 console.log(
   '✅ WALLET: created presentation:',
-  serialized.slice(0, 1000) + '...'
+  serialized.slice(0, 2000) + '...'
 );
 
 // ---------------------------------------------
 // VERIFIER: verify the presentation against the request we submitted, and check that the nullifier was not used yet
 
 let presentation2 = Presentation.fromJSON(serialized);
+
 let outputClaim = await Presentation.verify(request, presentation2, {
   verifierIdentity: 'my-app.xyz',
 });
@@ -122,7 +150,6 @@ console.log('✅ VERIFIER: verified presentation');
 
 let existingNullifiers = new Set([0x13c43f30n, 0x370f3473n, 0xe1fe0cdan]);
 
-// TODO: claims and other I/O values should be plain JS types
 let { nullifier } = outputClaim;
 assert(
   !existingNullifiers.has(nullifier.toBigInt()),

@@ -139,10 +139,14 @@ function serializeNode(node: Node): object {
         inner: serializeNode(node.inner),
       };
     }
+    case 'and':
+      return {
+        type: node.type,
+        inputs: node.inputs.map(serializeNode),
+      };
     case 'equals':
     case 'lessThan':
     case 'lessThanEq':
-    case 'and':
     case 'or':
     case 'add':
     case 'sub':
