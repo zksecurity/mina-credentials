@@ -19,7 +19,7 @@ import {
 import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
-const Bytes32 = Bytes(32);
+const Bytes32 = Bytes(32); // TODO replace with DynamicBytes / String type once non-pure types are supported as public inputs
 const Bytes16 = Bytes(16);
 
 const Schema = {
@@ -67,7 +67,7 @@ console.log('✅ WALLET: imported and validated credential');
 const spec = Spec(
   {
     credential: Credential.Simple(Schema), // schema needed here!
-    acceptedNations: Claim(array(Bytes32, 3)), // TODO would make more sense as dynamic array
+    acceptedNations: Claim(array(Bytes32, 3)),
     acceptedIssuers: Claim(array(Field, 3)),
     currentDate: Claim(UInt64),
     appId: Claim(Bytes32),
