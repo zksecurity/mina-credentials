@@ -24,7 +24,7 @@ type Serializer<
 
   typeFromJSON(json: S): ReturnType<A> | undefined;
 
-  valueToJSON(value: InstanceType<ReturnType<A>>): V;
+  valueToJSON(type: ReturnType<A>, value: InstanceType<ReturnType<A>>): V;
 
   valueFromJSON(
     type: ReturnType<A>,
@@ -33,17 +33,14 @@ type Serializer<
 };
 
 type SerializedFactory = {
+  _type: string;
   _isFactory: true;
 } & Serialized;
 
-type Serialized = {
-  _type: string;
-} & Record<string, any>;
+type Serialized = Record<string, any>;
 
-const factories = new Map<
-  string,
-  { base: ProvableFactory['Base'] } & Serializer
->();
+type MapValue = { base: ProvableFactory['Base'] } & Serializer;
+const factories = new Map<string, MapValue>();
 
 const ProvableFactory = {
   register<A extends ProvableFactory, S extends Serialized, V>(
@@ -54,38 +51,37 @@ const ProvableFactory = {
     factories.set(factory.name, { base: factory.Base, ...serialize });
   },
 
-  getRegistered(constructor: unknown) {
-    for (let factory of factories.values()) {
-      if (!hasProperty(constructor, 'prototype')) continue;
-      if (constructor.prototype instanceof factory.base) return factory;
+  getRegistered(value: unknown) {
+    let key: string | undefined;
+    let factory: MapValue | undefined;
+    for (let [key_, factory_] of factories.entries()) {
+      if (value instanceof factory_.base) {
+        key = key_;
+        factory = factory_;
+      }
     }
-    return undefined;
+    return [key, factory] as const;
   },
 
   tryToJSON(constructor: unknown): SerializedFactory | undefined {
-    let factory = ProvableFactory.getRegistered(constructor);
+    if (!hasProperty(constructor, 'prototype')) return undefined;
+    let [key, factory] = ProvableFactory.getRegistered(constructor.prototype);
     if (factory === undefined) return undefined;
-
-    return Object.assign(factory.typeToJSON(constructor as any), {
-      _isFactory: true as const,
-    });
+    let json = factory.typeToJSON(constructor as any);
+    return { _type: key!, ...json, _isFactory: true as const };
   },
 
-  getRegisteredValue(value: unknown) {
-    for (let factory of factories.values()) {
-      if (value instanceof factory.base) return factory;
-    }
-    return undefined;
-  },
-
-  tryValueToJSON(value: unknown): (Serialized & { value: any }) | undefined {
-    let factory = ProvableFactory.getRegisteredValue(value);
+  tryValueToJSON(
+    value: unknown
+  ): (SerializedFactory & { value: any }) | undefined {
+    let [key, factory] = ProvableFactory.getRegistered(value);
     if (factory === undefined) return undefined;
     let serializedType = factory.typeToJSON(value!.constructor as any);
     return {
-      _isFactory: true as const,
+      _type: key!,
       ...serializedType,
-      value: factory.valueToJSON(value),
+      value: factory.valueToJSON(value!.constructor as any, value),
+      _isFactory: true as const,
     };
   },
 

@@ -25,6 +25,8 @@ import {
 
 export { DynamicArray };
 
+export { DynamicArrayBase, provable as provableDynamicArray };
+
 type DynamicArray<T = any, V = any> = DynamicArrayBase<T, V>;
 
 type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
@@ -440,7 +442,6 @@ function provable<T, V>(
 ProvableFactory.register(DynamicArray, {
   typeToJSON(constructor) {
     return {
-      _type: 'DynamicArray',
       maxLength: constructor.maxLength,
       innerType: serializeProvableType(constructor.prototype.innerType),
     };
@@ -451,7 +452,7 @@ ProvableFactory.register(DynamicArray, {
     return DynamicArray(innerType, { maxLength: json.maxLength });
   },
 
-  valueToJSON({ array, length }) {
+  valueToJSON(_, { array, length }) {
     return array.slice(0, Number(length)).map((v) => serializeProvable(v));
   },
 

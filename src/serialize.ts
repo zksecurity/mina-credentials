@@ -299,7 +299,7 @@ function serializeProvable(value: any): SerializedValue {
       return { _type, value: value.toJSON().toString() };
     }
     case UInt8: {
-      return { _type, value: (value as UInt8).toBigInt().toString() };
+      return { _type, value: (value as UInt8).toString() };
     }
     default: {
       return { _type, value: value.toJSON() };
