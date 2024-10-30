@@ -31,7 +31,7 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
       return maxLength;
     }
     static get provable() {
-      return provableArray;
+      return provableBytes;
     }
 
     /**
@@ -43,7 +43,7 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
      */
     static fromBytes(bytes: Uint8Array | (number | bigint | UInt8)[] | Bytes) {
       if (bytes instanceof Bytes.Base) bytes = bytes.bytes;
-      return provableArray.fromValue(
+      return provableBytes.fromValue(
         [...bytes].map((t) => UInt8.from(t)) as any
       );
     }
@@ -69,7 +69,7 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
     }
   }
 
-  const provableArray = provableDynamicArray<
+  const provableBytes = provableDynamicArray<
     UInt8,
     { value: bigint },
     typeof DynamicBytesBase

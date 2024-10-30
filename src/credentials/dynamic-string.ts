@@ -28,31 +28,33 @@ function DynamicString({ maxLength }: { maxLength: number }) {
       return maxLength;
     }
     static get provable() {
-      return provableArray;
+      return provableString;
     }
 
     /**
      * Create DynamicBytes from a string.
      */
     static from(s: string) {
-      return provableArray.fromValue(s);
+      return provableString.fromValue(s);
     }
   }
 
-  const provableArray = mapValue(
+  const provableString = mapValue(
     provableDynamicArray<UInt8, { value: bigint }, typeof DynamicStringBase>(
       UInt8 as any,
       DynamicString
     ),
+    // map to string
     (s): string =>
       new TextDecoder().decode(
         new Uint8Array(s.map(({ value }) => Number(value)))
       ),
+    // map from string
     (s) => {
       if (s instanceof DynamicStringBase) return s;
-      return [...new TextEncoder().encode(s)].map((t) =>
-        UInt8.toValue(UInt8.from(t))
-      );
+      return [...new TextEncoder().encode(s)].map((t) => ({
+        value: BigInt(t),
+      }));
     }
   );
 
