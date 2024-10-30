@@ -1,7 +1,8 @@
-import { Bool, Bytes, Field, Provable, UInt8 } from 'o1js';
+import { Bool, Field, Provable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert } from '../util.ts';
+import { mapValue } from '../o1js-missing.ts';
 
 export { DynamicString };
 
@@ -31,28 +32,29 @@ function DynamicString({ maxLength }: { maxLength: number }) {
     }
 
     /**
-     * Create DynamicBytes from a byte array in various forms.
-     */
-    static fromBytes(bytes: Uint8Array | (number | bigint | UInt8)[] | Bytes) {
-      if (bytes instanceof Bytes.Base) bytes = bytes.bytes;
-      return provableArray.fromValue(
-        [...bytes].map((t) => UInt8.from(t)) as any
-      );
-    }
-
-    /**
      * Create DynamicBytes from a string.
      */
     static from(s: string) {
-      return DynamicString.fromBytes(new TextEncoder().encode(s));
+      return provableArray.fromValue(s);
     }
   }
 
-  const provableArray = provableDynamicArray<
-    UInt8,
-    { value: bigint },
-    typeof DynamicStringBase
-  >(UInt8 as any, DynamicString);
+  const provableArray = mapValue(
+    provableDynamicArray<UInt8, { value: bigint }, typeof DynamicStringBase>(
+      UInt8 as any,
+      DynamicString
+    ),
+    (s): string =>
+      new TextDecoder().decode(
+        new Uint8Array(s.map(({ value }) => Number(value)))
+      ),
+    (s) => {
+      if (s instanceof DynamicStringBase) return s;
+      return [...new TextEncoder().encode(s)].map((t) =>
+        UInt8.toValue(UInt8.from(t))
+      );
+    }
+  );
 
   return DynamicString;
 }
@@ -63,17 +65,10 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   }
 
   /**
-   * Convert DynamicBytes to a byte array.
-   */
-  toBytes() {
-    return new Uint8Array(this.toValue().map(({ value }) => Number(value)));
-  }
-
-  /**
    * Convert DynamicBytes to a string.
    */
   toString() {
-    return new TextDecoder().decode(this.toBytes());
+    return this.toValue() as any as string;
   }
 }
 

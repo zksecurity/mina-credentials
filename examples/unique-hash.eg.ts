@@ -111,9 +111,7 @@ const acceptedIssuers = [issuer, randomPublicKey(), randomPublicKey()].map(
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: StringArray.from(
-      acceptedNations.map((s) => String.from(s))
-    ),
+    acceptedNations: StringArray.from(acceptedNations),
     acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
     appId: String.from('my-app-id:123'),
@@ -122,7 +120,10 @@ let request = PresentationRequest.https(
 );
 let requestJson = PresentationRequest.toJSON(request);
 
-console.log('✅ VERIFIER: created presentation request:', requestJson);
+console.log(
+  '✅ VERIFIER: created presentation request:',
+  requestJson.slice(0, 500) + '...'
+);
 
 // ---------------------------------------------
 // WALLET: deserialize request and create presentation
