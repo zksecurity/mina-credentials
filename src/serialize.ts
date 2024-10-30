@@ -20,6 +20,7 @@ import {
   Struct,
 } from 'o1js';
 import { assert } from './util.ts';
+import { ProvableFactory, type SerializedFactory } from './provable-factory.ts';
 
 export {
   type O1jsTypeName,
@@ -228,13 +229,17 @@ type SerializedType =
   | { _type: 'Constant'; value: unknown }
   | { _type: 'Bytes'; size: number }
   | { _type: 'Proof'; proof: Record<string, any> }
-  | { _type: 'String' };
+  | { _type: 'String' }
+  | SerializedFactory;
 
 type SerializedNestedType =
   | SerializedType
   | { [key: string]: SerializedNestedType };
 
 function serializeProvableType(type: ProvableType<any>): SerializedType {
+  let serialized = ProvableFactory.tryToJSON(type);
+  if (serialized !== undefined) return serialized;
+
   if ('serialize' in type && typeof type.serialize === 'function') {
     return type.serialize();
   }

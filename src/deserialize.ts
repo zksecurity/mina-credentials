@@ -29,6 +29,7 @@ import {
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import { array, ProvableType } from './o1js-missing.ts';
+import { ProvableFactory } from './provable-factory.ts';
 
 export {
   deserializeSpec,
@@ -213,6 +214,8 @@ function deserializeNode(
 }
 
 function deserializeProvableType(type: SerializedType): ProvableType<any> {
+  if (ProvableFactory.isSerialized(type)) return ProvableFactory.fromJSON(type);
+
   if (type._type === 'Constant') {
     return ProvableType.constant((type as any).value);
   }

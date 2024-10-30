@@ -9,7 +9,7 @@ import {
   Poseidon,
   Signature,
   PublicKey,
-  InferProvable,
+  type InferProvable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import { assertPure, ProvableType } from './o1js-missing.ts';
@@ -29,7 +29,6 @@ import {
   withOwner,
   type CredentialOutputs,
 } from './credential.ts';
-import { prefixes } from './constants.ts';
 
 export type {
   PublicInputs,

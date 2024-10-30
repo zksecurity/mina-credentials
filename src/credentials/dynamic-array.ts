@@ -16,6 +16,9 @@ import {
 import { assert, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
+import { ProvableFactory } from '../provable-factory.ts';
+import { serializeProvableType } from '../serialize.ts';
+import { deserializeProvableType } from '../deserialize.ts';
 
 export { DynamicArray };
 
@@ -428,3 +431,19 @@ function provable<T, V>(
     },
   };
 }
+
+// serialize/deserialize
+
+ProvableFactory.register(DynamicArray, {
+  typeToJSON(constructor) {
+    return {
+      _type: 'DynamicArray',
+      maxLength: constructor.maxLength,
+      innerType: serializeProvableType(constructor.prototype.innerType),
+    };
+  },
+  typeFromJSON(json) {
+    let innerType = deserializeProvableType(json.innerType);
+    return DynamicArray(innerType, { maxLength: json.maxLength });
+  },
+});
