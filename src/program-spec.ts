@@ -9,15 +9,10 @@ import {
   Poseidon,
   Signature,
   PublicKey,
-  Bytes,
-  Hash,
+  InferProvable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
-import {
-  assertPure,
-  type InferProvableType,
-  ProvableType,
-} from './o1js-missing.ts';
+import { assertPure, ProvableType } from './o1js-missing.ts';
 import { assert, assertHasProperty, zip } from './util.ts';
 import {
   type InferNestedProvable,
@@ -446,8 +441,8 @@ type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
 function Constant<DataType extends ProvableType>(
   data: DataType,
-  value: InferProvableType<DataType>
-): Constant<InferProvableType<DataType>> {
+  value: InferProvable<DataType>
+): Constant<InferProvable<DataType>> {
   return { type: 'constant', data, value };
 }
 

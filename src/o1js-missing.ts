@@ -14,13 +14,7 @@ import {
 import { assert, assertHasProperty, hasProperty } from './util.ts';
 import type { NestedProvable } from './nested.ts';
 
-export {
-  ProvableType,
-  assertPure,
-  type ProvablePureType,
-  type InferProvableType,
-  array,
-};
+export { ProvableType, assertPure, type ProvablePureType, array };
 
 const ProvableType = {
   get<A extends WithProvable<any>>(type: A): ToProvable<A> {
@@ -124,7 +118,6 @@ type ToProvable<A extends WithProvable<any>> = A extends {
 }
   ? P
   : A;
-type InferProvableType<T extends ProvableType> = InferProvable<ToProvable<T>>;
 
 // temporary, until we land `StaticArray`
 // this is copied from o1js and then modified: https://github.com/o1-labs/o1js
