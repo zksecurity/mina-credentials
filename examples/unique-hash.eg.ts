@@ -8,7 +8,7 @@ import {
   PresentationRequest,
   assert,
   type InferSchema,
-  DynamicBytes,
+  DynamicString,
 } from '../src/index.ts';
 import {
   issuer,
@@ -20,7 +20,7 @@ import {
 import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
-const String = DynamicBytes({ maxLength: 50 });
+const String = DynamicString({ maxLength: 50 });
 const Bytes16 = Bytes(16);
 
 const Schema = {
@@ -44,7 +44,7 @@ const Schema = {
 // ISSUER: issue a signed credential to the owner
 
 let data: InferSchema<typeof Schema> = {
-  nationality: String.fromString('United States of America'),
+  nationality: String.from('United States of America'),
   id: Bytes16.random(),
   expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
 };
@@ -71,7 +71,7 @@ const spec = Spec(
     acceptedNations: Claim(array(String, 3)),
     acceptedIssuers: Claim(array(Field, 3)),
     currentDate: Claim(UInt64),
-    appId: Claim(Bytes16),
+    appId: Claim(String),
   },
   ({ credential, acceptedNations, acceptedIssuers, currentDate, appId }) => {
     // extract properties from the credential
@@ -106,10 +106,10 @@ const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: targetNations.map((s) => String.fromString(s)),
+    acceptedNations: targetNations.map((s) => String.from(s)),
     acceptedIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
     currentDate: UInt64.from(Date.now()),
-    appId: Bytes16.fromString('my-app-id:123'),
+    appId: String.from('my-app-id:123'),
   },
   { action: 'my-app-id:123:authenticate' }
 );
