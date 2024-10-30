@@ -9,6 +9,7 @@ import {
   assert,
   type InferSchema,
   DynamicString,
+  DynamicArray,
 } from '../src/index.ts';
 import {
   issuer,
@@ -17,7 +18,6 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
-import { array } from '../src/o1js-missing.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const String = DynamicString({ maxLength: 50 });
@@ -65,11 +65,14 @@ console.log('✅ WALLET: imported and validated credential');
 // ---------------------------------------------
 // VERIFIER: request a presentation
 
+const StringArray = DynamicArray(String, { maxLength: 20 });
+const FieldArray = DynamicArray(Field, { maxLength: 20 });
+
 const spec = Spec(
   {
     credential: Credential.Simple(Schema), // schema needed here!
-    acceptedNations: Claim(array(String, 3)),
-    acceptedIssuers: Claim(array(Field, 3)),
+    acceptedNations: Claim(StringArray),
+    acceptedIssuers: Claim(FieldArray),
     currentDate: Claim(UInt64),
     appId: Claim(String),
   },
@@ -100,14 +103,18 @@ const spec = Spec(
   }
 );
 
-const targetNations = ['United States of America', 'Canada', 'Mexico'];
-const targetIssuers = [issuer, randomPublicKey(), randomPublicKey()];
+const acceptedNations = ['United States of America', 'Canada', 'Mexico'];
+const acceptedIssuers = [issuer, randomPublicKey(), randomPublicKey()].map(
+  (pk) => Credential.Simple.issuer(pk)
+);
 
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: targetNations.map((s) => String.from(s)),
-    acceptedIssuers: targetIssuers.map((pk) => Credential.Simple.issuer(pk)),
+    acceptedNations: StringArray.from(
+      acceptedNations.map((s) => String.from(s))
+    ),
+    acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
     appId: String.from('my-app-id:123'),
   },

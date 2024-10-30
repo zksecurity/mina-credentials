@@ -29,6 +29,7 @@ import {
   withOwner,
   type CredentialOutputs,
 } from './credential.ts';
+import { DynamicArray } from './credentials/dynamic-array.ts';
 
 export type {
   PublicInputs,
@@ -158,7 +159,11 @@ type Node<Data = any> =
   | { type: 'property'; key: string; inner: Node }
   | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
-  | { type: 'equalsOneOf'; input: Node; options: Node[] | Node<any[]> }
+  | {
+      type: 'equalsOneOf';
+      input: Node;
+      options: Node[] | Node<any[]> | Node<DynamicArray>;
+    }
   | { type: 'lessThan'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'lessThanEq'; left: Node<NumericType>; right: Node<NumericType> }
   | { type: 'add'; left: Node<NumericType>; right: Node<NumericType> }
@@ -239,11 +244,17 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'equalsOneOf': {
       let input = evalNode(root, node.input);
       let type = NestedProvable.get(NestedProvable.fromValue(input));
-      let options: any[];
+      let options: any[] | DynamicArray;
       if (Array.isArray(node.options)) {
         options = node.options.map((i) => evalNode(root, i));
       } else {
-        options = evalNode(root, node.options);
+        options = evalNode<any[] | DynamicArray>(root, node.options);
+      }
+      if (options instanceof DynamicArray.Base) {
+        let bool = options.reduce(Bool, Bool(false), (acc, o) =>
+          acc.or(Provable.equal(type, input, o))
+        );
+        return bool as Data;
       }
       let bools = options.map((o) => Provable.equal(type, input, o));
       return bools.reduce(Bool.or) as Data;
@@ -480,7 +491,7 @@ function equals<Data>(left: Node<Data>, right: Node<Data>): Node<Bool> {
 
 function equalsOneOf<Data>(
   input: Node<Data>,
-  options: Node<Data>[] | Node<Data[]>
+  options: Node<Data>[] | Node<Data[]> | Node<DynamicArray<Data>>
 ): Node<Bool> {
   return { type: 'equalsOneOf', input, options };
 }

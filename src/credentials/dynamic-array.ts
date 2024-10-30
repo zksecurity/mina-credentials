@@ -86,15 +86,13 @@ function DynamicArray<
     maxLength: number;
   }
 ): DynamicArrayClass<T, V> {
-  let innerType: Provable<T, V> = ProvableType.get(type);
-
   // assert maxLength bounds
   assert(maxLength >= 0, 'maxLength must be >= 0');
   assert(maxLength < 2 ** 16, 'maxLength must be < 2^16');
 
   class DynamicArray_ extends DynamicArrayBase<T, V> {
     get innerType() {
-      return innerType;
+      return type;
     }
     static get maxLength() {
       return maxLength;
@@ -108,7 +106,7 @@ function DynamicArray<
     }
   }
   const provableArray = provable<T, V, typeof DynamicArrayBase<T, V>>(
-    innerType,
+    ProvableType.get(type),
     DynamicArray_
   );
 
@@ -127,7 +125,7 @@ class DynamicArrayBase<T = any, V = any> {
   length: Field;
 
   // props to override
-  get innerType(): Provable<T, V> {
+  get innerType(): ProvableType<T, V> {
     throw Error('Inner type must be defined in a subclass.');
   }
   static get maxLength(): number {
@@ -193,7 +191,7 @@ class DynamicArrayBase<T = any, V = any> {
    * Cost: T*N where T = size of the type
    */
   getOrUnconstrained(i: Field): T {
-    let type = this.innerType;
+    let type = ProvableType.get(this.innerType);
     let NULL = ProvableType.synthesize(type);
     let ai = Provable.witness(type, () => this.array[Number(i)] ?? NULL);
     let aiFields = type.toFields(ai);
