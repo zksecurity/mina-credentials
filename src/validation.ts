@@ -26,11 +26,21 @@ const SerializedValueSchema = z
   })
   .strict();
 
-const SerializedTypeSchema = z
+const ConstantTypeSchema = z
   .object({
-    _type: z.string(),
+    type: z.literal('Constant'),
+    value: z.string(),
   })
   .strict();
+
+const SerializedTypeSchema = z.union([
+  z
+    .object({
+      _type: z.string(),
+    })
+    .strict(),
+  ConstantTypeSchema,
+]);
 
 const SerializedFieldSchema = z
   .object({
