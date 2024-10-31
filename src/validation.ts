@@ -238,6 +238,25 @@ const InputSchema = z.discriminatedUnion('type', [
     .strict(),
 ]);
 
+// Context schemas
+const HttpsContextSchema = z
+  .object({
+    type: z.literal('https'),
+    action: z.string(),
+    serverNonce: SerializedFieldSchema,
+  })
+  .strict();
+
+const ZkAppContextSchema = z
+  .object({
+    type: z.literal('zk-app'),
+    action: SerializedFieldSchema,
+    serverNonce: SerializedFieldSchema,
+  })
+  .strict();
+
+const ContextSchema = z.union([HttpsContextSchema, ZkAppContextSchema]);
+
 // Witness Schemas
 
 const SimpleWitnessSchema = z
