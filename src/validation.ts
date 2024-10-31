@@ -26,21 +26,59 @@ const SerializedValueSchema = z
   })
   .strict();
 
-const ConstantTypeSchema = z
-  .object({
-    type: z.literal('Constant'),
-    value: z.string(),
-  })
-  .strict();
-
-const SerializedTypeSchema = z.union([
+const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
   z
     .object({
-      _type: z.string(),
+      name: z.string(),
+      publicInput: SerializedTypeSchema,
+      publicOutput: SerializedTypeSchema,
+      maxProofsVerified: z.number(),
+      featureFlags: z.record(z.any()),
     })
-    .strict(),
-  ConstantTypeSchema,
-]);
+    .strict()
+);
+
+const SerializedTypeSchema: z.ZodType<any> = z.lazy(() =>
+  z.union([
+    // Basic type
+    z
+      .object({
+        _type: z.string(),
+      })
+      .strict(),
+    // Constant type
+    z
+      .object({
+        type: z.literal('Constant'),
+        value: z.string(),
+      })
+      .strict(),
+    // Bytes type
+    z
+      .object({
+        _type: z.literal('Bytes'),
+        size: z.number(),
+      })
+      .strict(),
+    // Proof type
+    z
+      .object({
+        _type: z.literal('Proof'),
+        proof: ProofTypeSchema,
+      })
+      .strict(),
+    // Array type
+    z
+      .object({
+        _type: z.literal('Array'),
+        innerType: SerializedTypeSchema,
+        size: z.number(),
+      })
+      .strict(),
+    // Allow records of nested types for Struct
+    z.record(SerializedTypeSchema),
+  ])
+);
 
 const SerializedFieldSchema = z
   .object({
@@ -245,14 +283,14 @@ const InputSchema = z.discriminatedUnion('type', [
     .object({
       type: z.literal('constant'),
       data: SerializedTypeSchema,
-      value: SerializedValueSchema,
+      value: z.union([z.string(), z.record(z.string())]),
     })
     .strict(),
 
   z
     .object({
       type: z.literal('claim'),
-      data: z.record(SerializedTypeSchema),
+      data: z.union([z.record(SerializedTypeSchema), SerializedTypeSchema]),
     })
     .strict(),
 ]);

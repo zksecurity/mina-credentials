@@ -6,9 +6,18 @@ import {
   NodeSchema,
   InputSchema,
 } from '../src/validation.ts';
-import { Bool, Bytes, Field, PublicKey, Signature, UInt32, UInt64 } from 'o1js';
+import {
+  Bool,
+  Bytes,
+  Field,
+  PrivateKey,
+  PublicKey,
+  Signature,
+  UInt32,
+  UInt64,
+} from 'o1js';
 import { owner, issuerKey } from './test-utils.ts';
-import { Spec, Claim, Operation, Node } from '../src/program-spec.ts';
+import { Spec, Claim, Operation, Node, Constant } from '../src/program-spec.ts';
 import { createProgram } from '../src/program.ts';
 import { createUnsigned } from '../src/credential.ts';
 import { serializeInput, serializeNode } from '../src/serialize.ts';
@@ -426,6 +435,54 @@ test('InputSchema validation', async (t) => {
     assert(
       result.success,
       'Simple credential input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test('validates claim input', () => {
+    const input = Claim(UInt64);
+
+    const serialized = serializeInput(input);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Claim input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test('validates constant input', () => {
+    const input = Constant(Signature, Signature.empty());
+
+    const serialized = serializeInput(input);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Constant input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test('validates input with nested structure', () => {
+    const input = Credential.Simple({
+      personal: {
+        age: Field,
+        score: UInt64,
+      },
+      verified: Bool,
+    });
+
+    const serialized = serializeInput(input);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Nested structure input should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
