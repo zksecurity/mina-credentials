@@ -71,7 +71,7 @@ function convertSpecToSerializable(spec: Spec): Record<string, any> {
     inputs: serializeInputs(spec.inputs),
     logic: {
       assert: serializeNode(spec.logic.assert),
-      data: serializeNode(spec.logic.outPutClaim),
+      outPutClaim: serializeNode(spec.logic.outPutClaim),
     },
   };
 }

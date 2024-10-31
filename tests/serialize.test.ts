@@ -576,7 +576,7 @@ test('convertSpecToSerializable', async (t) => {
             },
           ],
         },
-        data: {
+        outPutClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -645,7 +645,7 @@ test('convertSpecToSerializable', async (t) => {
             inner: { type: 'root' },
           },
         },
-        data: {
+        outPutClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -736,7 +736,7 @@ test('convertSpecToSerializable', async (t) => {
             },
           ],
         },
-        data: {
+        outPutClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -839,11 +839,11 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
   const parsed = JSON.parse(serialized);
   const serializedSpec = JSON.parse(parsed.spec);
 
-  assert.deepStrictEqual(serializedSpec.logic.data.data.owner, {
+  assert.deepStrictEqual(serializedSpec.logic.outPutClaim.data.owner, {
     type: 'owner',
   });
 
-  assert.deepStrictEqual(serializedSpec.logic.data.data.issuer, {
+  assert.deepStrictEqual(serializedSpec.logic.outPutClaim.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
   });
