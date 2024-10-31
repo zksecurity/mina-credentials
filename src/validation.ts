@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export { StoredCredentialSchema, PresentationRequestSchema };
+export {
+  StoredCredentialSchema,
+  PresentationRequestSchema,
+  NodeSchema,
+  InputSchema,
+};
 
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
@@ -84,7 +89,7 @@ const NodeSchema: z.ZodType<any> = z.lazy(() =>
     z
       .object({
         type: z.literal('root'),
-        input: z.record(InputSchema), // TODO: not sure about this
+        // input: z.record(InputSchema), // TODO: not sure about this
       })
       .strict(),
 
