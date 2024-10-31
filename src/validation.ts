@@ -5,6 +5,7 @@ export {
   PresentationRequestSchema,
   NodeSchema,
   InputSchema,
+  ContextSchema,
 };
 
 type Literal = string | number | boolean | null;

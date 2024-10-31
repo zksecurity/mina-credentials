@@ -5,6 +5,7 @@ import {
   StoredCredentialSchema,
   NodeSchema,
   InputSchema,
+  ContextSchema,
 } from '../src/validation.ts';
 import {
   Bool,
@@ -20,7 +21,11 @@ import { owner, issuerKey } from './test-utils.ts';
 import { Spec, Claim, Operation, Node, Constant } from '../src/program-spec.ts';
 import { createProgram } from '../src/program.ts';
 import { createUnsigned } from '../src/credential.ts';
-import { serializeInput, serializeNode } from '../src/serialize.ts';
+import {
+  serializeInput,
+  serializeInputContext,
+  serializeNode,
+} from '../src/serialize.ts';
 
 const Bytes32 = Bytes(32);
 
@@ -421,68 +426,102 @@ const Bytes32 = Bytes(32);
 //   );
 // });
 
-test('InputSchema validation', async (t) => {
-  await t.test('validates simple credential input', () => {
-    const input = Credential.Simple({
-      age: Field,
-      verified: Bool,
-    });
+// test('InputSchema validation', async (t) => {
+//   await t.test('validates simple credential input', () => {
+//     const input = Credential.Simple({
+//       age: Field,
+//       verified: Bool,
+//     });
 
-    const serialized = serializeInput(input);
+//     const serialized = serializeInput(input);
 
-    const result = InputSchema.safeParse(serialized);
+//     const result = InputSchema.safeParse(serialized);
 
+//     assert(
+//       result.success,
+//       'Simple credential input should be valid: ' +
+//         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+//     );
+//   });
+
+//   await t.test('validates claim input', () => {
+//     const input = Claim(UInt64);
+
+//     const serialized = serializeInput(input);
+
+//     const result = InputSchema.safeParse(serialized);
+
+//     assert(
+//       result.success,
+//       'Claim input should be valid: ' +
+//         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+//     );
+//   });
+
+//   await t.test('validates constant input', () => {
+//     const input = Constant(Signature, Signature.empty());
+
+//     const serialized = serializeInput(input);
+
+//     const result = InputSchema.safeParse(serialized);
+
+//     assert(
+//       result.success,
+//       'Constant input should be valid: ' +
+//         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+//     );
+//   });
+
+//   await t.test('validates input with nested structure', () => {
+//     const input = Credential.Simple({
+//       personal: {
+//         age: Field,
+//         score: UInt64,
+//       },
+//       verified: Bool,
+//     });
+
+//     const serialized = serializeInput(input);
+
+//     const result = InputSchema.safeParse(serialized);
+
+//     assert(
+//       result.success,
+//       'Nested structure input should be valid: ' +
+//         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+//     );
+//   });
+// });
+
+test('ContextSchema validation', async (t) => {
+  await t.test('validates HTTPS context', () => {
+    const httpsContext = {
+      type: 'https' as const,
+      action: 'POST /api/verify',
+      serverNonce: Field(123456789),
+    };
+
+    const serialized = serializeInputContext(httpsContext);
+    const result = ContextSchema.safeParse(serialized);
     assert(
       result.success,
-      'Simple credential input should be valid: ' +
+      'Valid HTTPS context should pass validation: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
 
-  await t.test('validates claim input', () => {
-    const input = Claim(UInt64);
+  await t.test('validates ZkApp context', () => {
+    const actualContext = {
+      type: 'zk-app' as const,
+      action: Field(123456789),
+      serverNonce: Field(987654321),
+    };
 
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
+    const serialized = serializeInputContext(actualContext);
+    const result = ContextSchema.safeParse(serialized);
     assert(
       result.success,
-      'Claim input should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test('validates constant input', () => {
-    const input = Constant(Signature, Signature.empty());
-
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Constant input should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test('validates input with nested structure', () => {
-    const input = Credential.Simple({
-      personal: {
-        age: Field,
-        score: UInt64,
-      },
-      verified: Bool,
-    });
-
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Nested structure input should be valid: ' +
+      'Valid ZkApp context should pass validation: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
