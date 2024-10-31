@@ -57,7 +57,8 @@ const SerializedSignatureSchema = z
   })
   .strict();
 
-// Create recursive Node schema
+// Node schemas
+
 const NodeSchema: z.ZodType<any> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z
@@ -208,6 +209,7 @@ const NodeSchema: z.ZodType<any> = z.lazy(() =>
 );
 
 // Input Schema
+
 const InputSchema = z.discriminatedUnion('type', [
   z
     .object({
@@ -239,6 +241,7 @@ const InputSchema = z.discriminatedUnion('type', [
 ]);
 
 // Context schemas
+
 const HttpsContextSchema = z
   .object({
     type: z.literal('https'),
