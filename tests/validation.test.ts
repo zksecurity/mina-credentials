@@ -6,6 +6,9 @@ import { Bytes, Field, PublicKey, Signature } from 'o1js';
 import { owner, issuerKey } from './test-utils.ts';
 import { Spec, Claim, Operation } from '../src/program-spec.ts';
 import { createProgram } from '../src/program.ts';
+import { createUnsigned } from '../src/credential.ts';
+
+const Bytes32 = Bytes(32);
 
 test('StoredCredentialSchema validation', async (t) => {
   await t.test('validates simple credential', () => {
@@ -23,7 +26,6 @@ test('StoredCredentialSchema validation', async (t) => {
   });
 
   await t.test('validates recursive credential', async () => {
-    const Bytes32 = Bytes(32);
     const InputData = { age: Field, name: Bytes32 };
     const inputProofSpec = Spec(
       { inputOwner: Claim(PublicKey), data: Claim(InputData) },
@@ -51,6 +53,23 @@ test('StoredCredentialSchema validation', async (t) => {
     assert(
       result.success,
       'Recursive credential JSON should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test('should validate a valid unsigned credential', () => {
+    const unsignedCredential = createUnsigned({
+      age: Field(42),
+      name: Bytes32.fromString('Alice'),
+    });
+
+    const serialized = Credential.toJSON(unsignedCredential);
+    const parsed = JSON.parse(serialized);
+
+    const result = StoredCredentialSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'Unsigned credential JSON should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
