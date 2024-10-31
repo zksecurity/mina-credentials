@@ -1,7 +1,7 @@
 /**
  * A dynamic record is a key-value list which can contain keys/values you are not aware of at compile time.
  */
-import { Field, InferProvable, Provable, Unconstrained } from 'o1js';
+import { Field, InferProvable, Poseidon, Provable, Unconstrained } from 'o1js';
 import { DynamicString } from './dynamic-string';
 import { DynamicArray } from './dynamic-array';
 import { array, ProvableType } from '../o1js-missing';
@@ -19,14 +19,24 @@ function DynamicRecord<AKnown extends Record<string, ProvableType>>(
   }
 ) {
   type TKnown = { [K in keyof AKnown]: InferProvable<AKnown[K]> };
+  let { maxEntries, maxKeyLength, maxValueLength } = options;
+  let Key = DynamicString({ maxLength: maxKeyLength });
+  let Value = DynamicArray(Field, { maxLength: maxValueLength });
 
   class DynamicRecord extends DynamicRecordBase<TKnown> {
     static from<A extends AKnown>(
       type: A,
       value: { [K in keyof A]: InferProvable<A[K]> }
     ): DynamicRecord {
-      // important: validation that the shape extends the known shape
-      let entries = toFieldRecord(type, value);
+      // TODO: validation that the shape extends the known shape
+      let preentries = mapObject(type, (t, key) =>
+        ProvableType.get(t).toFields(value[key])
+      );
+      let entries = Object.entries(preentries).map(([key, value]) => ({
+        key: Poseidon.hashPacked(Key, Key.from(key)),
+        value: Poseidon.hashPacked(Value, Value.from(value)),
+      }));
+
       throw Error('Not implemented');
     }
 
@@ -35,13 +45,13 @@ function DynamicRecord<AKnown extends Record<string, ProvableType>>(
     }
 
     get maxEntries() {
-      return options.maxEntries;
+      return maxEntries;
     }
     get maxKeyLength() {
-      return options.maxKeyLength;
+      return maxKeyLength;
     }
     get maxValueLength() {
-      return options.maxValueLength;
+      return maxValueLength;
     }
   }
   let provableR = provableRecord(options, DynamicRecord);
