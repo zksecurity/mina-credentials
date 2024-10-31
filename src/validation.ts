@@ -273,7 +273,7 @@ const PresentationRequestSchema = z
         logic: z
           .object({
             assert: NodeSchema,
-            data: NodeSchema, // TODO: change to outputClaim
+            outPutClaim: NodeSchema,
           })
           .strict(),
       })
