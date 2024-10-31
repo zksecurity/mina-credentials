@@ -198,7 +198,7 @@ const NodeSchema: z.ZodType<any> = z.lazy(() =>
       .object({
         type: z.literal('hash'),
         inputs: z.array(NodeSchema),
-        prefix: z.string().optional(),
+        prefix: z.union([z.string(), z.null()]).optional(),
       })
       .strict(),
 
