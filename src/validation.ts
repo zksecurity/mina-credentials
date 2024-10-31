@@ -2,9 +2,6 @@ import { z } from 'zod';
 
 export { StoredCredentialSchema };
 
-// Literal, Json, LiteralSchema and JsonSchema were copied from
-// https://github.com/palladians/mina-js/tree/main
-
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
 
@@ -20,6 +17,7 @@ const SerializedValueSchema = z
   .object({
     _type: z.string(),
     value: z.union([z.string(), z.record(z.any())]),
+    properties: z.record(z.any()).optional(),
   })
   .strict();
 
@@ -58,6 +56,189 @@ const SerializedSignatureSchema = z
     }),
   })
   .strict();
+
+// Create recursive Node schema
+const NodeSchema: z.ZodType<any> = z.lazy(() =>
+  z.discriminatedUnion('type', [
+    z
+      .object({
+        type: z.literal('owner'),
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('issuer'),
+        credentialKey: z.string(),
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('constant'),
+        data: SerializedValueSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('root'),
+        input: z.record(InputSchema), // TODO: not sure about this
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('property'),
+        key: z.string(),
+        inner: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('record'),
+        data: z.record(NodeSchema),
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('equals'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('equalsOneOf'),
+        input: NodeSchema,
+        options: z.union([z.array(NodeSchema), NodeSchema]),
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('lessThan'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('lessThanEq'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('add'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('sub'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('mul'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('div'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('and'),
+        inputs: z.array(NodeSchema),
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('or'),
+        left: NodeSchema,
+        right: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('not'),
+        inner: NodeSchema,
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('hash'),
+        inputs: z.array(NodeSchema),
+        prefix: z.string().optional(),
+      })
+      .strict(),
+
+    z
+      .object({
+        type: z.literal('ifThenElse'),
+        condition: NodeSchema,
+        thenNode: NodeSchema,
+        elseNode: NodeSchema,
+      })
+      .strict(),
+  ])
+);
+
+// Input Schema
+const InputSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      type: z.literal('credential'),
+      credentialType: z.union([
+        z.literal('simple'),
+        z.literal('unsigned'),
+        z.literal('recursive'),
+      ]),
+      witness: z.record(SerializedTypeSchema),
+      data: z.record(SerializedTypeSchema),
+    })
+    .strict(),
+
+  z
+    .object({
+      type: z.literal('constant'),
+      data: SerializedTypeSchema,
+      value: SerializedValueSchema,
+    })
+    .strict(),
+
+  z
+    .object({
+      type: z.literal('claim'),
+      data: z.record(SerializedTypeSchema),
+    })
+    .strict(),
+]);
+
+// Witness Schemas
 
 const SimpleWitnessSchema = z
   .object({
