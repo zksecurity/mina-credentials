@@ -1,58 +1,55 @@
 import { z } from 'zod';
 
+export { StoredCredentialSchema };
+
 // Literal, Json, LiteralSchema and JsonSchema were copied from
 // https://github.com/palladians/mina-js/tree/main
 
-export type Literal = string | number | boolean | null;
-export type Json = Literal | { [key: string]: Json } | Json[];
+type Literal = string | number | boolean | null;
+type Json = Literal | { [key: string]: Json } | Json[];
 
-export const LiteralSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-]);
+const LiteralSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
-export const JsonSchema: z.ZodType<Json> = z.lazy(() =>
+const JsonSchema: z.ZodType<Json> = z.lazy(() =>
   z.union([LiteralSchema, z.array(JsonSchema), z.record(JsonSchema)])
 );
 
-export const PublicKeySchema = z.string().length(55).startsWith('B62');
+const PublicKeySchema = z.string().length(55).startsWith('B62');
 
-export const SerializedValueSchema = z
+const SerializedValueSchema = z
   .object({
     _type: z.string(),
     value: z.union([z.string(), z.record(z.any())]),
   })
   .strict();
 
-export const SerializedTypeSchema = z
+const SerializedTypeSchema = z
   .object({
     _type: z.string(),
   })
   .strict();
 
-export const SerializedFieldSchema = z
+const SerializedFieldSchema = z
   .object({
     _type: z.literal('Field'),
     value: z.string(),
   })
   .strict();
 
-export const SerializedPublicKeySchema = z
+const SerializedPublicKeySchema = z
   .object({
     _type: z.literal('PublicKey'),
     value: z.string(),
   })
   .strict();
 
-export const SerializedPublicKeyTypeSchema = z
+const SerializedPublicKeyTypeSchema = z
   .object({
     _type: z.literal('PublicKey'),
   })
   .strict();
 
-export const SerializedSignatureSchema = z
+const SerializedSignatureSchema = z
   .object({
     _type: z.literal('Signature'),
     value: z.object({
@@ -62,7 +59,7 @@ export const SerializedSignatureSchema = z
   })
   .strict();
 
-export const SimpleWitnessSchema = z
+const SimpleWitnessSchema = z
   .object({
     type: z.literal('simple'),
     issuer: SerializedPublicKeySchema,
@@ -70,7 +67,7 @@ export const SimpleWitnessSchema = z
   })
   .strict();
 
-export const RecursiveWitnessSchema = z
+const RecursiveWitnessSchema = z
   .object({
     type: z.literal('recursive'),
     vk: z
@@ -95,13 +92,13 @@ export const RecursiveWitnessSchema = z
   })
   .strict();
 
-export const UnsignedWitnessSchema = z
+const UnsignedWitnessSchema = z
   .object({
     type: z.literal('unsigned'),
   })
   .strict();
 
-export const WitnessSchema = z.discriminatedUnion('type', [
+const WitnessSchema = z.discriminatedUnion('type', [
   SimpleWitnessSchema,
   RecursiveWitnessSchema,
   UnsignedWitnessSchema,
@@ -132,7 +129,7 @@ const StructCredentialSchema = z
   })
   .strict();
 
-export const StoredCredentialSchema = z
+const StoredCredentialSchema = z
   .object({
     version: z.literal('v0'),
     witness: WitnessSchema,
@@ -142,4 +139,4 @@ export const StoredCredentialSchema = z
   .strict();
 
 // we could infer the type of StoredCredential from the validation
-// export type StoredCredential = z.infer<typeof StoredCredentialSchema>;
+// type StoredCredential = z.infer<typeof StoredCredentialSchema>;
