@@ -14,10 +14,18 @@ export const JsonSchema: z.ZodType<Json> = z.lazy(() =>
   z.union([LiteralSchema, z.array(JsonSchema), z.record(JsonSchema)])
 );
 
+export const PublicKeySchema = z.string().length(55).startsWith('B62');
+
 export const SerializedValueSchema = z
   .object({
     _type: z.string(),
     value: z.union([z.string(), z.record(z.any())]),
+  })
+  .strict();
+
+export const SerializedTypeSchema = z
+  .object({
+    _type: z.string(),
   })
   .strict();
 
@@ -32,6 +40,12 @@ export const SerializedPublicKeySchema = z
   .object({
     _type: z.literal('PublicKey'),
     value: z.string(),
+  })
+  .strict();
+
+export const SerializedPublicKeyTypeSchema = z
+  .object({
+    _type: z.literal('PublicKey'),
   })
   .strict();
 
@@ -64,10 +78,15 @@ export const RecursiveWitnessSchema = z
       .strict(),
     proof: z
       .object({
-        publicInput: JsonSchema,
-        publicOutput: JsonSchema,
-        maxProofsVerified: z.number().min(0).max(2),
-        proof: z.string(),
+        _type: z.literal('Proof'),
+        value: z
+          .object({
+            publicInput: JsonSchema,
+            publicOutput: JsonSchema,
+            maxProofsVerified: z.number().min(0).max(2),
+            proof: z.string(),
+          })
+          .strict(),
       })
       .strict(),
   })
@@ -85,10 +104,28 @@ export const WitnessSchema = z.discriminatedUnion('type', [
   UnsignedWitnessSchema,
 ]);
 
-export const CredentialSchema = z
+const SimpleCredentialSchema = z
   .object({
     owner: SerializedPublicKeySchema,
     data: z.record(SerializedValueSchema),
+  })
+  .strict();
+
+const StructCredentialSchema = z
+  .object({
+    _type: z.literal('Struct'),
+    properties: z
+      .object({
+        owner: SerializedPublicKeyTypeSchema,
+        data: JsonSchema,
+      })
+      .strict(),
+    value: z
+      .object({
+        owner: PublicKeySchema,
+        data: JsonSchema,
+      })
+      .strict(),
   })
   .strict();
 
@@ -97,7 +134,7 @@ export const StoredCredentialSchema = z
     version: z.literal('v0'),
     witness: WitnessSchema,
     metadata: JsonSchema.optional(),
-    credential: CredentialSchema,
+    credential: z.union([SimpleCredentialSchema, StructCredentialSchema]),
   })
   .strict();
 
