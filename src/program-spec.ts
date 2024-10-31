@@ -12,7 +12,7 @@ import {
   type InferProvable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
-import { assertPure, ProvableType } from './o1js-missing.ts';
+import { assertPure, ProvableType, toFieldsPacked } from './o1js-missing.ts';
 import { assert, assertHasProperty, zip } from './util.ts';
 import {
   type InferNestedProvable,
@@ -286,7 +286,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
         NestedProvable.get(NestedProvable.fromValue(i))
       );
       let fields = zip(types, inputs).flatMap(([type, value]) =>
-        type.toFields(value)
+        toFieldsPacked(type, value)
       );
       let hash =
         node.prefix === undefined

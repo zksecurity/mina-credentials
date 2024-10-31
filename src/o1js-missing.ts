@@ -6,15 +6,29 @@ import {
   Field,
   type InferProvable,
   type InferValue,
+  Packed,
   Provable,
+  type ProvableHashable,
   type ProvablePure,
   Struct,
   Undefined,
 } from 'o1js';
-import { assert, assertHasProperty, hasProperty } from './util.ts';
+import {
+  assert,
+  assertHasProperty,
+  hasProperty,
+  notImplemented,
+} from './util.ts';
 import type { NestedProvable } from './nested.ts';
 
-export { ProvableType, assertPure, type ProvablePureType, array, mapValue };
+export {
+  ProvableType,
+  assertPure,
+  type ProvablePureType,
+  array,
+  mapValue,
+  toFieldsPacked,
+};
 
 const ProvableType = {
   get<A extends WithProvable<any>>(type: A): ToProvable<A> {
@@ -119,6 +133,30 @@ type ToProvable<A extends WithProvable<any>> = A extends {
   ? P
   : A;
 
+type HashInput = {
+  fields?: Field[];
+  packed?: [Field, number][];
+};
+type MaybeHashable<T> = {
+  toInput?: (x: T) => HashInput;
+  empty?: () => T;
+};
+
+type ProvableMaybeHashable<T = any, V = any> = Provable<T, V> &
+  MaybeHashable<T>;
+type ProvableMaybeHashablePure<T = any, V = any> = ProvablePure<T, V> &
+  MaybeHashable<T>;
+type ProvableHashablePure<T = any, V = any> = ProvablePure<T, V> &
+  ProvableHashable<T>;
+
+/**
+ * Pack a value to as few field elements as possible using `toInput()`, falling back to `toFields()` if that's not available.
+ */
+function toFieldsPacked<T>(type: ProvableMaybeHashable<T>, value: T): Field[] {
+  if (type.toInput === undefined) return type.toFields(value);
+  return Packed.create(type as ProvableHashable<T>).pack(value).packed;
+}
+
 // temporary, until we land `StaticArray`
 // this is copied from o1js and then modified: https://github.com/o1-labs/o1js
 // License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
@@ -198,7 +236,7 @@ function array<A extends NestedProvable>(elementType: A, length: number) {
 // this is copied from o1js and then modified: https://github.com/o1-labs/o1js
 // License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
 function mapValue<
-  A extends ProvablePure<any>,
+  A extends ProvableMaybeHashablePure,
   V extends InferValue<A>,
   W,
   T extends InferProvable<A>
@@ -206,21 +244,29 @@ function mapValue<
   provable: A,
   there: (x: V) => W,
   back: (x: W | T) => V | T
-): ProvablePure<T, W>;
+): ProvableHashablePure<T, W>;
 
 function mapValue<
-  A extends Provable<any>,
+  A extends ProvableMaybeHashable,
   V extends InferValue<A>,
   W,
   T extends InferProvable<A>
->(provable: A, there: (x: V) => W, back: (x: W | T) => V | T): Provable<T, W>;
+>(
+  provable: A,
+  there: (x: V) => W,
+  back: (x: W | T) => V | T
+): ProvableHashable<T, W>;
 
 function mapValue<
-  A extends Provable<any>,
+  A extends ProvableMaybeHashable,
   V extends InferValue<A>,
   W,
   T extends InferProvable<A>
->(provable: A, there: (x: V) => W, back: (x: W | T) => V | T): Provable<T, W> {
+>(
+  provable: A,
+  there: (x: V) => W,
+  back: (x: W | T) => V | T
+): ProvableHashable<T, W> {
   return {
     sizeInFields: provable.sizeInFields,
     toFields: provable.toFields,
@@ -228,6 +274,8 @@ function mapValue<
     fromFields: provable.fromFields,
     check: provable.check,
     toCanonical: provable.toCanonical,
+    toInput: provable.toInput ?? notImplemented,
+    empty: provable.empty ?? notImplemented,
 
     toValue(value) {
       return there(provable.toValue(value));

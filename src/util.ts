@@ -4,6 +4,7 @@ export {
   assertHasProperty,
   hasProperty,
   assertIsObject,
+  notImplemented,
   zip,
   chunk,
   pad,
@@ -51,6 +52,10 @@ function hasProperty<K extends string>(
     ((typeof obj === 'object' && obj !== null) || typeof obj === 'function') &&
     key in obj
   );
+}
+
+function notImplemented(): never {
+  throw Error('Not implemented');
 }
 
 function zip<T, S>(a: T[], b: S[]) {
