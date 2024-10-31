@@ -234,11 +234,11 @@ class DynamicArrayBase<T = any, V = any> {
    */
   map<S extends ProvableType>(
     type: S,
-    f: (t: T) => From<S>
+    f: (t: T, i: number) => From<S>
   ): DynamicArray<InferProvable<S>, InferValue<S>> {
     let Array = DynamicArray(type, { maxLength: this.maxLength });
     let provable = ProvableType.get(type);
-    let array = this.array.map((x) => provable.fromValue(f(x)));
+    let array = this.array.map((x, i) => provable.fromValue(f(x, i)));
     let newArray = new Array(array, this.length);
 
     // new array has same length/maxLength, so it can use the same cached masks
@@ -253,9 +253,9 @@ class DynamicArrayBase<T = any, V = any> {
    *
    * The callback will be passed an element and a boolean `isDummy` indicating whether the value is part of the actual array.
    */
-  forEach(f: (t: T, isDummy: Bool) => void) {
-    zip(this.array, this._dummyMask()).forEach(([t, isDummy]) => {
-      f(t, isDummy);
+  forEach(f: (t: T, isDummy: Bool, i: number) => void) {
+    zip(this.array, this._dummyMask()).forEach(([t, isDummy], i) => {
+      f(t, isDummy, i);
     });
   }
 
@@ -364,6 +364,14 @@ class DynamicArrayBase<T = any, V = any> {
     });
     this.__dummyMask = mask;
     return mask;
+  }
+
+  /**
+   * Returns true if the index is a dummy index,
+   * i.e. not actually in the array.
+   */
+  isDummyIndex(i: number) {
+    return this._dummyMask()[i];
   }
 
   toValue() {
