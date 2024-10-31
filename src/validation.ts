@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export { StoredCredentialSchema };
+export { StoredCredentialSchema, PresentationRequestSchema };
 
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
@@ -259,6 +259,29 @@ const ZkAppContextSchema = z
   .strict();
 
 const ContextSchema = z.union([HttpsContextSchema, ZkAppContextSchema]);
+
+const PresentationRequestSchema = z
+  .object({
+    type: z.union([
+      z.literal('no-context'),
+      z.literal('zk-app'),
+      z.literal('https'),
+    ]),
+    spec: z
+      .object({
+        inputs: z.record(InputSchema),
+        logic: z
+          .object({
+            assert: NodeSchema,
+            data: NodeSchema, // TODO: change to outputClaim
+          })
+          .strict(),
+      })
+      .strict(),
+    claims: z.record(SerializedValueSchema),
+    inputContext: z.union([ContextSchema, z.null()]),
+  })
+  .strict();
 
 // Witness Schemas
 
