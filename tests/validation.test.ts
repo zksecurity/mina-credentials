@@ -30,7 +30,7 @@ test('StoredCredentialSchema validation', async (t) => {
     const inputProofSpec = Spec(
       { inputOwner: Claim(PublicKey), data: Claim(InputData) },
       ({ inputOwner, data }) => ({
-        ouputClaim: Operation.record({ owner: inputOwner, data }),
+        outPutClaim: Operation.record({ owner: inputOwner, data }),
       })
     );
 

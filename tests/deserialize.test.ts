@@ -588,7 +588,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ age, isAdmin, maxAge }) => ({
           assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-          ouputClaim: age,
+          outPutClaim: age,
         })
       );
 
@@ -626,7 +626,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'field'),
             zeroField
           ),
-          ouputClaim: signedData,
+          outPutClaim: signedData,
         })
       );
 
@@ -672,7 +672,7 @@ test('deserializeSpec', async (t) => {
             Operation.lessThan(field1, field2),
             Operation.lessThanEq(field2, threshold)
           ),
-          ouputClaim: Operation.equals(field1, field2),
+          outPutClaim: Operation.equals(field1, field2),
         })
       );
 
@@ -704,7 +704,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'age'),
             targetAge
           ),
-          ouputClaim: Operation.record({
+          outPutClaim: Operation.record({
             owner: Operation.owner,
             issuer: Operation.issuer(signedData),
             age: Operation.property(signedData, 'age'),
@@ -737,7 +737,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ provedData, zeroField }) => ({
           assert: Operation.equals(provedData, zeroField),
-          ouputClaim: provedData,
+          outPutClaim: provedData,
         })
       );
 
@@ -792,7 +792,7 @@ test('deserializePresentationRequest with context', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      ouputClaim: Operation.property(signedData, 'age'),
+      outPutClaim: Operation.property(signedData, 'age'),
     })
   );
 

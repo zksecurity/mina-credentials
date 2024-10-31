@@ -70,7 +70,7 @@ function Spec<Output, Inputs extends Record<string, Input>>(
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => {
     assert?: Node<Bool>;
-    ouputClaim: Node<Output>;
+    outPutClaim: Node<Output>;
   }
 ): Spec<Output, Inputs>;
 
@@ -111,10 +111,10 @@ function Spec<Output, Inputs extends Record<string, Input>>(
   }
   let logic = spec(inputNodes);
   let assertNode = logic.assert ?? Node.constant(Bool(true));
-  let ouputClaim: Node<Output> =
-    logic.ouputClaim ?? (Node.constant(undefined) as any);
+  let outPutClaim: Node<Output> =
+    logic.outPutClaim ?? (Node.constant(undefined) as any);
 
-  return { inputs, logic: { assert: assertNode, ouputClaim } };
+  return { inputs, logic: { assert: assertNode, outPutClaim } };
 }
 
 const Operation = {
@@ -189,7 +189,7 @@ type Node<Data = any> =
 
 type OutputNode<Data = any> = {
   assert?: Node<Bool>;
-  ouputClaim?: Node<Data>;
+  outPutClaim?: Node<Data>;
 };
 
 const Node = {
@@ -634,7 +634,7 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
 
 function publicOutputType(spec: Spec): ProvablePure<any> {
   let root = dataInputTypes(spec);
-  let outputTypeNested = Node.evalType(root, spec.logic.ouputClaim);
+  let outputTypeNested = Node.evalType(root, spec.logic.outPutClaim);
   let outputType = NestedProvable.get(outputTypeNested);
   assertPure(outputType);
   return outputType;
