@@ -18,6 +18,7 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
+import { DynamicRecord } from '../src/credentials/dynamic-record.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const String = DynamicString({ maxLength: 50 });
@@ -38,6 +39,9 @@ const Schema = {
    * Timestamp when the credential expires.
    */
   expiresAt: UInt64,
+
+  // TODO
+  otherField: String,
 };
 
 // ---------------------------------------------
@@ -47,6 +51,7 @@ let data: InferSchema<typeof Schema> = {
   nationality: String.from('United States of America'),
   id: Bytes16.random(),
   expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
+  otherField: String.from('other data'),
 };
 let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);
@@ -66,6 +71,15 @@ console.log('✅ WALLET: imported and validated credential');
 // VERIFIER: request a presentation
 
 const FieldArray = DynamicArray(Field, { maxLength: 100 });
+
+// TODO use something like this for Credential.Simple
+const SubSchema = DynamicRecord(
+  { nationality: String, id: Bytes16, expiresAt: UInt64 },
+  { maxEntries: 10, maxKeyLength: 50, maxValueLength: 100 }
+);
+let subdata = SubSchema.from(Schema, credential.credential.data);
+let expiresAt = subdata.get('expiresAt');
+let hash = subdata.hash();
 
 const spec = Spec(
   {

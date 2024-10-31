@@ -17,7 +17,7 @@ class TypeBuilder<T, V> {
     this.type = type;
   }
 
-  static fromShape<A extends NestedProvable>(
+  static shape<A extends NestedProvable>(
     nested: A
   ): TypeBuilder<InferProvable<A>, InferValue<A>> {
     return new TypeBuilder(provable(nested));

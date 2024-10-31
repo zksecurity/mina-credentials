@@ -8,6 +8,7 @@ export {
   zip,
   chunk,
   pad,
+  mapObject,
 };
 
 function assert(condition: boolean, message?: string): asserts condition {
@@ -79,4 +80,15 @@ function pad<T>(array: T[], size: number, value: T): T[] {
     `padding array of size ${array.length} larger than target size ${size}`
   );
   return array.concat(Array.from({ length: size - array.length }, () => value));
+}
+
+function mapObject<T extends Record<string, any>, S>(
+  obj: T,
+  fn: (value: T[keyof T], key: keyof T) => S
+): Record<keyof T, S> {
+  let result = {} as Record<keyof T, S>;
+  for (let key in obj) {
+    result[key] = fn(obj[key], key);
+  }
+  return result;
 }
