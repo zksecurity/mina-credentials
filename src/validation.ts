@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Literal, Json, LiteralSchema and JsonSchema were copied from
+// https://github.com/palladians/mina-js/tree/main
+
 export type Literal = string | number | boolean | null;
 export type Json = Literal | { [key: string]: Json } | Json[];
 
