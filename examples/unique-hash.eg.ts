@@ -1,4 +1,4 @@
-import { Bytes, Field, UInt64 } from 'o1js';
+import { Bytes, Field, Poseidon, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -65,13 +65,12 @@ console.log('✅ WALLET: imported and validated credential');
 // ---------------------------------------------
 // VERIFIER: request a presentation
 
-const StringArray = DynamicArray(String, { maxLength: 20 });
-const FieldArray = DynamicArray(Field, { maxLength: 20 });
+const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
 const spec = Spec(
   {
     credential: Credential.Simple(Schema), // schema needed here!
-    acceptedNations: Claim(StringArray),
+    acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
     acceptedIssuers: Claim(FieldArray),
     currentDate: Claim(UInt64),
     appId: Claim(String),
@@ -87,7 +86,7 @@ const spec = Spec(
     // 2. the credential was issued by one of the accepted issuers
     // 3. the credential is not expired (by comparing with the current date)
     let assert = Operation.and(
-      Operation.equalsOneOf(nationality, acceptedNations),
+      Operation.equalsOneOf(Operation.hash(nationality), acceptedNations),
       Operation.equalsOneOf(issuer, acceptedIssuers),
       Operation.lessThanEq(currentDate, expiresAt)
     );
@@ -111,7 +110,9 @@ const acceptedIssuers = [issuer, randomPublicKey(), randomPublicKey()].map(
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: StringArray.from(acceptedNations),
+    acceptedNations: FieldArray.from(
+      acceptedNations.map((s) => Poseidon.hashPacked(String, String.from(s)))
+    ),
     acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
     appId: String.from('my-app-id:123'),
