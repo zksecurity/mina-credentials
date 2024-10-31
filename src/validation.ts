@@ -21,7 +21,7 @@ const PublicKeySchema = z.string().length(55).startsWith('B62');
 const SerializedValueSchema = z
   .object({
     _type: z.string(),
-    value: z.union([z.string(), z.record(z.any())]),
+    value: z.union([z.string(), z.record(z.any()), z.array(z.any())]),
     properties: z.record(z.any()).optional(),
   })
   .strict();
@@ -89,7 +89,6 @@ const NodeSchema: z.ZodType<any> = z.lazy(() =>
     z
       .object({
         type: z.literal('root'),
-        // input: z.record(InputSchema), // TODO: not sure about this
       })
       .strict(),
 
@@ -120,7 +119,10 @@ const NodeSchema: z.ZodType<any> = z.lazy(() =>
       .object({
         type: z.literal('equalsOneOf'),
         input: NodeSchema,
-        options: z.union([z.array(NodeSchema), NodeSchema]),
+        options: z.union([
+          z.array(NodeSchema), // For array of nodes case
+          NodeSchema,
+        ]),
       })
       .strict(),
 

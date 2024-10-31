@@ -296,8 +296,6 @@ test('NodeSchema validation', async (t) => {
 
     const serialized = serializeNode(hashNode);
 
-    console.log('hash Node:', serialized);
-
     const result = NodeSchema.safeParse(serialized);
 
     assert(
@@ -364,4 +362,52 @@ test('NodeSchema validation', async (t) => {
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
+
+  await t.test('should validate equalsOneOf Node with array options', () => {
+    const options: Node<Field>[] = [
+      { type: 'constant', data: Field(10) },
+      { type: 'constant', data: Field(20) },
+      { type: 'constant', data: Field(30) },
+    ];
+
+    const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
+      { type: 'constant', data: Field(20) },
+      options
+    );
+
+    const serialized = serializeNode(equalsOneOfNode);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid with array options: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test(
+    'should validate equalsOneOf Node with single node options',
+    () => {
+      const optionsNode: Node<Field[]> = {
+        type: 'constant',
+        data: [Field(10), Field(20), Field(30)],
+      };
+
+      const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
+        { type: 'constant', data: Field(20) },
+        optionsNode
+      );
+
+      const serialized = serializeNode(equalsOneOfNode);
+
+      const result = NodeSchema.safeParse(serialized);
+
+      assert(
+        result.success,
+        'Node should be valid with single node options: ' +
+          (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+      );
+    }
+  );
 });
