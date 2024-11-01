@@ -22,13 +22,21 @@ import {
 import { TypeBuilder } from '../provable-type-builder.ts';
 import {
   assert,
+  assertDefined,
   assertExtendsShape,
+  assertHasProperty,
   mapEntries,
   mapObject,
   pad,
   zipObjects,
 } from '../util.ts';
 import { NestedProvable } from '../nested.ts';
+import { ProvableFactory } from '../provable-factory.ts';
+import {
+  deserializeNestedProvable,
+  serializeNestedProvable,
+  serializeNestedProvableValue,
+} from '../serialize-provable.ts';
 
 export {
   DynamicRecord,
@@ -36,6 +44,7 @@ export {
   packStringToField,
   packToField,
   hashRecord,
+  extractProperty,
 };
 
 type GenericRecord = DynamicRecord<{}>;
@@ -54,10 +63,19 @@ function DynamicRecord<
 >(knownShape: AKnown, { maxEntries }: { maxEntries: number }) {
   let shape = mapObject<
     AKnown,
-    { [K in keyof TKnown]: ProvableHashable<TKnown[K]> }
-  >(knownShape, (type) => ProvableType.get(type));
+    { [K in keyof TKnown]: ProvableHashableType<TKnown[K]> }
+  >(knownShape, (type) => type);
 
-  const emptyTKnown: TKnown = mapObject(shape, (type) => type.empty());
+  const emptyTKnown: TKnown = mapObject(shape, (type) =>
+    ProvableType.get(type).empty()
+  );
+
+  TypeBuilder.shape({
+    entries: array(Option(Struct({ key: Field, value: Field })), maxEntries),
+    actual: Unconstrained.withEmpty<UnknownRecord>(emptyTKnown),
+  })
+    .build()
+    .empty();
 
   return class DynamicRecord extends DynamicRecordBase<TKnown> {
     static from<T extends TKnown>(value: T): DynamicRecordBase<TKnown> {
@@ -171,12 +189,14 @@ class GenericRecordBase {
 }
 
 class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
-  get knownShape(): { [K in keyof TKnown]: ProvableHashable<TKnown[K]> } {
+  get knownShape(): { [K in keyof TKnown]: ProvableHashableType<TKnown[K]> } {
     throw Error('Need subclass');
   }
 
   get<K extends keyof TKnown & string>(key: K): TKnown[K] {
-    let valueType: ProvableHashable<TKnown[K]> = this.knownShape[key];
+    let valueType: ProvableHashable<TKnown[K]> = ProvableType.get(
+      this.knownShape[key]
+    );
     return this.getAny(valueType, key);
   }
 }
@@ -221,3 +241,40 @@ function hashRecord(data: unknown) {
   ]);
   return Poseidon.hash(entryHashes.flat());
 }
+
+// compatible key extraction
+
+function extractProperty(data: unknown, key: string): unknown {
+  if (data instanceof DynamicRecord.Base) return data.get(key);
+  assertHasProperty(data, key);
+  let value = data[key];
+  assertDefined(value, `Key not found: "${key}"`);
+  return value;
+}
+
+// serialize/deserialize
+
+ProvableFactory.register(DynamicRecord, {
+  typeToJSON(constructor) {
+    return {
+      maxEntries: constructor.prototype.maxEntries,
+      knownShape: serializeNestedProvable(constructor.prototype.knownShape),
+    };
+  },
+
+  typeFromJSON(json) {
+    let { maxEntries, knownShape } = json;
+    let shape = deserializeNestedProvable(knownShape);
+    return DynamicRecord(shape as any, { maxEntries });
+  },
+
+  valueToJSON(type, value) {
+    let actual = type.provable.toValue(value);
+    return serializeNestedProvableValue(actual);
+  },
+
+  valueFromJSON(type, value) {
+    let actual = deserializeNestedProvable(value);
+    return type.provable.fromValue(actual);
+  },
+});
