@@ -145,6 +145,11 @@ class GenericRecordBase {
     throw Error('Need subclass');
   }
 
+  static from(_: UnknownRecord): GenericRecordBase {
+    // TODO this could be implemented
+    throw Error('Need subclass');
+  }
+
   getAny<A extends ProvableType>(valueType: A, key: string) {
     // find valueHash for key
     let keyHash = packStringToField(key);

@@ -56,6 +56,9 @@ const Subschema = DynamicRecord(
   { maxEntries: 10 }
 );
 
+// original schema is compatible
+Subschema.from(original);
+
 async function circuit() {
   let record = Provable.witness(Subschema, () => original);
 

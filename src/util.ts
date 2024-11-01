@@ -12,6 +12,7 @@ export {
   mapEntries,
   zipObjects,
   assertExtendsShape,
+  isSubclass,
 };
 
 function assert(
@@ -128,4 +129,15 @@ function assertExtendsShape<B extends Record<string, any>>(
   for (let key in b) {
     if (!(key in a)) throw Error(`Expected object to have property ${key}`);
   }
+}
+
+type Constructor<T> = new (...args: any) => T;
+
+function isSubclass<B extends Constructor<any>>(
+  constructor: unknown,
+  base: B
+): constructor is B {
+  if (typeof constructor !== 'function') return false;
+  if (!hasProperty(constructor, 'prototype')) return false;
+  return constructor.prototype instanceof base;
 }
