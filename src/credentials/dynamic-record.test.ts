@@ -10,6 +10,8 @@ import { DynamicRecord } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
 import { mapObject, zipObjects } from '../util.ts';
+import assert from 'node:assert';
+import test from 'node:test';
 
 const String = DynamicString({ maxLength: 10 });
 
@@ -24,9 +26,9 @@ const OriginalSchema = Schema({
 let original = OriginalSchema.from({
   first: 1,
   second: true,
-  third: 'world',
+  third: 'something',
   fourth: 123n,
-  fifth: { field: 2, string: 'bar' },
+  fifth: { field: 2, string: '...' },
 });
 
 const Subschema = DynamicRecord(
@@ -41,7 +43,15 @@ const Subschema = DynamicRecord(
 
 let record = Subschema.from(original);
 
-console.dir(record, { depth: 5 });
+test('DynamicRecord.get()', () =>
+  assert.deepStrictEqual(
+    {
+      first: record.get('first').toBigInt(),
+      third: record.get('third').toString(),
+      fourth: record.get('fourth').toBigInt(),
+    },
+    { first: 1n, third: 'something', fourth: 123n }
+  ));
 
 // could also use `Struct` instead of `Schema`,
 // but `Schema.from()` returns a plain object which is slightly more idiomatic

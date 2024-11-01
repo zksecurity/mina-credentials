@@ -8,12 +8,15 @@ import {
   type InferProvable,
   Option,
   Poseidon,
+  Provable,
+  type ProvableHashable,
   Struct,
   Unconstrained,
 } from 'o1js';
 import {
   array,
   ProvableType,
+  toFieldsPacked,
   type ProvableHashableType,
 } from '../o1js-missing.ts';
 import { TypeBuilder } from '../provable-type-builder.ts';
@@ -49,11 +52,12 @@ function DynamicRecord<
   }
 ) {
   let { maxEntries, maxKeyLength, maxValueLength } = options;
-  // type TKnown = { [K in keyof AKnown]: InferProvable<AKnown[K]> };
+  let shape = mapObject<
+    AKnown,
+    { [K in keyof TKnown]: ProvableHashable<TKnown[K]> }
+  >(knownShape, (type) => ProvableType.get(type));
 
-  const emptyTKnown: TKnown = mapObject(knownShape, (type) =>
-    ProvableType.get(type).empty()
-  ) as TKnown;
+  const emptyTKnown: TKnown = mapObject(shape, (type) => type.empty());
 
   return class DynamicRecord extends DynamicRecordBase<TKnown> {
     static from<T extends TKnown>(value: T): DynamicRecordBase<TKnown> {
@@ -88,13 +92,13 @@ function DynamicRecord<
             let type = NestedProvable.get(NestedProvable.fromValue(value));
             return {
               key: hashString(key).toBigInt(),
-              value: Poseidon.hashPacked(type as any, value).toBigInt(),
+              value: hashPacked(type, value).toBigInt(),
             };
           });
           return { entries: pad(entries, maxEntries, undefined), actual };
         },
         distinguish(x) {
-          return x instanceof DynamicRecord;
+          return x instanceof DynamicRecordBase;
         },
       })
       .build();
@@ -108,8 +112,13 @@ function DynamicRecord<
     get maxValueLength() {
       return maxValueLength;
     }
+    get knownShape() {
+      return shape;
+    }
   };
 }
+
+const OptionField = Option(Field);
 
 class DynamicRecordBase<TKnown extends Record<string, any> = any> {
   entries: Option<{ key: Field; value: Field }>[];
@@ -129,9 +138,33 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
   get maxValueLength(): number {
     throw Error('Need subclass');
   }
+  get knownShape(): { [K in keyof TKnown]: ProvableHashable<TKnown[K]> } {
+    throw Error('Need subclass');
+  }
 
-  get<K extends keyof TKnown>(key: K): TKnown[K] {
-    throw Error('Not implemented');
+  get<K extends keyof TKnown & string>(key: K): TKnown[K] {
+    // find valueHash for key
+    let keyHash = hashString(key);
+    let current = OptionField.none();
+
+    for (let { isSome, value: entry } of this.entries) {
+      let isCurrentKey = isSome.and(entry.key.equals(keyHash));
+      current.isSome = current.isSome.or(isCurrentKey);
+      current.value = Provable.if(isCurrentKey, entry.value, current.value);
+    }
+    let valueHash = current.assertSome(`Key not found: "${key}"`);
+
+    // witness actual value for key
+    let valueType: ProvableHashable<TKnown[K]> = this.knownShape[key];
+    let value = Provable.witness(valueType, () => this.actual.get()[key]);
+
+    // assert that value matches hash, and return it
+    hashPacked(valueType, value).assertEquals(
+      valueHash,
+      `Bug: Invalid value for key "${key}"`
+    );
+
+    return value;
   }
 
   hash(): Field {
@@ -152,4 +185,9 @@ function hashString(string: string) {
   let bytes = new TextEncoder().encode(string);
   let B = Bytes(bytes.length);
   return Poseidon.hashPacked(B, B.from(bytes));
+}
+
+function hashPacked<T>(type: Provable<T>, value: T) {
+  let fields = toFieldsPacked(type, value);
+  return Poseidon.hash(fields);
 }

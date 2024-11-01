@@ -86,11 +86,11 @@ function pad<T>(array: T[], size: number, value: T | (() => T)): T[] {
   return array.concat(Array.from({ length: size - array.length }, cb));
 }
 
-function mapObject<T extends Record<string, any>, S>(
-  obj: T,
-  fn: (value: T[keyof T], key: keyof T) => S
-): Record<keyof T, S> {
-  let result = {} as Record<keyof T, S>;
+function mapObject<
+  T extends Record<string, any>,
+  S extends Record<keyof T, any>
+>(obj: T, fn: <K extends keyof T>(value: T[K], key: K) => S[K]): S {
+  let result = {} as S;
   for (let key in obj) {
     result[key] = fn(obj[key], key);
   }
@@ -103,7 +103,10 @@ function zipObjects<
 >(t: T, s: S) {
   assertExtendsShape(t, s);
   assertExtendsShape(s, t);
-  return mapObject<T, [T[keyof T], S[keyof T]]>(t, (t, key) => [t, s[key]]);
+  return mapObject<T, { [K in keyof T]: [T[K], S[K]] }>(t, (t, key) => [
+    t,
+    s[key],
+  ]);
 }
 
 function assertExtendsShape<B extends Record<string, any>>(
