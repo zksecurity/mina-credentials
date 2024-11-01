@@ -22,6 +22,7 @@ import { DynamicRecord } from '../src/credentials/dynamic-record.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const String = DynamicString({ maxLength: 50 });
+const LongString = DynamicString({ maxLength: 200 });
 const Bytes16 = Bytes(16);
 
 const Schema = {
@@ -29,6 +30,16 @@ const Schema = {
    * Nationality of the owner.
    */
   nationality: String,
+
+  /**
+   * Full name of the owner.
+   */
+  name: LongString,
+
+  /**
+   * Date of birth of the owner.
+   */
+  birthDate: UInt64,
 
   /**
    * Owner ID (16 bytes).
@@ -39,9 +50,6 @@ const Schema = {
    * Timestamp when the credential expires.
    */
   expiresAt: UInt64,
-
-  // TODO
-  otherField: String,
 };
 
 // ---------------------------------------------
@@ -49,9 +57,10 @@ const Schema = {
 
 let data: InferSchema<typeof Schema> = {
   nationality: String.from('United States of America'),
+  name: LongString.from('John Doe'),
+  birthDate: UInt64.from(Date.UTC(1990, 1, 1)),
   id: Bytes16.random(),
   expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
-  otherField: String.from('other data'),
 };
 let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);
@@ -70,11 +79,22 @@ console.log('✅ WALLET: imported and validated credential');
 // ---------------------------------------------
 // VERIFIER: request a presentation
 
+// it's enough to know a subset of the schema to create the request
+const Subschema = DynamicRecord(
+  {
+    nationality: String,
+    expiresAt: UInt64,
+    id: Bytes16,
+  },
+  // have to specify maximum number of entries of the original schema
+  { maxEntries: 20 }
+);
+
 const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
 const spec = Spec(
   {
-    credential: Credential.Simple(Schema), // schema needed here!
+    credential: Credential.Simple(Subschema),
     acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
     acceptedIssuers: Claim(FieldArray),
     currentDate: Claim(UInt64),
@@ -138,6 +158,9 @@ console.time('compile');
 let deserialized = PresentationRequest.fromJSON('https', requestJson);
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
+
+let info = (await compiled.program.program.analyzeMethods()).run;
+console.log('circuit gates summary', info?.summary());
 
 console.time('create');
 let presentation = await Presentation.create(ownerKey, {
