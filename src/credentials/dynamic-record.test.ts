@@ -12,10 +12,11 @@ import { DynamicRecord, hashPacked, hashString } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
 import { mapEntries, mapObject, zipObjects } from '../util.ts';
-import assert from 'node:assert';
-import test from 'node:test';
+import { test } from 'node:test';
 
 const String = DynamicString({ maxLength: 10 });
+
+// original schema, data and hash from known layout
 
 const OriginalSchema = Schema({
   first: Field,
@@ -32,33 +33,35 @@ let original = OriginalSchema.from({
   fourth: 123n,
   fifth: { field: 2, string: '...' },
 });
+const expectedHash = OriginalSchema.hash(original);
+
+// subset schema and circuit that doesn't know the full original layout
 
 const Subschema = DynamicRecord(
-  // subset, not necessarily in order
   {
+    // not necessarily in order
     fourth: UInt64,
     third: DynamicString({ maxLength: 10 }),
     first: Field,
   },
-  { maxEntries: 10, maxKeyLength: 20, maxValueLength: 20 }
+  { maxEntries: 10 }
 );
 
-let record = Subschema.from(original);
+async function circuit() {
+  let record = Provable.witness(Subschema, () => original);
 
-test('DynamicRecord.get()', () =>
-  assert.deepStrictEqual(
-    {
-      first: record.get('first').toBigInt(),
-      third: record.get('third').toString(),
-      fourth: record.get('fourth').toBigInt(),
-    },
-    { first: 1n, third: 'something', fourth: 123n }
-  ));
+  await test('DynamicRecord.get()', () => {
+    record.get('first').assertEquals(1, 'first');
+    Provable.assertEqual(String, record.get('third'), String.from('something'));
+    record.get('fourth').assertEquals(UInt64.from(123n));
+  });
 
-const expectedHash = OriginalSchema.hash(original);
+  await test('DynamicRecord.hash()', () =>
+    record.hash().assertEquals(expectedHash, 'hash'));
+}
 
-test('DynamicRecord.hash()', () =>
-  record.hash().assertEquals(expectedHash, 'DynamicRecord.hash()'));
+await test('outside circuit', () => circuit());
+await test('inside circuit', () => Provable.runAndCheck(circuit));
 
 // could also use `Struct` instead of `Schema`,
 // but `Schema.from()` returns a plain object which is slightly more idiomatic

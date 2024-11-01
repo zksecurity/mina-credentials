@@ -27,11 +27,7 @@ export { DynamicRecord, GenericRecord, hashString, hashPacked };
 
 type GenericRecord = DynamicRecord<{}>;
 
-function GenericRecord(options: {
-  maxEntries: number;
-  maxKeyLength: number;
-  maxValueLength: number;
-}) {
+function GenericRecord(options: { maxEntries: number }) {
   return DynamicRecord({}, options);
 }
 
@@ -43,15 +39,7 @@ function DynamicRecord<
   TKnown extends { [K in keyof AKnown]: InferProvable<AKnown[K]> } = {
     [K in keyof AKnown]: InferProvable<AKnown[K]>;
   }
->(
-  knownShape: AKnown,
-  options: {
-    maxEntries: number;
-    maxKeyLength: number;
-    maxValueLength: number;
-  }
-) {
-  let { maxEntries, maxKeyLength, maxValueLength } = options;
+>(knownShape: AKnown, { maxEntries }: { maxEntries: number }) {
   let shape = mapObject<
     AKnown,
     { [K in keyof TKnown]: ProvableHashable<TKnown[K]> }
@@ -106,12 +94,6 @@ function DynamicRecord<
     get maxEntries() {
       return maxEntries;
     }
-    get maxKeyLength() {
-      return maxKeyLength;
-    }
-    get maxValueLength() {
-      return maxValueLength;
-    }
     get knownShape() {
       return shape;
     }
@@ -132,15 +114,12 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
   get maxEntries(): number {
     throw Error('Need subclass');
   }
-  get maxKeyLength(): number {
-    throw Error('Need subclass');
-  }
-  get maxValueLength(): number {
-    throw Error('Need subclass');
-  }
   get knownShape(): { [K in keyof TKnown]: ProvableHashable<TKnown[K]> } {
     throw Error('Need subclass');
   }
+
+  // TODO: we could add a more flexible `get()` method that also accepts the value type, and so doesn't rely on the known shape
+  // This could even be on a non-polymorphic base class `GenericRecord`
 
   get<K extends keyof TKnown & string>(key: K): TKnown[K] {
     // find valueHash for key
