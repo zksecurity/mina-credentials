@@ -83,7 +83,7 @@ console.log('✅ WALLET: imported and validated credential');
 const Subschema = DynamicRecord(
   {
     nationality: String,
-    expiresAt: UInt64,
+    expiresAt: UInt64, // we don't have to match the original order of keys
     id: Bytes16,
   },
   // have to specify maximum number of entries of the original schema

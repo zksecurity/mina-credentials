@@ -242,9 +242,6 @@ function array<A extends NestedProvable>(elementType: A, length: number) {
     },
 
     toInput(array) {
-      if (!('toInput' in type)) {
-        throw Error('circuitArray.toInput: element type has no toInput method');
-      }
       return array.reduce(
         (curr, value) => HashInput.append(curr, toInput(type, value)),
         HashInput.empty
