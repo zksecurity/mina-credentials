@@ -249,9 +249,6 @@ function array<A extends NestedProvable>(elementType: A, length: number) {
     },
 
     empty() {
-      if (!('empty' in type)) {
-        throw Error('circuitArray.empty: element type has no empty() method');
-      }
       return Array.from({ length }, () => empty(type));
     },
   } satisfies ProvableHashable<T[], V[]> & {
