@@ -14,8 +14,12 @@ export {
   assertExtendsShape,
 };
 
-function assert(condition: boolean, message?: string): asserts condition {
+function assert(
+  condition: boolean,
+  message?: string | (() => string)
+): asserts condition {
   if (!condition) {
+    message = typeof message === 'function' ? message() : message;
     throw Error(message ?? 'Assertion failed');
   }
 }
