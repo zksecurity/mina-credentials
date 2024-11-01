@@ -31,8 +31,7 @@ function GenericRecord(options: { maxEntries: number }) {
   return DynamicRecord({}, options);
 }
 
-type DynamicRecord<TKnown extends Record<string, any>> =
-  DynamicRecordBase<TKnown>;
+type DynamicRecord<TKnown> = DynamicRecordBase<TKnown>;
 
 function DynamicRecord<
   AKnown extends Record<string, ProvableHashableType>,
@@ -102,7 +101,7 @@ function DynamicRecord<
 
 const OptionField = Option(Field);
 
-class DynamicRecordBase<TKnown extends Record<string, any> = any> {
+class GenericRecordBase {
   entries: Option<{ key: Field; value: Field }>[];
   actual: Unconstrained<UnknownRecord>;
 
@@ -114,14 +113,8 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
   get maxEntries(): number {
     throw Error('Need subclass');
   }
-  get knownShape(): { [K in keyof TKnown]: ProvableHashable<TKnown[K]> } {
-    throw Error('Need subclass');
-  }
 
-  // TODO: we could add a more flexible `get()` method that also accepts the value type, and so doesn't rely on the known shape
-  // This could even be on a non-polymorphic base class `GenericRecord`
-
-  get<K extends keyof TKnown & string>(key: K): TKnown[K] {
+  getAny<A extends ProvableType>(valueType: A, key: string) {
     // find valueHash for key
     let keyHash = hashString(key);
     let current = OptionField.none();
@@ -134,8 +127,10 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
     let valueHash = current.assertSome(`Key not found: "${key}"`);
 
     // witness actual value for key
-    let valueType: ProvableHashable<TKnown[K]> = this.knownShape[key];
-    let value = Provable.witness(valueType, () => this.actual.get()[key]);
+    let value = Provable.witness(
+      valueType,
+      () => this.actual.get()[key] as any
+    );
 
     // assert that value matches hash, and return it
     hashPacked(valueType, value).assertEquals(
@@ -162,6 +157,19 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
   }
 }
 
+class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
+  get knownShape(): { [K in keyof TKnown]: ProvableHashable<TKnown[K]> } {
+    throw Error('Need subclass');
+  }
+
+  get<K extends keyof TKnown & string>(key: K): TKnown[K] {
+    let valueType: ProvableHashable<TKnown[K]> = this.knownShape[key];
+    return this.getAny(valueType, key);
+  }
+}
+
+DynamicRecord.Base = DynamicRecordBase;
+
 type DynamicRecordRaw = {
   entries: Option<{ key: Field; value: Field }>[];
   actual: Unconstrained<UnknownRecord>;
@@ -177,7 +185,7 @@ function hashString(string: string) {
   return Poseidon.hashPacked(B, B.from(bytes));
 }
 
-function hashPacked<T>(type: Provable<T>, value: T) {
-  let fields = toFieldsPacked(type, value);
+function hashPacked<T>(type: ProvableType<T>, value: T) {
+  let fields = toFieldsPacked(ProvableType.get(type), value);
   return Poseidon.hash(fields);
 }

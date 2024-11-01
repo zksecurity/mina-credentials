@@ -6,6 +6,7 @@ import {
   Poseidon,
   Provable,
   ProvableType,
+  Struct,
   UInt64,
 } from 'o1js';
 import { DynamicRecord, hashPacked, hashString } from './dynamic-record.ts';
@@ -54,6 +55,16 @@ async function circuit() {
     record.get('first').assertEquals(1, 'first');
     Provable.assertEqual(String, record.get('third'), String.from('something'));
     record.get('fourth').assertEquals(UInt64.from(123n));
+  });
+
+  await test('DynamicRecord.getAny()', () => {
+    record.getAny(Bool, 'second').assertEquals(true, 'second');
+    const Fifth = Struct({ field: Field, string: String });
+    Provable.assertEqual(
+      Fifth,
+      record.getAny(Fifth, 'fifth'),
+      Fifth.fromValue({ field: 2, string: '...' })
+    );
   });
 
   await test('DynamicRecord.hash()', () =>
