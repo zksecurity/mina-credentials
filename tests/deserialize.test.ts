@@ -17,7 +17,6 @@ import {
 } from 'o1js';
 import { Spec, Node, Operation, Constant, Claim } from '../src/program-spec.ts';
 import {
-  serializeProvable,
   serializeNode,
   serializeInput,
   serializeSpec,
@@ -27,8 +26,6 @@ import {
   deserializeInputs,
   deserializeInput,
   deserializeNode,
-  deserializeProvableType,
-  deserializeProvable,
 } from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
@@ -40,6 +37,11 @@ import {
 } from '../src/presentation.ts';
 import { zkAppAddress } from './test-utils.ts';
 import { computeContext, generateContext } from '../src/context.ts';
+import {
+  deserializeProvable,
+  deserializeProvableType,
+  serializeProvable,
+} from '../src/serialize-provable.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {

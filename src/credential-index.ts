@@ -23,8 +23,10 @@ import {
   type NestedProvablePure,
 } from './nested.ts';
 import { assertPure } from './o1js-missing.ts';
-import { serializeNestedProvableValue } from './serialize.ts';
-import { deserializeNestedProvableValue } from './deserialize.ts';
+import {
+  deserializeNestedProvableValue,
+  serializeNestedProvableValue,
+} from './serialize-provable.ts';
 
 export { Credential, validateCredential };
 

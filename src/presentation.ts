@@ -22,15 +22,17 @@ import { NestedProvable } from './nested.ts';
 import {
   convertSpecToSerializable,
   serializeInputContext,
-  serializeNestedProvableValue,
-  serializeProvable,
 } from './serialize.ts';
 import {
   convertSpecFromSerializable,
   deserializeInputContext,
+} from './deserialize.ts';
+import {
   deserializeNestedProvableValue,
   deserializeProvable,
-} from './deserialize.ts';
+  serializeNestedProvableValue,
+  serializeProvable,
+} from './serialize-provable.ts';
 
 // external API
 export { PresentationRequest, Presentation };

@@ -17,11 +17,12 @@ import { assert, pad, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
 import { ProvableFactory } from '../provable-factory.ts';
-import { serializeProvable, serializeProvableType } from '../serialize.ts';
 import {
   deserializeProvable,
   deserializeProvableType,
-} from '../deserialize.ts';
+  serializeProvable,
+  serializeProvableType,
+} from '../serialize-provable.ts';
 
 export { DynamicArray };
 
