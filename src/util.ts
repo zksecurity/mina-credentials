@@ -9,6 +9,7 @@ export {
   chunk,
   pad,
   mapObject,
+  mapEntries,
   zipObjects,
   assertExtendsShape,
 };
@@ -107,6 +108,13 @@ function zipObjects<
     t,
     s[key],
   ]);
+}
+
+function mapEntries<T extends Record<string, any>, S>(
+  obj: T,
+  fn: <K extends keyof T & string>(key: K, value: T[K]) => S
+): S[] {
+  return Object.entries(obj).map((entry) => fn(...entry));
 }
 
 function assertExtendsShape<B extends Record<string, any>>(

@@ -3,13 +3,15 @@ import {
   Field,
   type From,
   type InferProvable,
+  Poseidon,
+  Provable,
   ProvableType,
   UInt64,
 } from 'o1js';
-import { DynamicRecord } from './dynamic-record.ts';
+import { DynamicRecord, hashPacked, hashString } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
-import { mapObject, zipObjects } from '../util.ts';
+import { mapEntries, mapObject, zipObjects } from '../util.ts';
 import assert from 'node:assert';
 import test from 'node:test';
 
@@ -53,10 +55,18 @@ test('DynamicRecord.get()', () =>
     { first: 1n, third: 'something', fourth: 123n }
   ));
 
+const expectedHash = OriginalSchema.hash(original);
+
+test('DynamicRecord.hash()', () =>
+  record.hash().assertEquals(expectedHash, 'DynamicRecord.hash()'));
+
 // could also use `Struct` instead of `Schema`,
 // but `Schema.from()` returns a plain object which is slightly more idiomatic
 function Schema<A extends Record<string, NestedProvable>>(schema: A) {
-  let shape = mapObject(schema, (type) => NestedProvable.get(type));
+  let shape = mapObject<A, { [K in keyof A]: Provable<InferProvable<A[K]>> }>(
+    schema,
+    (type) => NestedProvable.get(type)
+  );
   return {
     schema,
 
@@ -66,6 +76,15 @@ function Schema<A extends Record<string, NestedProvable>>(schema: A) {
         ([type, value]) => ProvableType.get(type).fromValue(value)
       );
       return actual;
+    },
+
+    hash(value: { [K in keyof A]: From<A[K]> }) {
+      let normalized = this.from(value);
+      let entryHashes = mapEntries(
+        zipObjects(shape, normalized),
+        (key, [type, value]) => [hashString(key), hashPacked(type, value)]
+      );
+      return Poseidon.hash(entryHashes.flat());
     },
   };
 }

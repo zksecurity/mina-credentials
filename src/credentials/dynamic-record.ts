@@ -23,7 +23,7 @@ import { TypeBuilder } from '../provable-type-builder.ts';
 import { assertExtendsShape, mapObject, pad, zipObjects } from '../util.ts';
 import { NestedProvable } from '../nested.ts';
 
-export { DynamicRecord, GenericRecord };
+export { DynamicRecord, GenericRecord, hashString, hashPacked };
 
 type GenericRecord = DynamicRecord<{}>;
 
@@ -168,7 +168,18 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
   }
 
   hash(): Field {
-    throw Error('Not implemented');
+    // hash one entry at a time, ignoring dummy entries
+    let state = Poseidon.initialState();
+
+    for (let { isSome, value: entry } of this.entries) {
+      let { key, value } = entry;
+      let newState = Poseidon.update(state, [key, value]);
+      state[0] = Provable.if(isSome, newState[0], state[0]);
+      state[1] = Provable.if(isSome, newState[1], state[1]);
+      state[2] = Provable.if(isSome, newState[2], state[2]);
+    }
+
+    return state[0];
   }
 }
 
