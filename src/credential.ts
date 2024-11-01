@@ -7,6 +7,7 @@ import {
   Hashed,
   PrivateKey,
   Group,
+  Poseidon,
 } from 'o1js';
 import {
   type InferNestedProvable,
@@ -16,6 +17,7 @@ import {
   type NestedProvablePureFor,
 } from './nested.ts';
 import { zip } from './util.ts';
+import { hashRecord } from './credentials/dynamic-record.ts';
 
 export {
   type Credential,
@@ -62,7 +64,7 @@ type CredentialSpec<
   type: 'credential';
   credentialType: Type;
   witness: NestedProvableFor<Witness>;
-  data: NestedProvablePureFor<Data>;
+  data: NestedProvableFor<Data>;
 
   verify(witness: Witness, credHash: Hashed<Credential<Data>>): void;
 
@@ -202,7 +204,7 @@ function defineCredential<
 
   issuer(witness: InferNestedProvable<Witness>): Field;
 }) {
-  return function credential<DataType extends NestedProvablePure>(
+  return function credential<DataType extends NestedProvable>(
     dataType: DataType
   ): CredentialSpec<
     Type,
@@ -266,5 +268,11 @@ function HashableCredential<Data>(
 function HashedCredential<Data>(
   dataType: NestedProvableFor<Data>
 ): typeof Hashed<Credential<Data>> {
-  return Hashed.create(HashableCredential(dataType));
+  return Hashed.create(HashableCredential(dataType), credentialHash);
+}
+
+function credentialHash({ owner, data }: Credential<unknown>) {
+  let ownerHash = Poseidon.hash(owner.toFields());
+  let dataHash = hashRecord(data);
+  return Poseidon.hash([ownerHash, dataHash]);
 }

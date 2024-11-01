@@ -112,7 +112,7 @@ function zipObjects<
 
 function mapEntries<T extends Record<string, any>, S>(
   obj: T,
-  fn: <K extends keyof T & string>(key: K, value: T[K]) => S
+  fn: (key: keyof T & string, value: T[keyof T & string]) => S
 ): S[] {
   return Object.entries(obj).map((entry) => fn(...entry));
 }

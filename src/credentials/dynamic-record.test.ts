@@ -9,12 +9,19 @@ import {
   Struct,
   UInt64,
 } from 'o1js';
-import { DynamicRecord, hashPacked, hashString } from './dynamic-record.ts';
+import {
+  DynamicRecord,
+  packToField,
+  packStringToField,
+  hashRecord,
+} from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
 import { mapEntries, mapObject, zipObjects } from '../util.ts';
 import { test } from 'node:test';
 import assert from 'assert';
+import { hashCredential } from '../credential.ts';
+import { owner } from '../../tests/test-utils.ts';
 
 const String = DynamicString({ maxLength: 10 });
 
@@ -72,6 +79,23 @@ async function circuit() {
 
   await test('DynamicRecord.hash()', () =>
     record.hash().assertEquals(expectedHash, 'hash'));
+
+  await test('hashRecord()', () => {
+    hashRecord(original).assertEquals(expectedHash);
+    hashRecord(record).assertEquals(expectedHash);
+  });
+
+  await test('hashCredential()', () => {
+    let originalHash = hashCredential(OriginalSchema.schema, {
+      owner,
+      data: original,
+    }).hash;
+    let subschemaHash = hashCredential(Subschema, {
+      owner,
+      data: record,
+    }).hash;
+    subschemaHash.assertEquals(originalHash, 'hashCredential()');
+  });
 }
 
 await test('outside circuit', () => circuit());
@@ -99,7 +123,10 @@ function Schema<A extends Record<string, NestedProvable>>(schema: A) {
       let normalized = this.from(value);
       let entryHashes = mapEntries(
         zipObjects(shape, normalized),
-        (key, [type, value]) => [hashString(key), hashPacked(type, value)]
+        (key, [type, value]) => [
+          packStringToField(key),
+          packToField(type, value),
+        ]
       );
       return Poseidon.hash(entryHashes.flat());
     },

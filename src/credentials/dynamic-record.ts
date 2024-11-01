@@ -20,10 +20,23 @@ import {
   type ProvableHashableType,
 } from '../o1js-missing.ts';
 import { TypeBuilder } from '../provable-type-builder.ts';
-import { assertExtendsShape, mapObject, pad, zipObjects } from '../util.ts';
+import {
+  assert,
+  assertExtendsShape,
+  mapEntries,
+  mapObject,
+  pad,
+  zipObjects,
+} from '../util.ts';
 import { NestedProvable } from '../nested.ts';
 
-export { DynamicRecord, GenericRecord, hashString, hashPacked };
+export {
+  DynamicRecord,
+  GenericRecord,
+  packStringToField,
+  packToField,
+  hashRecord,
+};
 
 type GenericRecord = DynamicRecord<{}>;
 
@@ -31,7 +44,7 @@ function GenericRecord(options: { maxEntries: number }) {
   return DynamicRecord({}, options);
 }
 
-type DynamicRecord<TKnown> = DynamicRecordBase<TKnown>;
+type DynamicRecord<TKnown = any> = DynamicRecordBase<TKnown>;
 
 function DynamicRecord<
   AKnown extends Record<string, ProvableHashableType>,
@@ -78,8 +91,8 @@ function DynamicRecord<
           let entries = Object.entries<unknown>(actual).map(([key, value]) => {
             let type = NestedProvable.get(NestedProvable.fromValue(value));
             return {
-              key: hashString(key).toBigInt(),
-              value: hashPacked(type, value).toBigInt(),
+              key: packStringToField(key).toBigInt(),
+              value: packToField(type, value).toBigInt(),
             };
           });
           return { entries: pad(entries, maxEntries, undefined), actual };
@@ -116,7 +129,7 @@ class GenericRecordBase {
 
   getAny<A extends ProvableType>(valueType: A, key: string) {
     // find valueHash for key
-    let keyHash = hashString(key);
+    let keyHash = packStringToField(key);
     let current = OptionField.none();
 
     for (let { isSome, value: entry } of this.entries) {
@@ -133,7 +146,7 @@ class GenericRecordBase {
     );
 
     // assert that value matches hash, and return it
-    hashPacked(valueType, value).assertEquals(
+    packToField(valueType, value).assertEquals(
       valueHash,
       `Bug: Invalid value for key "${key}"`
     );
@@ -177,15 +190,34 @@ type DynamicRecordRaw = {
 
 type UnknownRecord = Record<string, unknown>;
 
-// helper
+// compatible hashing
 
-function hashString(string: string) {
+function packStringToField(string: string) {
   let bytes = new TextEncoder().encode(string);
   let B = Bytes(bytes.length);
-  return Poseidon.hashPacked(B, B.from(bytes));
+  let fields = toFieldsPacked(B, B.from(bytes));
+  if (fields.length === 1) return fields[0]!;
+  return Poseidon.hash(fields);
 }
 
-function hashPacked<T>(type: ProvableType<T>, value: T) {
-  let fields = toFieldsPacked(ProvableType.get(type), value);
+function packToField<T>(type: ProvableType<T>, value: T) {
+  let fields = toFieldsPacked(type, value);
+  if (fields.length === 1) return fields[0]!;
   return Poseidon.hash(fields);
+}
+
+function hashRecord(data: unknown) {
+  if (data instanceof DynamicRecord.Base) return data.hash();
+  assert(
+    typeof data === 'object' && data !== null,
+    'Expected DynamicRecord or plain object as data'
+  );
+  let type: NestedProvable = NestedProvable.fromValue(data);
+  assert(!ProvableType.isProvableType(type), 'Expected plain object as data');
+
+  let entryHashes = mapEntries(zipObjects(type, data), (key, [type, value]) => [
+    packStringToField(key),
+    packToField(NestedProvable.get(type), value),
+  ]);
+  return Poseidon.hash(entryHashes.flat());
 }

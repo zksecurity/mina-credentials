@@ -158,7 +158,11 @@ type ProvableHashablePure<T = any, V = any> = ProvablePure<T, V> &
 /**
  * Pack a value to as few field elements as possible using `toInput()`, falling back to `toFields()` if that's not available.
  */
-function toFieldsPacked<T>(type: ProvableMaybeHashable<T>, value: T): Field[] {
+function toFieldsPacked<T>(
+  type_: WithProvable<ProvableMaybeHashable<T>>,
+  value: T
+): Field[] {
+  let type = ProvableType.get(type_);
   if (type.toInput === undefined) return type.toFields(value);
   return Packed.create(type as ProvableHashable<T>).pack(value).packed;
 }
