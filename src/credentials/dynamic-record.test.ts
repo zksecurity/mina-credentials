@@ -14,6 +14,7 @@ import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
 import { mapEntries, mapObject, zipObjects } from '../util.ts';
 import { test } from 'node:test';
+import assert from 'assert';
 
 const String = DynamicString({ maxLength: 10 });
 
@@ -65,6 +66,8 @@ async function circuit() {
       record.getAny(Fifth, 'fifth'),
       Fifth.fromValue({ field: 2, string: '...' })
     );
+
+    assert.throws(() => record.getAny(Bool, 'missing'), /Key not found/);
   });
 
   await test('DynamicRecord.hash()', () =>
