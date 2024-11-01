@@ -1,8 +1,8 @@
 # Technical Specification for Mina Credentials
 
 This document is a low-level technical specification for the Mina Credentials system.
-It is intended as document for the accompanying codebase and implementators.
-It does not include security proofs or motivations for the design choices,
+It is intended as documentation for the accompanying codebase and implementers.
+It does not include security proofs or motivations for the design choices;
 see the RFC for such discussions.
 
 # Metadata
@@ -26,16 +26,16 @@ type AppAttributes = {
 }
 
 type Attributes = {
-  owner: Field,       // credential owners identifier (references a DID or public key)
+  owner: Field,       // credential owner's identifier (references a DID or public key)
   meta: Field,        // hash of arbitrary metadata
   app: AppAttributes, // application-specific attributes (e.g. name, age, etc.)
 }
 ```
 
-Is is stored along with metadata and the version of the credential:
+It is stored along with metadata and the version of the credential:
 
 ```javascript
-type WitnessIssuance =
+type Issuance =
   | { type: "simple",
       issuerPK: PublicKey,
       issuerSignature: Signature,
@@ -50,7 +50,7 @@ type WitnessIssuance =
 ```javascript
 type StoredCredential = {
   version: "v0",
-  witness: Witness,
+  issuance: Issuance,
   metadata: Metadata,
   credential: Credential,
 }
@@ -58,18 +58,18 @@ type StoredCredential = {
 
 ```javascript
 type OwnerIdentity = {
-  | { type: "public-key",
-      pk: PublicKey,
+  | { type: "pk",
+      pk: PublicKey,  // native Mina public key
     }
   | { type: "did",
-      did: Field,
+      did: Field,     // hash of a DID
     }
 }
 
-type OwnerWitness =
-  | { type: "public-key",
+type OwnerProof =
+  | { type: "pk",
       pk: PublicKey,  // public key of the owner
-      sig: Signature, // signature under the owners public key
+      sig: Signature, // signature under the owner's public key
     }
   | { type: "did"
       did: Field,     // a hash of the DID
@@ -94,9 +94,10 @@ type Presentation = {
 
 ## Mina Credential Metadata
 
-Metadata is a general key-value map. We standardize a few fields for interoperability across wallets:
-so that e.g. wallet can display an issuer name and icon for any compatible credential.
-Issuers may add their own fields as needed, such custom fields MUST NOT use the `mina` prefix.
+Mina credentials include general metadata, which is not accessible from within the circuits.
+Metadata is a general key-value map. We standardize a few fields for interoperability across wallets
+so that e.g. wallets can display an issuer name and icon for any compatible credential.
+Issuers may add their own fields as needed; such custom fields MUST NOT use the `mina` prefix.
 
 Standardized fields are:
 
@@ -104,12 +105,6 @@ Standardized fields are:
 - `minaIssuerName`: The name of the issuer: utf-8 encoded string.
 - `minaDescription`: A human-readable description of the credential: utf-8 encoded string.
 - `minaIcon`: A byte array representing an icon for the credential.
-
-Any fields (inlcuding the standardized ones) MAY be omitted,
-wallets MUST handle the absence of any field gracefully, e.g. with a default icon.
-Wallets MUST NOT make trust decisions based on metadata, in particular,
-wallets MUST NOT verify the issuer based on the `minaIssuerName` field.
-Wallets MAY ignore ANY metadata field.
 
 ```javascript
 type Metadata = {
@@ -121,34 +116,40 @@ type Metadata = {
 }
 ```
 
-The `metaHash` field of the credential is the hash of the metadata.
-The `metaHash` fiueld MUST be computed using `Keccak256` over the metadata.
+The `metaHash` field of the credential is the hash of the metadata structure:
 
 ```javascript
 metaHash = Keccak256.hash(metadata)
 ```
 
+Implementations MUST adhere to the following:
+
+- Any fields (including the standardized ones) MAY be omitted
+- Wallets MUST handle the absence of any field gracefully, e.g. with a default icon
+- Wallets MUST NOT make trust decisions based on metadata, in particular
+- Wallets MUST NOT verify the issuer based on the `minaIssuerName` field
+- Wallets MAY ignore ANY metadata field
+- Wallets MUST verify the `metaHash` field of the credential against the `Metadata` structure when importing it
+- The `metaHash` field MUST be computed using `Keccak256` over the metadata
 
 # Authenticate Owner
 
 ## Authenticate Public Key Owner
-
-[context, issuer, credHash]
 
 ```javascript
 function verifyOwnerPublicKey(
   credentials: Credential[],
   authMsg: Field
 ) {
-  // check the owners identity
+  // check the owner's identity
   for (let credential of credentials) {
     Poseidon.hashWithPrefix(
-      "mina-cred:v0:owner:pk", // sep. the domain of "public key" and "DID" owners
+      "mina-cred:v0:owner:pk", // separate the domain of "public key" and "DID" owners
       ownerPk
     ).assertEquals(credential.owner);
   }
 
-  // verify the credential owners signature on authMsg
+  // verify the credential owner's signature on authMsg
   ownerSignature.verifyWithPrefix(
     "mina-cred:v0:owner-signature",
     ownerPk,
@@ -164,7 +165,7 @@ function verifyOwnerDID(
   authMsg: Field,
   credentials: Credential[],
 ) {
-  // check the owners identity
+  // check the owner's identity
   for (let credential of credentials) {
     Poseidon.hashWithPrefix(
       "mina-cred:v0:owner:did",
@@ -187,12 +188,14 @@ function verifyOwnerDID(
 
 ### Public Inputs
 
-The public inputs for the presentations circuits (simple and recursive) are:
+The public inputs for the presentation circuits (simple and recursive) are:
 
 ```javascript
 type PublicInput = {
-  context: Field, // context : specified later
-  claims: Claims  // application specific public inputs.
+  ownerDID: Optional[Field], // the owner's DID
+  authMsg: Optional[Field],  // the message to be signed by the owner
+  context: Field,            // context: specified later
+  claims: Claims             // application specific public inputs.
 }
 ```
 
@@ -203,6 +206,7 @@ class WitnessOwner {
   pk: PublicKey
   sig: Signature
   did: Field
+  rnd: Field // blinding factor for blindMsg
 
   // convert the owner DID to an opaque "owner" hash
   ownerIdDID(): Field {
@@ -221,11 +225,21 @@ class WitnessOwner {
   }
 
   // verify that the claimed owner authorized the presentation
-  verify(authMsg: Field, ownerDID: Field) {
-    // verify did owner
-    ownerDID.assertEquals(this.did);
+  verify(
+    authMsg: Field,  // message authorizing the presentation
+    didOwner: Field  // the owner's DID (for DID use)
+    didBlindMsg: Field, // hiding commitment to authMsg (for DID use)
+  ) {
+    // verify authMsg commitment and owner DID
+    // (for DID signature validation outside the circuit only)
+    didOwner.assertEquals(this.did);
+    Poseidon.Hash(
+      this.rnd,
+      authMsg
+    ).assertEquals(didBlindMsg);
 
     // verify owner signature on authMsg
+    // (for public key owner signature inside the circuit only)
     this.ownerSignature.verifyWithPrefix(
       "mina-cred:v0:owner-signature",
       this.pk,
@@ -247,7 +261,13 @@ class WitnessCredential {
   // credential hash is uniform across owner types
   // (DID / PK) and credential types (recursive / simple)
   hash(): Field {
-    return Poseidon.hashPacked(Credential, this.credential);
+    var fields = []
+    for (key, value) in this.credential {
+      fields.append(Poseidon.hashWithPrefix(key, value));
+    }
+
+    //
+    return Poseidon.hash(fields);
   }
 
   // compute the issuer identity of the credential
@@ -308,24 +328,20 @@ class WitnessCredential {
 
 ```javascript
 type PrivateInput = {
-  rand: Field,
-  owner: WitnessOwner,
-  credentials: WitnessCredential[],
+  owner: WitnessOwner,              // witness proving ownership
+  credentials: WitnessCredential[], // credentials used to prove claims
 }
 
 type PublicInput = {
-  context: Field,  // context binding the presentation
-  authMsg: Field,  // signed by the owner: MAY be omitted when owner is always a public key
-  ownerDID: Field, // DID of the owner: MAY be omitted when owner is always a public key
-  claims: Claims,  // application specific public inputs
+  context: Field,     // context binding the presentation
+  didOwner: Field,    // DID of the owner: MAY be omitted when owner is always a public key
+  didBlindMsg: Field, // hiding commitment to authMsg: MAY be omitted when owner is always a public key
 }
 
 // compute the authentication message:
-// signed by the owner
-let authMsg = Poseidon.hashWithPrefix(
-  "mina-cred:v0:auth-msg", // sep. for Poseidon used as a blinding commitment
-  rand,                    // randomness for the commitment
-  context,                 // context of the presentation
+// signed by the owner (public key or DID)
+let authMsg = Poseidon.hash(
+  context, // context of the presentation
   // first credential
   witCred[0].hash(),
   witCred[0].issuer(),
@@ -339,9 +355,6 @@ let authMsg = Poseidon.hashWithPrefix(
   witCred[N].issuer(),
 ]);
 
-// message commitment exported for DID integration
-authMsg.assertEquals(publicInput.authMsg);
-
 // verify each credential issuance
 for (let credential of credentials) {
   credential.verify(owner);
@@ -349,8 +362,9 @@ for (let credential of credentials) {
 
 // verify owner identity
 owner.verify(
-  publicInput.authMsg,
-  publicInput.ownerDID
+  authMsg,
+  publicInput.didOwner,   // for DID only
+  publicInput.didBlindMsg // for DID only
 );
 
 // verify application constraints
@@ -371,36 +385,32 @@ WARNING: The following serves to help mitigate "owner confusion attacks",
 where an owner (e.g. DID) is used in-circuit belonging to
 another party but which has not been authenticated.
 
-If the number of DID owned credentials is 0, the `owner.did` field MAY be omitted from the implementation,
-if it is present it MUST be the zero field element.
-If the number of Public Key owned credentials is 0,  the `owner.pk` field MAY be omitted from the implementation,
-if it is present it MUST be the dummy public key corresponding to a secret key of 1.
-The implementation SHOULD NOT provide a way to extract the `owner.did` or `owner.pk` from a credential,
-but MAY allow testing for equality with other witnessed values.
-
-Implementation MUST NOT provide direct access to the fields of the `owner` object,
-namely `owner.did` and `owner.pk` without logic to ensure that the
-
+Implementation MUST NOT provide direct access to the fields of such an `owner` object, namely `owner.did` and `owner.pk`.
+Instead, they SHOULD implement an interface to retrieve the owners identity for *each individual credential*, e.g. `credentialsI.owner()`.
+Implementations MAY also implement an interface to retrieve the DID or public key of the owner, e.g. `credential.did()` or `credential.pk()`,
+in such cases, the implementation MUST ensure that the `owner` of the credential matches the correct type.
 
 #### Hiding the DID
 
-The specification outlines how to create a presentation for a public DID,
-e.g. prove that a particular ID is associated with a person above a certain age.
-We forsee applications where the DID is not public.
-Such cases will require application-specific cryptographic engineering:
+The specification outlines how to create a presentation for a *public DID*,
+i.e. the attributes/credentials are hidden, but the owners identity is revealed.
+This is done to move the logic of authenticating the ownership of the DID outside of the circuit:
+e.g. looking up the corresponding DID document on a public ledger and verifying the signature on the `authMsg`.
+We foresee applications where the DID should not be public, applications include looking up the DID in a Merkle tree to retrieve a public key.
+Such applications depend on the concrete format of the accompanying DID document and is beyond the scope of this specification.
 
-In the case there the number of DID owned credentials is non-zero,
-the public inputs `publicInput.ownerDID` and `publicInput.authMsg`
-MAY be omitted, in such scenarios the application logic MUST validate the DID:
-e.g. looking up the DID in a Merkle tree and retrieving a public key from the DID document in the corresponding leaf.
+In cases where the number of DID-owned credentials is non-zero,
+the public inputs `publicInput.didOwner` and `publicInput.didBlindMsg`
+MAY be omitted. In such scenarios the application logic MUST validate
+the DID by other means beyond the scope of this specification.
 
 #### Specialized Implementations
 
 Implementations MAY be universal, allowing the verification of both types of credentials with both types of owners.
-Implementations MAY also be specialized, only allowing the verification of a specific type of credential with a specific type of owner,
-in such cases unnecessary code MAY be omitted to reduce the size of the circuit:
+Implementations MAY also be specialized, only allowing the verification of a specific type of credential with a specific type of owner.
+In such cases unnecessary code MAY be omitted to reduce the size of the circuit:
 
-- If the number of DID owned credentials is 0:
+- If the number of DID-owned credentials is 0:
 
 - If only public key owners are supported: the DID verification code MUST be omitted.
   - The `rand` field MAY be fixed to zero.
@@ -413,6 +423,13 @@ in such cases unnecessary code MAY be omitted to reduce the size of the circuit:
 - If only simple credentials are supported:
   the recursive credential verification code (checking the recursive SNARK) MUST be omitted.
 
+
+# Verifying a Presentation
+
+TODO: DID verification
+
+
+
 # Context Binding
 
 The verifier computes the context (out-of-circuit) as:
@@ -422,7 +439,7 @@ context = Poseidon.hashWithPrefix(
   "mina-cred:v0:context:<TYPE>", // for versioning and type separation
   [
     presentationVK.hash, // binds the presentation to the relation
-    verifierIdentity,    // verifiers identifier
+    verifierIdentity,    // verifier's identifier
     nonce,               // a random nonce to prevent replay attacks
     action,              // the "action" being performed (e.g. login, transaction hash etc.)
     claims,              // the public input (the set of "claims" being presented)
@@ -430,7 +447,7 @@ context = Poseidon.hashWithPrefix(
 )
 ```
 
-Where `TYPE` is a constant "type" of the presentation, seperating e.g. zkApp interactions from HTTP requests.
+Where `TYPE` is a constant "type" of the presentation, separating e.g. zkApp interactions from HTTP requests.
 
 The `nonce` MUST be generated as follows:
 
@@ -445,9 +462,9 @@ let nonce = Poseidon.hashWithPrefix(
 - The `clientNonce` MUST never be reused.
 - The `serverNonce` MAY be zero in applications where storing the set of expended nonces indefinitely is not a concern.
 
-Usual applications of `serverNonce` is to seperate the nonce space into "epochs" to prevent storage of all nonces indefinitely:
-for instance, a timestamp may be used and validity requires the timestamp to be recent.
-Allowing the server to only store nonces for a limited time.
+Typical applications of `serverNonce` are to separate the nonce space into "epochs" to prevent storage of all nonces indefinitely:
+for instance, a timestamp may be used and validity requires the timestamp to be recent,
+allowing the server to only store nonces for a limited time.
 
 ## zkApp
 
@@ -489,5 +506,4 @@ let verifierIdentity = Keccak256.hash("example.com");
 let action = Keccak256.hash(serialize-json-canonically);
 
 // add the proof to the JSON-RPC request
-
 ```
