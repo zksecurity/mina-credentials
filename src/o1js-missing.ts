@@ -30,6 +30,8 @@ export {
   array,
   mapValue,
   toFieldsPacked,
+  HashInput,
+  type WithProvable,
 };
 
 const ProvableType = {
@@ -173,7 +175,9 @@ function toFieldsPacked<T>(
 function array<A extends NestedProvable>(elementType: A, length: number) {
   type T = InferProvable<A>;
   type V = InferValue<A>;
-  let type: Provable<T, V> = ProvableType.isProvableType(elementType)
+  let type: ProvableMaybeHashable<T, V> = ProvableType.isProvableType(
+    elementType
+  )
     ? ProvableType.get(elementType)
     : Struct(elementType);
   return {
@@ -236,7 +240,24 @@ function array<A extends NestedProvable>(elementType: A, length: number) {
     fromValue(x) {
       return x.map((v) => type.fromValue(v));
     },
-  } satisfies Provable<T[], V[]> & {
+
+    toInput(array) {
+      if (!('toInput' in type)) {
+        throw Error('circuitArray.toInput: element type has no toInput method');
+      }
+      return array.reduce(
+        (curr, value) => HashInput.append(curr, toInput(type, value)),
+        HashInput.empty
+      );
+    },
+
+    empty() {
+      if (!('empty' in type)) {
+        throw Error('circuitArray.empty: element type has no empty() method');
+      }
+      return Array.from({ length }, () => empty(type));
+    },
+  } satisfies ProvableHashable<T[], V[]> & {
     _isArray: true;
     innerType: A;
     size: number;
@@ -294,4 +315,24 @@ function mapValue<
       return provable.fromValue(back(value));
     },
   };
+}
+
+const HashInput = {
+  get empty() {
+    return {};
+  },
+  append(input1: HashInput, input2: HashInput): HashInput {
+    return {
+      fields: (input1.fields ?? []).concat(input2.fields ?? []),
+      packed: (input1.packed ?? []).concat(input2.packed ?? []),
+    };
+  },
+};
+
+function toInput<T>(type: ProvableMaybeHashable<T>, value: T): HashInput {
+  return type.toInput?.(value) ?? { fields: type.toFields(value) };
+}
+
+function empty<T>(type: ProvableMaybeHashable<T>): T {
+  return type.empty?.() ?? ProvableType.synthesize(type);
 }

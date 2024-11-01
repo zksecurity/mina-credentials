@@ -15,6 +15,8 @@ export type {
   InferNestedProvable,
 };
 
+// TODO!! NestedProvable should include Hashable type as well
+
 const NestedProvable = {
   get: (<T>(type: NestedProvableFor<T>): Provable<T> => {
     return ProvableType.isProvableType(type)

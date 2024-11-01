@@ -107,10 +107,10 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
       size: (type as any).size,
     };
   }
-  assert(
-    _type !== undefined,
-    `serializeProvableType: Unsupported provable type: ${type}`
-  );
+  assert(_type !== undefined, () => {
+    console.log('serializeProvableType', type);
+    return `serializeProvableType: Unsupported provable type: ${type}`;
+  });
   return { _type };
 }
 
