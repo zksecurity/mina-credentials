@@ -4,14 +4,21 @@
 import {
   Bytes,
   Field,
-  From,
-  InferProvable,
+  type From,
+  type InferProvable,
+  Option,
   Poseidon,
+  Struct,
   Unconstrained,
 } from 'o1js';
-import { array, ProvableHashableType, ProvableType } from '../o1js-missing.ts';
+import {
+  array,
+  ProvableType,
+  type ProvableHashableType,
+} from '../o1js-missing.ts';
 import { TypeBuilder } from '../provable-type-builder.ts';
-import { assertExtendsShape, mapObject, zipObjects } from '../util.ts';
+import { assertExtendsShape, mapObject, pad, zipObjects } from '../util.ts';
+import { NestedProvable } from '../nested.ts';
 
 export { DynamicRecord, GenericRecord };
 
@@ -65,7 +72,7 @@ function DynamicRecord<
     }
 
     static provable = TypeBuilder.shape({
-      entries: array({ key: Field, value: Field }, maxEntries),
+      entries: array(Option(Struct({ key: Field, value: Field })), maxEntries),
       actual: Unconstrained.withEmpty<UnknownRecord>(emptyTKnown),
     })
       .forClass<DynamicRecordBase<TKnown>>(DynamicRecord)
@@ -78,13 +85,13 @@ function DynamicRecord<
           assertExtendsShape(actual, knownShape);
 
           let entries = Object.entries<unknown>(actual).map(([key, value]) => {
-            let type = ProvableType.fromValue(value);
+            let type = NestedProvable.get(NestedProvable.fromValue(value));
             return {
               key: hashString(key).toBigInt(),
-              value: Poseidon.hashPacked(type, value).toBigInt(),
+              value: Poseidon.hashPacked(type as any, value).toBigInt(),
             };
           });
-          return { entries, actual };
+          return { entries: pad(entries, maxEntries, undefined), actual };
         },
         distinguish(x) {
           return x instanceof DynamicRecord;
@@ -105,7 +112,7 @@ function DynamicRecord<
 }
 
 class DynamicRecordBase<TKnown extends Record<string, any> = any> {
-  entries: { key: Field; value: Field }[];
+  entries: Option<{ key: Field; value: Field }>[];
   actual: Unconstrained<UnknownRecord>;
 
   constructor(value: DynamicRecordRaw) {
@@ -133,7 +140,7 @@ class DynamicRecordBase<TKnown extends Record<string, any> = any> {
 }
 
 type DynamicRecordRaw = {
-  entries: { key: Field; value: Field }[];
+  entries: Option<{ key: Field; value: Field }>[];
   actual: Unconstrained<UnknownRecord>;
 };
 

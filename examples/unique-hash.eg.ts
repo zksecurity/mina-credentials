@@ -72,21 +72,6 @@ console.log('✅ WALLET: imported and validated credential');
 
 const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
-// TODO use something like this for Credential.Simple
-const SubSchema = DynamicRecord(
-  { nationality: String, id: Bytes16, expiresAt: UInt64 },
-  { maxEntries: 10, maxKeyLength: 50, maxValueLength: 100 }
-);
-let subdata = SubSchema.from(credential.credential.data);
-let subdata2 = SubSchema.fromShape(Schema, {
-  nationality: 'blub',
-  id: Bytes16.random(),
-  expiresAt: 0n,
-  otherField: 'blub',
-});
-let expiresAt = subdata.get('expiresAt');
-let hash = subdata.hash();
-
 const spec = Spec(
   {
     credential: Credential.Simple(Schema), // schema needed here!

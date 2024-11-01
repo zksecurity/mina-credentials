@@ -7,7 +7,7 @@ import {
   type InferProvable,
   type InferValue,
 } from 'o1js';
-import { NestedProvable } from './nested';
+import { NestedProvable } from './nested.ts';
 
 export { TypeBuilder };
 
