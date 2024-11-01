@@ -25,6 +25,8 @@ export {
   ProvableType,
   assertPure,
   type ProvablePureType,
+  type ProvableHashableType,
+  type ProvableHashablePure,
   array,
   mapValue,
   toFieldsPacked,
@@ -42,7 +44,7 @@ const ProvableType = {
   },
 
   // TODO o1js should make sure this is possible for _all_ provable types
-  fromValue<T>(value: T): ProvableType<T> {
+  fromValue<T>(value: T): ProvableHashableType<T> {
     if (value === undefined) return Undefined as any;
     if (value instanceof Field) return Field as any;
     if (value instanceof Bool) return Bool as any;
@@ -127,6 +129,10 @@ function assertIsProvable(type: unknown): asserts type is Provable<any> {
 type WithProvable<A> = { provable: A } | A;
 type ProvableType<T = any, V = any> = WithProvable<Provable<T, V>>;
 type ProvablePureType<T = any, V = any> = WithProvable<ProvablePure<T, V>>;
+type ProvableHashableType<T = any, V = any> = WithProvable<
+  ProvableHashable<T, V>
+>;
+
 type ToProvable<A extends WithProvable<any>> = A extends {
   provable: infer P;
 }
@@ -147,7 +153,7 @@ type ProvableMaybeHashable<T = any, V = any> = Provable<T, V> &
 type ProvableMaybeHashablePure<T = any, V = any> = ProvablePure<T, V> &
   MaybeHashable<T>;
 type ProvableHashablePure<T = any, V = any> = ProvablePure<T, V> &
-  ProvableHashable<T>;
+  ProvableHashable<T, V>;
 
 /**
  * Pack a value to as few field elements as possible using `toInput()`, falling back to `toFields()` if that's not available.

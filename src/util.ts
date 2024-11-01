@@ -9,6 +9,8 @@ export {
   chunk,
   pad,
   mapObject,
+  zipObjects,
+  assertExtendsShape,
 };
 
 function assert(condition: boolean, message?: string): asserts condition {
@@ -74,12 +76,14 @@ function chunk<T>(array: T[], size: number): T[][] {
   );
 }
 
-function pad<T>(array: T[], size: number, value: T): T[] {
+function pad<T>(array: T[], size: number, value: T | (() => T)): T[] {
   assert(
     array.length <= size,
     `padding array of size ${array.length} larger than target size ${size}`
   );
-  return array.concat(Array.from({ length: size - array.length }, () => value));
+  let cb: () => T =
+    typeof value === 'function' ? (value as () => T) : () => value;
+  return array.concat(Array.from({ length: size - array.length }, cb));
 }
 
 function mapObject<T extends Record<string, any>, S>(
@@ -91,4 +95,22 @@ function mapObject<T extends Record<string, any>, S>(
     result[key] = fn(obj[key], key);
   }
   return result;
+}
+
+function zipObjects<
+  T extends Record<string, any>,
+  S extends Record<keyof T, any>
+>(t: T, s: S) {
+  assertExtendsShape(t, s);
+  assertExtendsShape(s, t);
+  return mapObject<T, [T[keyof T], S[keyof T]]>(t, (t, key) => [t, s[key]]);
+}
+
+function assertExtendsShape<B extends Record<string, any>>(
+  a: object,
+  b: B
+): asserts a is Record<keyof B, any> {
+  for (let key in b) {
+    if (!(key in a)) throw Error(`Expected object to have property ${key}`);
+  }
 }

@@ -77,7 +77,13 @@ const SubSchema = DynamicRecord(
   { nationality: String, id: Bytes16, expiresAt: UInt64 },
   { maxEntries: 10, maxKeyLength: 50, maxValueLength: 100 }
 );
-let subdata = SubSchema.from(Schema, credential.credential.data);
+let subdata = SubSchema.from(credential.credential.data);
+let subdata2 = SubSchema.fromShape(Schema, {
+  nationality: 'blub',
+  id: Bytes16.random(),
+  expiresAt: 0n,
+  otherField: 'blub',
+});
 let expiresAt = subdata.get('expiresAt');
 let hash = subdata.hash();
 

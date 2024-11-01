@@ -3,17 +3,17 @@
  */
 import {
   provable,
+  type ProvableHashable,
   type InferProvable,
   type InferValue,
-  type Provable,
 } from 'o1js';
 import { NestedProvable } from './nested';
 
 export { TypeBuilder };
 
 class TypeBuilder<T, V> {
-  type: Provable<T, V>;
-  constructor(type: Provable<T, V>) {
+  type: ProvableHashable<T, V>;
+  constructor(type: ProvableHashable<T, V>) {
     this.type = type;
   }
 
@@ -23,7 +23,7 @@ class TypeBuilder<T, V> {
     return new TypeBuilder(provable(nested));
   }
 
-  build(): Provable<T, V> {
+  build(): ProvableHashable<T, V> {
     return this.type;
   }
 
@@ -38,6 +38,9 @@ class TypeBuilder<T, V> {
       fromValue(value) {
         return new Class(type.fromValue(value));
       },
+      empty() {
+        return new Class(type.empty());
+      },
       toCanonical(x) {
         if (type.toCanonical === undefined) return x;
         return new Class(type.toCanonical(x));
@@ -48,7 +51,7 @@ class TypeBuilder<T, V> {
   mapValue<W>(transform: {
     there: (x: V) => W;
     back: (x: W) => V;
-    isT: (x: T | W) => x is T;
+    distinguish: (x: T | W) => x is T;
   }): TypeBuilder<T, W> {
     let type = this.type;
     return new TypeBuilder({
@@ -58,7 +61,7 @@ class TypeBuilder<T, V> {
         return transform.there(type.toValue(value));
       },
       fromValue(value) {
-        if (transform.isT(value)) return value;
+        if (transform.distinguish(value)) return value;
         return type.fromValue(transform.back(value));
       },
     });
