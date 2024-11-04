@@ -2,7 +2,7 @@ import { Bool, Field, Provable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert } from '../util.ts';
-import { mapValue } from '../o1js-missing.ts';
+import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 
 export { DynamicString };
 
@@ -39,27 +39,28 @@ function DynamicString({ maxLength }: { maxLength: number }) {
     }
   }
 
-  const provableString = mapValue(
+  const provableString = new TypeBuilderPure(
     provableDynamicArray<UInt8, { value: bigint }, typeof DynamicStringBase>(
       UInt8 as any,
       DynamicString
-    ),
-    // map to string
-    (s): string =>
-      new TextDecoder().decode(
-        new Uint8Array(s.map(({ value }) => Number(value)))
-      ),
-    // map from string
-    (s) => {
-      if (s instanceof DynamicStringBase) return s;
-      return [...new TextEncoder().encode(s)].map((t) => ({
-        value: BigInt(t),
-      }));
-    }
-  );
+    )
+  )
+    .mapValue<string>({
+      there(s) {
+        return dec.decode(Uint8Array.from(s, ({ value }) => Number(value)));
+      },
+      back(s) {
+        return [...enc.encode(s)].map((t) => ({ value: BigInt(t) }));
+      },
+      distinguish: (s) => s instanceof DynamicStringBase,
+    })
+    .build();
 
   return DynamicString;
 }
+
+const enc = new TextEncoder();
+const dec = new TextDecoder();
 
 class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   get innerType() {

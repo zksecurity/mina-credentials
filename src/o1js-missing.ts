@@ -13,12 +13,7 @@ import {
   Struct,
   Undefined,
 } from 'o1js';
-import {
-  assert,
-  assertHasProperty,
-  hasProperty,
-  notImplemented,
-} from './util.ts';
+import { assert, assertHasProperty, hasProperty } from './util.ts';
 import type { NestedProvable } from './nested.ts';
 
 export {
@@ -28,7 +23,6 @@ export {
   type ProvableHashableType,
   type ProvableHashablePure,
   array,
-  mapValue,
   toFieldsPacked,
   HashInput,
   type WithProvable,
@@ -152,8 +146,6 @@ type MaybeHashable<T> = {
 
 type ProvableMaybeHashable<T = any, V = any> = Provable<T, V> &
   MaybeHashable<T>;
-type ProvableMaybeHashablePure<T = any, V = any> = ProvablePure<T, V> &
-  MaybeHashable<T>;
 type ProvableHashablePure<T = any, V = any> = ProvablePure<T, V> &
   ProvableHashable<T, V>;
 
@@ -260,57 +252,6 @@ function array<A extends NestedProvable>(elementType: A, length: number) {
 
 // this is copied from o1js and then modified: https://github.com/o1-labs/o1js
 // License here: https://github.com/o1-labs/o1js/blob/main/LICENSE
-function mapValue<
-  A extends ProvableMaybeHashablePure,
-  V extends InferValue<A>,
-  W,
-  T extends InferProvable<A>
->(
-  provable: A,
-  there: (x: V) => W,
-  back: (x: W | T) => V | T
-): ProvableHashablePure<T, W>;
-
-function mapValue<
-  A extends ProvableMaybeHashable,
-  V extends InferValue<A>,
-  W,
-  T extends InferProvable<A>
->(
-  provable: A,
-  there: (x: V) => W,
-  back: (x: W | T) => V | T
-): ProvableHashable<T, W>;
-
-function mapValue<
-  A extends ProvableMaybeHashable,
-  V extends InferValue<A>,
-  W,
-  T extends InferProvable<A>
->(
-  provable: A,
-  there: (x: V) => W,
-  back: (x: W | T) => V | T
-): ProvableHashable<T, W> {
-  return {
-    sizeInFields: provable.sizeInFields,
-    toFields: provable.toFields,
-    toAuxiliary: provable.toAuxiliary,
-    fromFields: provable.fromFields,
-    check: provable.check,
-    toCanonical: provable.toCanonical,
-    toInput: provable.toInput ?? notImplemented,
-    empty: provable.empty ?? notImplemented,
-
-    toValue(value) {
-      return there(provable.toValue(value));
-    },
-    fromValue(value) {
-      return provable.fromValue(back(value));
-    },
-  };
-}
-
 const HashInput = {
   get empty() {
     return {};

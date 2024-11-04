@@ -7,9 +7,10 @@ import {
   type InferProvable,
   type InferValue,
 } from 'o1js';
-import { NestedProvable } from './nested.ts';
+import type { NestedProvable } from './nested.ts';
+import type { ProvableHashablePure } from './o1js-missing.ts';
 
-export { TypeBuilder };
+export { TypeBuilder, TypeBuilderPure };
 
 class TypeBuilder<T, V> {
   type: ProvableHashable<T, V>;
@@ -65,5 +66,28 @@ class TypeBuilder<T, V> {
         return type.fromValue(transform.back(value));
       },
     });
+  }
+}
+
+class TypeBuilderPure<T, V> extends TypeBuilder<T, V> {
+  type: ProvableHashablePure<T, V>;
+
+  constructor(type: ProvableHashablePure<T, V>) {
+    super(type);
+    this.type = type;
+  }
+
+  build(): ProvableHashablePure<T, V> {
+    return this.type;
+  }
+  forClass<C extends T>(Class: new (t: T) => C): TypeBuilderPure<C, V> {
+    return super.forClass(Class) as TypeBuilderPure<C, V>;
+  }
+  mapValue<W>(transform: {
+    there: (x: V) => W;
+    back: (x: W) => V;
+    distinguish: (x: T | W) => x is T;
+  }): TypeBuilderPure<T, W> {
+    return super.mapValue(transform) as TypeBuilderPure<T, W>;
   }
 }
