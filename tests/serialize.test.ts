@@ -17,7 +17,7 @@ import {
   deserializeSpec,
 } from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
-import { ContextSchema, NodeSchema } from '../src/validation.ts';
+import { ContextSchema, InputSchema, NodeSchema } from '../src/validation.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
@@ -554,6 +554,54 @@ test('Serialize Nodes', async (t) => {
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
+
+  await t.test('should serialize equalsOneOf Node with array options', () => {
+    const options: Node<Field>[] = [
+      { type: 'constant', data: Field(10) },
+      { type: 'constant', data: Field(20) },
+      { type: 'constant', data: Field(30) },
+    ];
+
+    const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
+      { type: 'constant', data: Field(20) },
+      options
+    );
+
+    const serialized = serializeNode(equalsOneOfNode);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid with array options: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test(
+    'should serialize equalsOneOf Node with single node options',
+    () => {
+      const optionsNode: Node<Field[]> = {
+        type: 'constant',
+        data: [Field(10), Field(20), Field(30)],
+      };
+
+      const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
+        { type: 'constant', data: Field(20) },
+        optionsNode
+      );
+
+      const serialized = serializeNode(equalsOneOfNode);
+
+      const result = NodeSchema.safeParse(serialized);
+
+      assert(
+        result.success,
+        'Node should be valid with single node options: ' +
+          (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+      );
+    }
+  );
 });
 
 test('serializeInput', async (t) => {
@@ -569,6 +617,14 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Constant input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize public input', () => {
@@ -582,6 +638,14 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Claim input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize private input', () => {
@@ -596,6 +660,16 @@ test('serializeInput', async (t) => {
       data: { _type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
+
+    console.log('serialized:', serialized.witness);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Private input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize credential input', () => {
@@ -619,9 +693,17 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Credential input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
-  await t.test('should serialize nested input', () => {
+  await t.test('should serialize unsigned nested input', () => {
     const NestedInputData = {
       personal: {
         age: Field,
@@ -647,7 +729,38 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Nested input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
+
+  await t.test(
+    'should serialize simple credential input with nested structure',
+    () => {
+      const input = Credential.Simple({
+        personal: {
+          age: Field,
+          score: UInt64,
+        },
+        verified: Bool,
+      });
+
+      const serialized = serializeInput(input);
+
+      const result = InputSchema.safeParse(serialized);
+
+      assert(
+        result.success,
+        'Nested structure input should be valid: ' +
+          (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+      );
+    }
+  );
 
   await t.test('should throw error for unsupported input type', () => {
     const invalidInput = { type: 'invalid' } as any;

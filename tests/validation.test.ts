@@ -3,30 +3,13 @@ import assert from 'node:assert';
 import { Credential } from '../src/credential-index.ts';
 import {
   StoredCredentialSchema,
-  NodeSchema,
-  InputSchema,
-  ContextSchema,
   PresentationRequestSchema,
 } from '../src/validation.ts';
-import {
-  Bool,
-  Bytes,
-  Field,
-  PrivateKey,
-  PublicKey,
-  Signature,
-  UInt32,
-  UInt64,
-} from 'o1js';
+import { Bytes, Field, PublicKey, Signature } from 'o1js';
 import { owner, issuerKey } from './test-utils.ts';
-import { Spec, Claim, Operation, Node, Constant } from '../src/program-spec.ts';
+import { Spec, Claim, Operation, Constant } from '../src/program-spec.ts';
 import { createProgram } from '../src/program.ts';
 import { createUnsigned } from '../src/credential.ts';
-import {
-  serializeInput,
-  serializeInputContext,
-  serializeNode,
-} from '../src/serialize.ts';
 import { PresentationRequest } from '../src/index.ts';
 
 const Bytes32 = Bytes(32);
@@ -91,123 +74,6 @@ test('StoredCredentialSchema validation', async (t) => {
     assert(
       result.success,
       'Unsigned credential JSON should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-});
-
-test('NodeSchema validation', async (t) => {
-  await t.test('should validate equalsOneOf Node with array options', () => {
-    const options: Node<Field>[] = [
-      { type: 'constant', data: Field(10) },
-      { type: 'constant', data: Field(20) },
-      { type: 'constant', data: Field(30) },
-    ];
-
-    const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
-      { type: 'constant', data: Field(20) },
-      options
-    );
-
-    const serialized = serializeNode(equalsOneOfNode);
-
-    const result = NodeSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Node should be valid with array options: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test(
-    'should validate equalsOneOf Node with single node options',
-    () => {
-      const optionsNode: Node<Field[]> = {
-        type: 'constant',
-        data: [Field(10), Field(20), Field(30)],
-      };
-
-      const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
-        { type: 'constant', data: Field(20) },
-        optionsNode
-      );
-
-      const serialized = serializeNode(equalsOneOfNode);
-
-      const result = NodeSchema.safeParse(serialized);
-
-      assert(
-        result.success,
-        'Node should be valid with single node options: ' +
-          (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-      );
-    }
-  );
-});
-
-test('InputSchema validation', async (t) => {
-  await t.test('validates simple credential input', () => {
-    const input = Credential.Simple({
-      age: Field,
-      verified: Bool,
-    });
-
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Simple credential input should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test('validates claim input', () => {
-    const input = Claim(UInt64);
-
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Claim input should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test('validates constant input', () => {
-    const input = Constant(Signature, Signature.empty());
-
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Constant input should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test('validates input with nested structure', () => {
-    const input = Credential.Simple({
-      personal: {
-        age: Field,
-        score: UInt64,
-      },
-      verified: Bool,
-    });
-
-    const serialized = serializeInput(input);
-
-    const result = InputSchema.safeParse(serialized);
-
-    assert(
-      result.success,
-      'Nested structure input should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });

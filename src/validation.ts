@@ -275,8 +275,8 @@ const InputSchema = z.discriminatedUnion('type', [
         z.literal('unsigned'),
         z.literal('recursive'),
       ]),
-      witness: z.record(SerializedTypeSchema),
-      data: z.record(SerializedTypeSchema),
+      witness: z.union([z.record(SerializedTypeSchema), SerializedTypeSchema]),
+      data: z.union([z.record(SerializedTypeSchema), SerializedTypeSchema]),
     })
     .strict(),
 
