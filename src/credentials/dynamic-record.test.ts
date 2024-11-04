@@ -47,7 +47,7 @@ let original = OriginalSchema.from(input);
 const expectedHash = OriginalSchema.hash(original);
 
 const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
-let originalStruct = OriginalWrappedInStruct.fromValue(original);
+let originalStruct = OriginalWrappedInStruct.fromValue(input);
 
 // subset schema and circuit that doesn't know the full original layout
 
@@ -59,7 +59,6 @@ const Subschema = DynamicRecord(
       { field: Field, string: DynamicString({ maxLength: 5 }) },
       { maxEntries: 5 }
     ),
-    fourth: UInt64,
     first: Field,
   },
   { maxEntries: 10 }
