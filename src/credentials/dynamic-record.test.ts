@@ -52,16 +52,8 @@ let originalStruct = OriginalWrappedInStruct.fromValue(input);
 // subset schema and circuit that doesn't know the full original layout
 
 const Fifth = DynamicRecord(
-  { field: Field, string: DynamicString({ maxLength: 5 }) },
+  { field: Field, string: String },
   { maxEntries: 5 }
-);
-
-// TODO fix this not being all equal
-zip(
-  Fifth.provable.toFields(Fifth.from({ field: 2, string: '...' })),
-  Fifth.provable.toFields(Fifth.from({ field: 2, string: String.from('...') }))
-).map(([a, b], i) =>
-  console.log(a.toBigInt(), b.toBigInt(), a.equals(b).toBoolean())
 );
 
 const Subschema = DynamicRecord(
@@ -88,7 +80,7 @@ async function circuit() {
     Provable.assertEqual(
       Fifth,
       record.get('fifth'),
-      Fifth.from({ field: 2, string: String.from('...') })
+      Fifth.from({ field: 2, string: '...' })
     );
   });
 
