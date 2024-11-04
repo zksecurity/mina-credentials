@@ -3,25 +3,20 @@ import {
   Field,
   type From,
   type InferProvable,
-  Poseidon,
   Provable,
   ProvableType,
   Struct,
   UInt64,
 } from 'o1js';
-import {
-  DynamicRecord,
-  packToField,
-  packStringToField,
-  hashRecord,
-} from './dynamic-record.ts';
+import { DynamicRecord } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
-import { mapEntries, mapObject, zip, zipObjects } from '../util.ts';
+import { mapObject, zipObjects } from '../util.ts';
 import { test } from 'node:test';
 import assert from 'assert';
 import { hashCredential } from '../credential.ts';
 import { owner } from '../../tests/test-utils.ts';
+import { hashRecord } from './dynamic-hash.ts';
 
 const String = DynamicString({ maxLength: 10 });
 
@@ -44,7 +39,7 @@ let input = {
 };
 
 let original = OriginalSchema.from(input);
-const expectedHash = OriginalSchema.hash(original);
+const expectedHash = hashRecord(original);
 
 const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
 let originalStruct = OriginalWrappedInStruct.fromValue(input);
@@ -103,7 +98,6 @@ async function circuit() {
     record.hash().assertEquals(expectedHash, 'hash'));
 
   await test('hashRecord()', () => {
-    hashRecord(original).assertEquals(expectedHash);
     hashRecord(originalStruct).assertEquals(expectedHash);
     hashRecord(record).assertEquals(expectedHash);
   });
@@ -152,18 +146,6 @@ function Schema<A extends Record<string, NestedProvable>>(schema: A) {
         ([type, value]) => ProvableType.get(type).fromValue(value)
       );
       return actual;
-    },
-
-    hash(value: { [K in keyof A]: From<A[K]> }) {
-      let normalized = this.from(value);
-      let entryHashes = mapEntries(
-        zipObjects(shape, normalized),
-        (key, [type, value]) => [
-          packStringToField(key),
-          packToField(type, value),
-        ]
-      );
-      return Poseidon.hash(entryHashes.flat());
     },
   };
 }
