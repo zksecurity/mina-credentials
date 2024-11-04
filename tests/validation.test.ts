@@ -116,7 +116,7 @@ test('PresentationRequestSchema validation', async (t) => {
     const result = PresentationRequestSchema.safeParse(serialized);
     assert(
       result.success,
-      'HTTPS presentation request should be valid: ' +
+      'ZkApp presentation request should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
