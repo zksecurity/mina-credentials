@@ -213,40 +213,6 @@ test('InputSchema validation', async (t) => {
   });
 });
 
-test('ContextSchema validation', async (t) => {
-  await t.test('validates HTTPS context', () => {
-    const httpsContext = {
-      type: 'https' as const,
-      action: 'POST /api/verify',
-      serverNonce: Field(123456789),
-    };
-
-    const serialized = serializeInputContext(httpsContext);
-    const result = ContextSchema.safeParse(serialized);
-    assert(
-      result.success,
-      'Valid HTTPS context should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-
-  await t.test('validates ZkApp context', () => {
-    const actualContext = {
-      type: 'zk-app' as const,
-      action: Field(123456789),
-      serverNonce: Field(987654321),
-    };
-
-    const serialized = serializeInputContext(actualContext);
-    const result = ContextSchema.safeParse(serialized);
-    assert(
-      result.success,
-      'Valid ZkApp context should be valid: ' +
-        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
-    );
-  });
-});
-
 test('PresentationRequestSchema validation', async (t) => {
   const spec = Spec(
     {

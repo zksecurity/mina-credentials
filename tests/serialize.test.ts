@@ -17,7 +17,7 @@ import {
   deserializeSpec,
 } from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
-import { NodeSchema } from '../src/validation.ts';
+import { ContextSchema, NodeSchema } from '../src/validation.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
@@ -1002,6 +1002,13 @@ test('serializeInputContext', async (t) => {
       serverNonce: { _type: 'Field', value: '789' },
     });
 
+    const result = ContextSchema.safeParse(serialized);
+    assert(
+      result.success,
+      'Valid ZkApp context should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
     const deserialized = deserializeInputContext(serialized);
     assert.deepStrictEqual(deserialized, context);
 
@@ -1023,6 +1030,13 @@ test('serializeInputContext', async (t) => {
       action: 'POST /api/verify',
       serverNonce: { _type: 'Field', value: '789' },
     });
+
+    const result = ContextSchema.safeParse(serialized);
+    assert(
+      result.success,
+      'Valid HTTPS context should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
 
     const deserialized = deserializeInputContext(serialized);
     assert.deepStrictEqual(deserialized, context);
