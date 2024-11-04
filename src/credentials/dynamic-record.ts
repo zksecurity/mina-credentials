@@ -237,13 +237,10 @@ function hashRecord(data: unknown) {
     typeof data === 'object' && data !== null,
     'Expected DynamicRecord or plain object as data'
   );
-  let type: NestedProvable = NestedProvable.fromValue(data);
-  assert(!ProvableType.isProvableType(type), 'Expected plain object as data');
-
-  let entryHashes = mapEntries(zipObjects(type, data), (key, [type, value]) => [
-    packStringToField(key),
-    packToField(NestedProvable.get(type), value),
-  ]);
+  let entryHashes = mapEntries(data, (key, value) => {
+    let type = NestedProvable.get(NestedProvable.fromValue(value));
+    return [packStringToField(key), packToField(type, value)];
+  });
   return Poseidon.hash(entryHashes.flat());
 }
 

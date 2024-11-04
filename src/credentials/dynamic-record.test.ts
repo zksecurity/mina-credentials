@@ -44,6 +44,9 @@ let original = OriginalSchema.from({
 });
 const expectedHash = OriginalSchema.hash(original);
 
+const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
+let originalStruct = OriginalWrappedInStruct.fromValue(original);
+
 // subset schema and circuit that doesn't know the full original layout
 
 const Subschema = DynamicRecord(
@@ -58,6 +61,7 @@ const Subschema = DynamicRecord(
 
 // original schema is compatible
 Subschema.from(original);
+Subschema.from(originalStruct);
 
 async function circuit() {
   let record = Provable.witness(Subschema, () => original);
@@ -85,6 +89,7 @@ async function circuit() {
 
   await test('hashRecord()', () => {
     hashRecord(original).assertEquals(expectedHash);
+    hashRecord(originalStruct).assertEquals(expectedHash);
     hashRecord(record).assertEquals(expectedHash);
   });
 
@@ -93,11 +98,23 @@ async function circuit() {
       owner,
       data: original,
     }).hash;
+
+    let originalStructHash = hashCredential(OriginalWrappedInStruct, {
+      owner,
+      data: originalStruct,
+    }).hash;
+
+    originalStructHash.assertEquals(originalHash, 'hashCredential() (struct)');
+
     let subschemaHash = hashCredential(Subschema, {
       owner,
       data: record,
     }).hash;
-    subschemaHash.assertEquals(originalHash, 'hashCredential()');
+
+    subschemaHash.assertEquals(
+      originalHash,
+      'hashCredential() (dynamic record)'
+    );
   });
 }
 
