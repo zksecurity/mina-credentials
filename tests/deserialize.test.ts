@@ -40,6 +40,7 @@ import {
 } from '../src/presentation.ts';
 import { zkAppAddress } from './test-utils.ts';
 import { computeContext, generateContext } from '../src/context.ts';
+import { PresentationRequestSchema } from '../src/validation.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -588,7 +589,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ age, isAdmin, maxAge }) => ({
           assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-          ouputClaim: age,
+          outputClaim: age,
         })
       );
 
@@ -626,7 +627,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'field'),
             zeroField
           ),
-          ouputClaim: signedData,
+          outputClaim: signedData,
         })
       );
 
@@ -672,7 +673,7 @@ test('deserializeSpec', async (t) => {
             Operation.lessThan(field1, field2),
             Operation.lessThanEq(field2, threshold)
           ),
-          ouputClaim: Operation.equals(field1, field2),
+          outputClaim: Operation.equals(field1, field2),
         })
       );
 
@@ -704,7 +705,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'age'),
             targetAge
           ),
-          ouputClaim: Operation.record({
+          outputClaim: Operation.record({
             owner: Operation.owner,
             issuer: Operation.issuer(signedData),
             age: Operation.property(signedData, 'age'),
@@ -737,7 +738,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ provedData, zeroField }) => ({
           assert: Operation.equals(provedData, zeroField),
-          ouputClaim: provedData,
+          outputClaim: provedData,
         })
       );
 
@@ -792,7 +793,7 @@ test('deserializePresentationRequest with context', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      ouputClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
 
@@ -808,6 +809,16 @@ test('deserializePresentationRequest with context', async (t) => {
     });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
+
+    const parsed = JSON.parse(serialized);
+
+    const result = PresentationRequestSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'ZkApp presentation request should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
     const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
       'zk-app',
       serialized
@@ -861,6 +872,16 @@ test('deserializePresentationRequest with context', async (t) => {
     });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
+
+    const parsed = JSON.parse(serialized);
+
+    const result = PresentationRequestSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'HTTPS presentation request should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
     const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
       'https',
       serialized
