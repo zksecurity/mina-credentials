@@ -2,7 +2,6 @@
  * A dynamic record is a key-value list which can contain keys/values you are not aware of at compile time.
  */
 import {
-  Bytes,
   Field,
   type From,
   type InferProvable,
@@ -16,16 +15,12 @@ import {
 import {
   array,
   ProvableType,
-  toFieldsPacked,
   type ProvableHashableType,
 } from '../o1js-missing.ts';
 import { TypeBuilder } from '../provable-type-builder.ts';
 import {
-  assert,
   assertExtendsShape,
   assertHasProperty,
-  hasProperty,
-  mapEntries,
   mapObject,
   pad,
   zipObjects,
@@ -37,15 +32,9 @@ import {
   serializeNestedProvable,
   serializeNestedProvableValue,
 } from '../serialize-provable.ts';
+import { packStringToField, packToField } from './dynamic-hash.ts';
 
-export {
-  DynamicRecord,
-  GenericRecord,
-  packStringToField,
-  packToField,
-  hashRecord,
-  extractProperty,
-};
+export { DynamicRecord, GenericRecord, type UnknownRecord, extractProperty };
 
 type DynamicRecord<TKnown = any> = DynamicRecordBase<TKnown>;
 
@@ -210,6 +199,8 @@ class GenericRecordBase {
   }
 }
 
+GenericRecord.Base = GenericRecordBase;
+
 class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
   get knownShape(): { [K in keyof TKnown]: ProvableHashableType<TKnown[K]> } {
     throw Error('Need subclass');
@@ -231,43 +222,6 @@ type DynamicRecordRaw = {
 };
 
 type UnknownRecord = Record<string, unknown>;
-
-// compatible hashing
-
-function packStringToField(string: string) {
-  let bytes = new TextEncoder().encode(string);
-  let B = Bytes(bytes.length);
-  let fields = toFieldsPacked(B, B.from(bytes));
-  if (fields.length === 1) return fields[0]!;
-  return Poseidon.hash(fields);
-}
-
-function packToField<T>(type: ProvableType<T>, value: T): Field {
-  // identify "record" types
-  if (isStruct(type) || value instanceof GenericRecordBase) {
-    return hashRecord(value);
-  }
-  let fields = toFieldsPacked(type, value);
-  if (fields.length === 1) return fields[0]!;
-  return Poseidon.hash(fields);
-}
-
-function hashRecord(data: unknown) {
-  if (data instanceof GenericRecordBase) return data.hash();
-  assert(
-    typeof data === 'object' && data !== null,
-    'Expected DynamicRecord or plain object as data'
-  );
-  let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
-    let type = NestedProvable.get(NestedProvable.fromValue(value));
-    return [packStringToField(key), packToField(type, value)];
-  });
-  return Poseidon.hash(entryHashes.flat());
-}
-
-function isStruct(type: ProvableType): type is Struct<any> {
-  return hasProperty(type, '_isStruct') && type._isStruct === true;
-}
 
 // compatible key extraction
 

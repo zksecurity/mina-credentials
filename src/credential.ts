@@ -13,11 +13,9 @@ import {
   type InferNestedProvable,
   NestedProvable,
   type NestedProvableFor,
-  type NestedProvablePure,
-  type NestedProvablePureFor,
 } from './nested.ts';
 import { zip } from './util.ts';
-import { hashRecord } from './credentials/dynamic-record.ts';
+import { hashRecord } from './credentials/dynamic-hash.ts';
 
 export {
   type Credential,
