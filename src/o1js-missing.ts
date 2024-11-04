@@ -22,6 +22,7 @@ export {
   type ProvablePureType,
   type ProvableHashableType,
   type ProvableHashablePure,
+  type ProvableMaybeHashable,
   array,
   toFieldsPacked,
   HashInput,

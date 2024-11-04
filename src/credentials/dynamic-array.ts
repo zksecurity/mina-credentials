@@ -13,7 +13,12 @@ import {
   type IsPure,
 } from 'o1js';
 import { assert, pad, zip } from '../util.ts';
-import { ProvableType } from '../o1js-missing.ts';
+import {
+  HashInput,
+  type ProvableHashablePure,
+  type ProvableHashableType,
+  ProvableType,
+} from '../o1js-missing.ts';
 import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import {
@@ -65,7 +70,7 @@ type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
  * Instead, our methods ensure integrity of array operations _within_ the actual length.
  */
 function DynamicArray<
-  A extends ProvableType,
+  A extends ProvableHashableType,
   T extends InferProvable<A> = InferProvable<A>,
   V extends InferValue<A> = InferValue<A>
 >(
@@ -76,7 +81,7 @@ function DynamicArray<
   : DynamicArrayClass<T, V>;
 
 function DynamicArray<
-  A extends ProvableType,
+  A extends ProvableHashableType,
   T extends InferProvable<A> = InferProvable<A>,
   V extends InferValue<A> = InferValue<A>
 >(
@@ -126,7 +131,7 @@ class DynamicArrayBase<T = any, V = any> {
   length: Field;
 
   // props to override
-  get innerType(): ProvableType<T, V> {
+  get innerType(): ProvableHashableType<T, V> {
     throw Error('Inner type must be defined in a subclass.');
   }
   static get maxLength(): number {
@@ -233,7 +238,7 @@ class DynamicArrayBase<T = any, V = any> {
    *
    * **Warning**: The callback will be passed unconstrained dummy values.
    */
-  map<S extends ProvableType>(
+  map<S extends ProvableHashableType>(
     type: S,
     f: (t: T, i: number) => From<S>
   ): DynamicArray<InferProvable<S>, InferValue<S>> {
@@ -388,17 +393,17 @@ class DynamicArrayBase<T = any, V = any> {
 DynamicArray.Base = DynamicArrayBase;
 
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
-  type: ProvablePure<T, V>,
+  type: ProvableHashablePure<T, V>,
   Class: Class
 ): TypeBuilderPure<InstanceType<Class>, V[]>;
 
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
-  type: Provable<T, V>,
+  type: ProvableHashable<T, V>,
   Class: Class
 ): TypeBuilder<InstanceType<Class>, V[]>;
 
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
-  type: Provable<T, V>,
+  type: ProvableHashable<T, V>,
   Class: Class
 ) {
   let maxLength = Class.maxLength;
@@ -427,6 +432,23 @@ function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
         },
         distinguish: (s) => s instanceof DynamicArrayBase,
       })
+
+      // custom hash input
+      .hashInput(({ array, length }) => {
+        let lengthInput: HashInput = { packed: [[length, 32]] };
+        let arrayInput = array.map((x): HashInput => {
+          let { fields = [], packed = [] } = type.toInput(x);
+          return {
+            packed: fields
+              .map((x) => [x, 254] as [Field, number])
+              .concat(packed),
+          };
+        });
+        return [lengthInput, ...arrayInput].reduce(
+          HashInput.append,
+          HashInput.empty
+        );
+      })
   );
 }
 
@@ -442,7 +464,9 @@ ProvableFactory.register(DynamicArray, {
 
   typeFromJSON(json) {
     let innerType = deserializeProvableType(json.innerType);
-    return DynamicArray(innerType, { maxLength: json.maxLength });
+    return DynamicArray(innerType as ProvableHashableType, {
+      maxLength: json.maxLength,
+    });
   },
 
   valueToJSON(_, { array, length }) {

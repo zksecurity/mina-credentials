@@ -10,7 +10,7 @@ import {
   type Field,
 } from 'o1js';
 import type { NestedProvable } from './nested.ts';
-import type { ProvableHashablePure } from './o1js-missing.ts';
+import type { HashInput, ProvableHashablePure } from './o1js-missing.ts';
 
 export { TypeBuilder, TypeBuilderPure };
 
@@ -86,6 +86,11 @@ class TypeBuilder<T, V> {
       originalCheck(x);
       check(x);
     });
+  }
+
+  hashInput(toInput: (x: T) => HashInput): TypeBuilder<T, V> {
+    let type = this.type;
+    return new TypeBuilder({ ...type, toInput });
   }
 }
 
