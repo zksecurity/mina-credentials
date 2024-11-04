@@ -17,7 +17,7 @@ export {
 
 function assert(
   condition: boolean,
-  message?: string | (() => string)
+  message?: string | (() => string | undefined)
 ): asserts condition {
   if (!condition) {
     message = typeof message === 'function' ? message() : message;
@@ -40,7 +40,10 @@ function assertIsObject(
 ): asserts obj is object | Function {
   assert(
     (typeof obj === 'object' && obj !== null) || typeof obj === 'function',
-    message
+    () => {
+      // console.log('not an object:', obj);
+      return message;
+    }
   );
 }
 

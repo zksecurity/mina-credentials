@@ -35,13 +35,15 @@ const OriginalSchema = Schema({
   fifth: { field: Field, string: String },
 });
 
-let original = OriginalSchema.from({
+let input = {
   first: 1,
   second: true,
   third: 'something',
   fourth: 123n,
   fifth: { field: 2, string: '...' },
-});
+};
+
+let original = OriginalSchema.from(input);
 const expectedHash = OriginalSchema.hash(original);
 
 const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
@@ -52,8 +54,12 @@ let originalStruct = OriginalWrappedInStruct.fromValue(original);
 const Subschema = DynamicRecord(
   {
     // not necessarily in order
-    fourth: UInt64,
     third: DynamicString({ maxLength: 10 }),
+    fifth: DynamicRecord(
+      { field: Field, string: DynamicString({ maxLength: 5 }) },
+      { maxEntries: 5 }
+    ),
+    fourth: UInt64,
     first: Field,
   },
   { maxEntries: 10 }
@@ -69,11 +75,25 @@ async function circuit() {
   await test('DynamicRecord.get()', () => {
     record.get('first').assertEquals(1, 'first');
     Provable.assertEqual(String, record.get('third'), String.from('something'));
-    record.get('fourth').assertEquals(UInt64.from(123n));
+
+    // TODO fix hashing so that this works
+    // const Fifth = DynamicRecord(
+    //   { field: Field, string: DynamicString({ maxLength: 5 }) },
+    //   { maxEntries: 5 }
+    // );
+    // Provable.assertEqual(
+    //   Fifth,
+    //   record.get('fifth'),
+    //   Fifth.from({ field: 2, string: '...' })
+    // );
   });
 
   await test('DynamicRecord.getAny()', () => {
     record.getAny(Bool, 'second').assertEquals(true, 'second');
+    record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
+
+    // TODO fix hashing so that this no longer works
+    // records should be hashed in dynamic record form
     const Fifth = Struct({ field: Field, string: String });
     Provable.assertEqual(
       Fifth,

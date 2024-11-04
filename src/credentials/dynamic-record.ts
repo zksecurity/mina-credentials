@@ -78,7 +78,9 @@ function DynamicRecord<
     .empty();
 
   return class DynamicRecord extends DynamicRecordBase<TKnown> {
-    static from<T extends TKnown>(value: T): DynamicRecordBase<TKnown> {
+    // TODO: actually, the type should be From<> for the known subfields and unchanged for the unknown ones
+    // or anything really, when we have general hashing?
+    static from<A extends AKnown>(value: From<A>): DynamicRecordBase<TKnown> {
       return DynamicRecord.provable.fromValue(value);
     }
 
@@ -107,10 +109,15 @@ function DynamicRecord<
           assertExtendsShape(actual, knownShape);
 
           let entries = Object.entries<unknown>(actual).map(([key, value]) => {
-            let type = NestedProvable.get(NestedProvable.fromValue(value));
+            let type = NestedProvable.get(
+              key in knownShape
+                ? // ? (knownShape[key] as any)
+                  NestedProvable.fromValue(value) // TODO change after making hashing general
+                : NestedProvable.fromValue(value)
+            );
             return {
               key: packStringToField(key).toBigInt(),
-              value: packToField(type, value).toBigInt(),
+              value: packToField(type, type.fromValue(value)).toBigInt(),
             };
           });
           return { entries: pad(entries, maxEntries, undefined), actual };
