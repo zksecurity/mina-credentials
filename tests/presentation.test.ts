@@ -26,7 +26,7 @@ test('program with simple spec and signature credential', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      outPutClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
 
@@ -123,7 +123,7 @@ test('program with owner and issuer operations', async (t) => {
         Operation.property(signedData, 'dummy'),
         expectedDummy
       ),
-      outPutClaim: Operation.record({
+      outputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         dummy: Operation.property(signedData, 'dummy'),
@@ -172,7 +172,7 @@ test('presentation with context binding', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      outPutClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
   const data = { age: Field(18), name: Bytes32.fromString('Alice') };
@@ -256,7 +256,7 @@ test('serialize presentation', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      outPutClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
   const data = { age: Field(18), name: Bytes32.fromString('Alice') };

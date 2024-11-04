@@ -16,7 +16,7 @@ const InputData = { age: Field, name: Bytes32 };
 const inputProofSpec = Spec(
   { inputOwner: Claim(PublicKey), data: Claim(InputData) },
   ({ inputOwner, data }) => ({
-    outPutClaim: Operation.record({ owner: inputOwner, data }),
+    outputClaim: Operation.record({ owner: inputOwner, data }),
   })
 );
 
@@ -44,7 +44,7 @@ const spec = Spec(
       Operation.equals(Operation.property(provedData, 'age'), targetAge),
       Operation.equals(Operation.property(provedData, 'name'), targetName)
     ),
-    outPutClaim: Operation.property(provedData, 'age'),
+    outputClaim: Operation.property(provedData, 'age'),
   })
 );
 let requestInitial = PresentationRequest.noContext(spec, {

@@ -51,7 +51,7 @@ test('StoredCredentialSchema validation', async (t) => {
     const inputProofSpec = Spec(
       { inputOwner: Claim(PublicKey), data: Claim(InputData) },
       ({ inputOwner, data }) => ({
-        outPutClaim: Operation.record({ owner: inputOwner, data }),
+        outputClaim: Operation.record({ owner: inputOwner, data }),
       })
     );
 
@@ -541,7 +541,7 @@ test('PresentationRequestSchema validation', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      outPutClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
 
@@ -619,7 +619,7 @@ test('PresentationRequestSchema validation', async (t) => {
           ),
           Operation.equals(Operation.property(data, 'points'), targetPoints)
         ),
-        outPutClaim: Operation.property(
+        outputClaim: Operation.property(
           Operation.property(data, 'person'),
           'name'
         ),

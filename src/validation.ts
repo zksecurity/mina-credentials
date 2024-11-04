@@ -22,7 +22,7 @@ const PublicKeySchema = z.string().length(55).startsWith('B62');
 const SerializedValueSchema = z
   .object({
     _type: z.string(),
-    value: z.union([z.string(), z.record(z.any()), z.array(z.any())]),
+    value: JsonSchema,
     properties: z.record(z.any()).optional(),
   })
   .strict();
@@ -329,7 +329,7 @@ const PresentationRequestSchema = z
         logic: z
           .object({
             assert: NodeSchema,
-            outPutClaim: NodeSchema,
+            outputClaim: NodeSchema,
           })
           .strict(),
       })

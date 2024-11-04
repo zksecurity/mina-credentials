@@ -531,7 +531,7 @@ test('convertSpecToSerializable', async (t) => {
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-        outPutClaim: age,
+        outputClaim: age,
       })
     );
 
@@ -576,7 +576,7 @@ test('convertSpecToSerializable', async (t) => {
             },
           ],
         },
-        outPutClaim: {
+        outputClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -602,7 +602,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.property(signedData, 'field'),
           zeroField
         ),
-        outPutClaim: signedData,
+        outputClaim: signedData,
       })
     );
 
@@ -645,7 +645,7 @@ test('convertSpecToSerializable', async (t) => {
             inner: { type: 'root' },
           },
         },
-        outPutClaim: {
+        outputClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -671,7 +671,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.lessThan(field1, field2),
           Operation.equals(field1, zeroField)
         ),
-        outPutClaim: field2,
+        outputClaim: field2,
       })
     );
 
@@ -736,7 +736,7 @@ test('convertSpecToSerializable', async (t) => {
             },
           ],
         },
-        outPutClaim: {
+        outputClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -760,7 +760,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
-      outPutClaim: age,
+      outputClaim: age,
     })
   );
 
@@ -827,7 +827,7 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
         Operation.property(signedData, 'age'),
         targetAge
       ),
-      outPutClaim: Operation.record({
+      outputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         age: Operation.property(signedData, 'age'),
@@ -839,11 +839,11 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
   const parsed = JSON.parse(serialized);
   const serializedSpec = JSON.parse(parsed.spec);
 
-  assert.deepStrictEqual(serializedSpec.logic.outPutClaim.data.owner, {
+  assert.deepStrictEqual(serializedSpec.logic.outputClaim.data.owner, {
     type: 'owner',
   });
 
-  assert.deepStrictEqual(serializedSpec.logic.outPutClaim.data.issuer, {
+  assert.deepStrictEqual(serializedSpec.logic.outputClaim.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
   });

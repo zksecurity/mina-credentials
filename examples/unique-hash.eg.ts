@@ -95,11 +95,11 @@ const spec = Spec(
     // we expose a unique hash of the credential data, to be used as nullifier
     // note: since the credential contains a 16 byte = 128 bit random ID, it has enough
     // entropy such that exposing this hash will not reveal the credential data
-    let outPutClaim = Operation.record({
+    let outputClaim = Operation.record({
       nullifier: Operation.hash(credential, appId),
     });
 
-    return { assert, outPutClaim };
+    return { assert, outputClaim };
   }
 );
 
