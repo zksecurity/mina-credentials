@@ -2,7 +2,6 @@ import { Bool, Field, Provable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert } from '../util.ts';
-import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 
 export { DynamicString };
 
@@ -39,12 +38,11 @@ function DynamicString({ maxLength }: { maxLength: number }) {
     }
   }
 
-  const provableString = new TypeBuilderPure(
-    provableDynamicArray<UInt8, { value: bigint }, typeof DynamicStringBase>(
-      UInt8 as any,
-      DynamicString
-    )
-  )
+  const provableString = provableDynamicArray<
+    UInt8,
+    { value: bigint },
+    typeof DynamicStringBase
+  >(UInt8 as any, DynamicString)
     .mapValue<string>({
       there(s) {
         return dec.decode(Uint8Array.from(s, ({ value }) => Number(value)));

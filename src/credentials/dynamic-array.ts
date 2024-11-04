@@ -4,7 +4,6 @@ import {
   type InferProvable,
   Option,
   Provable,
-  provable as struct,
   UInt32,
   type InferValue,
   Gadgets,
@@ -23,6 +22,7 @@ import {
   serializeProvable,
   serializeProvableType,
 } from '../serialize-provable.ts';
+import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 
 export { DynamicArray };
 
@@ -109,7 +109,7 @@ function DynamicArray<
   const provableArray = provable<T, V, typeof DynamicArrayBase<T, V>>(
     ProvableType.get(type),
     DynamicArray_
-  );
+  ).build();
 
   return DynamicArray_;
 }
@@ -390,61 +390,44 @@ DynamicArray.Base = DynamicArrayBase;
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
   type: ProvablePure<T, V>,
   Class: Class
-): ProvableHashable<InstanceType<Class>, V[]> &
-  ProvablePure<InstanceType<Class>, V[]>;
+): TypeBuilderPure<InstanceType<Class>, V[]>;
+
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
   type: Provable<T, V>,
   Class: Class
-): ProvableHashable<InstanceType<Class>, V[]>;
-function provable<T, V>(
+): TypeBuilder<InstanceType<Class>, V[]>;
+
+function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
   type: Provable<T, V>,
-  Class: typeof DynamicArrayBase<T, V>
-): ProvableHashable<DynamicArrayBase<T, V>, V[]> {
+  Class: Class
+) {
   let maxLength = Class.maxLength;
-  let NULL = ProvableType.synthesize(type);
+  let NULL = type.toValue(ProvableType.synthesize(type));
 
-  let PlainArray = struct({
-    array: Provable.Array(type, maxLength),
-    length: Field,
-  });
-  return {
-    ...PlainArray,
+  return (
+    TypeBuilder.shape({
+      array: Provable.Array(type, maxLength),
+      length: Field,
+    })
+      .forConstructor((t) => new Class(t.array, t.length))
 
-    // make fromFields return a class instance
-    fromFields(fields, aux) {
-      let raw = PlainArray.fromFields(fields, aux);
-      return new Class(raw.array, raw.length);
-    },
+      // check has to validate length in addition to the other checks
+      .withAdditionalCheck(({ length }) => {
+        assertInRange16(length, maxLength);
+      })
 
-    // convert to/from plain array that has the correct length
-    toValue(value) {
-      let length = Number(value.length);
-      return value.array.map((t) => type.toValue(t)).slice(0, length);
-    },
-    fromValue(value) {
-      if (value instanceof DynamicArrayBase) return value;
-      let array = value.map((t) => type.fromValue(t));
-      let padded = pad(array, maxLength, NULL);
-      return new Class(padded, Field(value.length));
-    },
-
-    // check has to validate length in addition to the other checks
-    check(value) {
-      PlainArray.check(value);
-      assertInRange16(value.length, maxLength);
-    },
-
-    empty() {
-      let raw = PlainArray.empty();
-      return new Class(raw.array, raw.length);
-    },
-
-    toCanonical(value) {
-      if (PlainArray.toCanonical === undefined) return value;
-      let { array, length } = PlainArray.toCanonical(value);
-      return new Class(array, length);
-    },
-  };
+      // convert to/from plain array that has the _actual_ length
+      .mapValue<V[]>({
+        there({ array, length }) {
+          return array.slice(0, Number(length));
+        },
+        back(array) {
+          let padded = pad(array, maxLength, NULL);
+          return { array: padded, length: BigInt(array.length) };
+        },
+        distinguish: (s) => s instanceof DynamicArrayBase,
+      })
+  );
 }
 
 // serialize/deserialize

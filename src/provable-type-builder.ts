@@ -6,6 +6,8 @@ import {
   type ProvableHashable,
   type InferProvable,
   type InferValue,
+  type IsPure,
+  type Field,
 } from 'o1js';
 import type { NestedProvable } from './nested.ts';
 import type { ProvableHashablePure } from './o1js-missing.ts';
@@ -14,37 +16,44 @@ export { TypeBuilder, TypeBuilderPure };
 
 class TypeBuilder<T, V> {
   type: ProvableHashable<T, V>;
+
   constructor(type: ProvableHashable<T, V>) {
     this.type = type;
   }
 
   static shape<A extends NestedProvable>(
     nested: A
-  ): TypeBuilder<InferProvable<A>, InferValue<A>> {
-    return new TypeBuilder(provable(nested));
+  ): IsPure<A, Field> extends true
+    ? TypeBuilderPure<InferProvable<A>, InferValue<A>>
+    : TypeBuilder<InferProvable<A>, InferValue<A>> {
+    return new TypeBuilder(provable(nested)) as any;
   }
 
-  build(): ProvableHashable<T, V> {
+  build(): this['type'] {
     return this.type;
   }
 
   forClass<C extends T>(Class: new (t: T) => C): TypeBuilder<C, V> {
+    return this.forConstructor((t) => new Class(t));
+  }
+
+  forConstructor<C extends T>(constructor: (t: T) => C): TypeBuilder<C, V> {
     let type = this.type;
     return new TypeBuilder<C, V>({
       ...type,
 
       fromFields(fields, aux) {
-        return new Class(type.fromFields(fields, aux));
+        return constructor(type.fromFields(fields, aux));
       },
       fromValue(value) {
-        return new Class(type.fromValue(value));
+        return constructor(type.fromValue(value));
       },
       empty() {
-        return new Class(type.empty());
+        return constructor(type.empty());
       },
       toCanonical(x) {
         if (type.toCanonical === undefined) return x;
-        return new Class(type.toCanonical(x));
+        return constructor(type.toCanonical(x));
       },
     });
   }
@@ -67,6 +76,17 @@ class TypeBuilder<T, V> {
       },
     });
   }
+
+  replaceCheck(check: (x: T) => void) {
+    return new TypeBuilder({ ...this.type, check });
+  }
+  withAdditionalCheck(check: (x: T) => void) {
+    let originalCheck = this.type.check;
+    return this.replaceCheck((x) => {
+      originalCheck(x);
+      check(x);
+    });
+  }
 }
 
 class TypeBuilderPure<T, V> extends TypeBuilder<T, V> {
@@ -77,17 +97,25 @@ class TypeBuilderPure<T, V> extends TypeBuilder<T, V> {
     this.type = type;
   }
 
-  build(): ProvableHashablePure<T, V> {
-    return this.type;
-  }
   forClass<C extends T>(Class: new (t: T) => C): TypeBuilderPure<C, V> {
     return super.forClass(Class) as TypeBuilderPure<C, V>;
   }
+  forConstructor<C extends T>(constructor: (t: T) => C): TypeBuilderPure<C, V> {
+    return super.forConstructor(constructor) as TypeBuilderPure<C, V>;
+  }
+
   mapValue<W>(transform: {
     there: (x: V) => W;
     back: (x: W) => V;
     distinguish: (x: T | W) => x is T;
   }): TypeBuilderPure<T, W> {
     return super.mapValue(transform) as TypeBuilderPure<T, W>;
+  }
+
+  replaceCheck(check: (x: T) => void) {
+    return super.replaceCheck(check) as TypeBuilderPure<T, V>;
+  }
+  withAdditionalCheck(check: (x: T) => void) {
+    return super.withAdditionalCheck(check) as TypeBuilderPure<T, V>;
   }
 }
