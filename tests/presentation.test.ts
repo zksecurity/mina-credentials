@@ -11,6 +11,7 @@ import {
 } from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
+import { PresentationRequestSchema } from '../src/validation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
@@ -35,6 +36,15 @@ test('program with simple spec and signature credential', async (t) => {
     targetAge: Field(18),
   });
   let json = PresentationRequest.toJSON(requestInitial);
+
+  let serialized = JSON.parse(json);
+
+  const result = PresentationRequestSchema.safeParse(serialized);
+  assert(
+    result.success,
+    'No-context presentation request should be valid: ' +
+      (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+  );
 
   // wallet: deserialize and compile request
   let deserialized = PresentationRequest.fromJSON('no-context', json);

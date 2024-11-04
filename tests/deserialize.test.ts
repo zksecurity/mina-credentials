@@ -40,6 +40,7 @@ import {
 } from '../src/presentation.ts';
 import { zkAppAddress } from './test-utils.ts';
 import { computeContext, generateContext } from '../src/context.ts';
+import { PresentationRequestSchema } from '../src/validation.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -808,6 +809,16 @@ test('deserializePresentationRequest with context', async (t) => {
     });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
+
+    const parsed = JSON.parse(serialized);
+
+    const result = PresentationRequestSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'ZkApp presentation request should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
     const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
       'zk-app',
       serialized
@@ -861,6 +872,16 @@ test('deserializePresentationRequest with context', async (t) => {
     });
 
     const serialized = PresentationRequest.toJSON(originalRequest);
+
+    const parsed = JSON.parse(serialized);
+
+    const result = PresentationRequestSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'HTTPS presentation request should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
     const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
       'https',
       serialized
