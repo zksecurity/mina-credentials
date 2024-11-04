@@ -96,13 +96,7 @@ function DynamicRecord<
           // validate that `actual` (at least) contains all known keys
           assertExtendsShape(actual, knownShape);
 
-          let actual_ = actual; //mapObject(actual, (value, key) => {
-          //   return key in shape
-          //     ? ProvableType.get(shape[key]).fromValue(value)
-          //     : value;
-          // });
-
-          let entries = Object.entries<unknown>(actual_).map(([key, value]) => {
+          let entries = Object.entries<unknown>(actual).map(([key, value]) => {
             let type = NestedProvable.get(
               key in knownShape
                 ? (knownShape[key] as any)
@@ -113,10 +107,7 @@ function DynamicRecord<
               value: packToField(type, type.fromValue(value)).toBigInt(),
             };
           });
-          return {
-            entries: pad(entries, maxEntries, undefined),
-            actual: actual_,
-          };
+          return { entries: pad(entries, maxEntries, undefined), actual };
         },
         distinguish(x) {
           return x instanceof DynamicRecordBase;
