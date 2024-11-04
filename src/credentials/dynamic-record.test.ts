@@ -17,7 +17,7 @@ import {
 } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
-import { mapEntries, mapObject, zipObjects } from '../util.ts';
+import { mapEntries, mapObject, zip, zipObjects } from '../util.ts';
 import { test } from 'node:test';
 import assert from 'assert';
 import { hashCredential } from '../credential.ts';
@@ -51,14 +51,24 @@ let originalStruct = OriginalWrappedInStruct.fromValue(input);
 
 // subset schema and circuit that doesn't know the full original layout
 
+const Fifth = DynamicRecord(
+  { field: Field, string: DynamicString({ maxLength: 5 }) },
+  { maxEntries: 5 }
+);
+
+// TODO fix this not being all equal
+zip(
+  Fifth.provable.toFields(Fifth.from({ field: 2, string: '...' })),
+  Fifth.provable.toFields(Fifth.from({ field: 2, string: String.from('...') }))
+).map(([a, b], i) =>
+  console.log(a.toBigInt(), b.toBigInt(), a.equals(b).toBoolean())
+);
+
 const Subschema = DynamicRecord(
   {
     // not necessarily in order
     third: DynamicString({ maxLength: 10 }),
-    fifth: DynamicRecord(
-      { field: Field, string: DynamicString({ maxLength: 5 }) },
-      { maxEntries: 5 }
-    ),
+    fifth: Fifth,
     first: Field,
   },
   { maxEntries: 10 }
@@ -75,29 +85,23 @@ async function circuit() {
     record.get('first').assertEquals(1, 'first');
     Provable.assertEqual(String, record.get('third'), String.from('something'));
 
-    // TODO fix hashing so that this works
-    // const Fifth = DynamicRecord(
-    //   { field: Field, string: DynamicString({ maxLength: 5 }) },
-    //   { maxEntries: 5 }
-    // );
-    // Provable.assertEqual(
-    //   Fifth,
-    //   record.get('fifth'),
-    //   Fifth.from({ field: 2, string: '...' })
-    // );
+    Provable.assertEqual(
+      Fifth,
+      record.get('fifth'),
+      Fifth.from({ field: 2, string: String.from('...') })
+    );
   });
 
   await test('DynamicRecord.getAny()', () => {
     record.getAny(Bool, 'second').assertEquals(true, 'second');
     record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
 
-    // TODO fix hashing so that this no longer works
-    // records should be hashed in dynamic record form
-    const Fifth = Struct({ field: Field, string: String });
+    // this works because structs are hashed in dynamic record form
+    const FifthStruct = Struct({ field: Field, string: String });
     Provable.assertEqual(
-      Fifth,
-      record.getAny(Fifth, 'fifth'),
-      Fifth.fromValue({ field: 2, string: '...' })
+      FifthStruct,
+      record.getAny(FifthStruct, 'fifth'),
+      FifthStruct.fromValue({ field: 2, string: '...' })
     );
 
     assert.throws(() => record.getAny(Bool, 'missing'), /Key not found/);

@@ -22,9 +22,9 @@ import {
 import { TypeBuilder } from '../provable-type-builder.ts';
 import {
   assert,
-  assertDefined,
   assertExtendsShape,
   assertHasProperty,
+  hasProperty,
   mapEntries,
   mapObject,
   pad,
@@ -47,12 +47,6 @@ export {
   extractProperty,
 };
 
-type GenericRecord = DynamicRecord<{}>;
-
-function GenericRecord(options: { maxEntries: number }) {
-  return DynamicRecord({}, options);
-}
-
 type DynamicRecord<TKnown = any> = DynamicRecordBase<TKnown>;
 
 function DynamicRecord<
@@ -70,17 +64,11 @@ function DynamicRecord<
     ProvableType.get(type).empty()
   );
 
-  TypeBuilder.shape({
-    entries: array(Option(Struct({ key: Field, value: Field })), maxEntries),
-    actual: Unconstrained.withEmpty<UnknownRecord>(emptyTKnown),
-  })
-    .build()
-    .empty();
-
   return class DynamicRecord extends DynamicRecordBase<TKnown> {
-    // TODO: actually, the type should be From<> for the known subfields and unchanged for the unknown ones
-    // or anything really, when we have general hashing?
-    static from<A extends AKnown>(value: From<A>): DynamicRecordBase<TKnown> {
+    // accepted type is From<> for the known subfields and unchanged for the unknown ones
+    static from<T extends From<AKnown> & UnknownRecord>(
+      value: T
+    ): DynamicRecordBase<TKnown> {
       return DynamicRecord.provable.fromValue(value);
     }
 
@@ -108,11 +96,16 @@ function DynamicRecord<
           // validate that `actual` (at least) contains all known keys
           assertExtendsShape(actual, knownShape);
 
-          let entries = Object.entries<unknown>(actual).map(([key, value]) => {
+          let actual_ = actual; //mapObject(actual, (value, key) => {
+          //   return key in shape
+          //     ? ProvableType.get(shape[key]).fromValue(value)
+          //     : value;
+          // });
+
+          let entries = Object.entries<unknown>(actual_).map(([key, value]) => {
             let type = NestedProvable.get(
               key in knownShape
-                ? // ? (knownShape[key] as any)
-                  NestedProvable.fromValue(value) // TODO change after making hashing general
+                ? (knownShape[key] as any)
                 : NestedProvable.fromValue(value)
             );
             return {
@@ -120,7 +113,10 @@ function DynamicRecord<
               value: packToField(type, type.fromValue(value)).toBigInt(),
             };
           });
-          return { entries: pad(entries, maxEntries, undefined), actual };
+          return {
+            entries: pad(entries, maxEntries, undefined),
+            actual: actual_,
+          };
         },
         distinguish(x) {
           return x instanceof DynamicRecordBase;
@@ -138,6 +134,18 @@ function DynamicRecord<
 }
 
 const OptionField = Option(Field);
+const OptionKeyValue = Option(Struct({ key: Field, value: Field }));
+
+type GenericRecord = GenericRecordBase;
+
+function GenericRecord({ maxEntries }: { maxEntries: number }) {
+  // TODO provable
+  return class GenericRecord extends GenericRecordBase {
+    get maxEntries() {
+      return maxEntries;
+    }
+  };
+}
 
 class GenericRecordBase {
   entries: Option<{ key: Field; value: Field }>[];
@@ -152,9 +160,20 @@ class GenericRecordBase {
     throw Error('Need subclass');
   }
 
-  static from(_: UnknownRecord): GenericRecordBase {
-    // TODO this could be implemented
-    throw Error('Need subclass');
+  static from(actual: UnknownRecord): GenericRecordBase {
+    let entries = Object.entries<unknown>(actual).map(([key, value]) => {
+      let type = NestedProvable.get(NestedProvable.fromValue(value));
+      return {
+        key: packStringToField(key),
+        value: packToField(type, type.fromValue(value)),
+      };
+    });
+    let options = pad(
+      entries.map((entry) => OptionKeyValue.from(entry)),
+      this.prototype.maxEntries,
+      OptionKeyValue.none()
+    );
+    return new this({ entries: options, actual: Unconstrained.from(actual) });
   }
 
   getAny<A extends ProvableType>(valueType: A, key: string) {
@@ -232,33 +251,39 @@ function packStringToField(string: string) {
   return Poseidon.hash(fields);
 }
 
-function packToField<T>(type: ProvableType<T>, value: T) {
+function packToField<T>(type: ProvableType<T>, value: T): Field {
+  // identify "record" types
+  if (isStruct(type) || value instanceof GenericRecordBase) {
+    return hashRecord(value);
+  }
   let fields = toFieldsPacked(type, value);
   if (fields.length === 1) return fields[0]!;
   return Poseidon.hash(fields);
 }
 
 function hashRecord(data: unknown) {
-  if (data instanceof DynamicRecord.Base) return data.hash();
+  if (data instanceof GenericRecordBase) return data.hash();
   assert(
     typeof data === 'object' && data !== null,
     'Expected DynamicRecord or plain object as data'
   );
-  let entryHashes = mapEntries(data, (key, value) => {
+  let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
     let type = NestedProvable.get(NestedProvable.fromValue(value));
     return [packStringToField(key), packToField(type, value)];
   });
   return Poseidon.hash(entryHashes.flat());
 }
 
+function isStruct(type: ProvableType): type is Struct<any> {
+  return hasProperty(type, '_isStruct') && type._isStruct === true;
+}
+
 // compatible key extraction
 
 function extractProperty(data: unknown, key: string): unknown {
   if (data instanceof DynamicRecord.Base) return data.get(key);
-  assertHasProperty(data, key);
-  let value = data[key];
-  assertDefined(value, `Key not found: "${key}"`);
-  return value;
+  assertHasProperty(data, key, `Key not found: "${key}"`);
+  return data[key];
 }
 
 // serialize/deserialize
