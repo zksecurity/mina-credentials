@@ -52,33 +52,33 @@ const ProvableFactory = {
   },
 
   getRegistered(value: unknown) {
-    let key: string | undefined;
-    let factory: MapValue | undefined;
-    for (let [key_, factory_] of factories.entries()) {
-      if (value instanceof factory_.base) {
-        key = key_;
-        factory = factory_;
+    let entry: [string, MapValue] | undefined;
+    for (let [key, factory] of factories.entries()) {
+      if (value instanceof factory.base) {
+        entry = [key, factory];
       }
     }
-    return [key, factory] as const;
+    return entry;
   },
 
   tryToJSON(constructor: unknown): SerializedFactory | undefined {
     if (!hasProperty(constructor, 'prototype')) return undefined;
-    let [key, factory] = ProvableFactory.getRegistered(constructor.prototype);
-    if (factory === undefined) return undefined;
+    let entry = ProvableFactory.getRegistered(constructor.prototype);
+    if (entry === undefined) return undefined;
+    let [key, factory] = entry;
     let json = factory.typeToJSON(constructor as any);
-    return { _type: key!, ...json, _isFactory: true as const };
+    return { _type: key, ...json, _isFactory: true as const };
   },
 
   tryValueToJSON(
     value: unknown
   ): (SerializedFactory & { value: any }) | undefined {
-    let [key, factory] = ProvableFactory.getRegistered(value);
-    if (factory === undefined) return undefined;
+    let entry = ProvableFactory.getRegistered(value);
+    if (entry === undefined) return undefined;
+    let [key, factory] = entry;
     let serializedType = factory.typeToJSON(value!.constructor as any);
     return {
-      _type: key!,
+      _type: key,
       ...serializedType,
       value: factory.valueToJSON(value!.constructor as any, value),
       _isFactory: true as const,
