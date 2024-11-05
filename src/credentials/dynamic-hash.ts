@@ -26,11 +26,15 @@ const enc = new TextEncoder();
 
 function hashString(string: string) {
   // encode length + bytes
-  let bytes = enc.encode(string);
-  let length = bytes.length;
-  let B = Bytes(length);
+  let stringBytes = enc.encode(string);
+  let length = stringBytes.length;
+  let bytes = new Uint8Array(4 + length);
+  new DataView(bytes.buffer).setUint32(0, length, true);
+  bytes.set(stringBytes, 4);
+  let B = Bytes(4 + length);
   let fields = toFieldsPacked(B, B.from(bytes));
-  return Poseidon.hash([Field(length), Field(0), ...fields]);
+  // console.log({ hashString: fields.map((x) => x.toBigInt()), bytes });
+  return Poseidon.hash(fields);
 }
 
 function packStringToField(string: string) {

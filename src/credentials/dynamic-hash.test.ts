@@ -1,6 +1,7 @@
 import { DynamicArray } from './dynamic-array.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { hashString } from './dynamic-hash.ts';
+import { test } from 'node:test';
 
 let shortString = 'hi';
 let ShortString = DynamicString({ maxLength: 5 });
@@ -10,9 +11,12 @@ let longString =
   ' presiding over the sea, storms, earthquakes and horses.[2]';
 let LongString = DynamicString({ maxLength: 300 });
 
-ShortString.from(shortString)
-  .hash()
-  .assertEquals(hashString(shortString), 'hash mismatch (short)');
-LongString.from(longString)
-  .hash()
-  .assertEquals(hashString(longString), 'hash mismatch (long)');
+test('hash strings', () => {
+  ShortString.from(shortString)
+    .hash()
+    .assertEquals(hashString(shortString), 'hash mismatch (short)');
+
+  LongString.from(longString)
+    .hash()
+    .assertEquals(hashString(longString), 'hash mismatch (long)');
+});

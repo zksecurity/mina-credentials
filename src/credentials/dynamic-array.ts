@@ -13,7 +13,7 @@ import {
   type IsPure,
   Poseidon,
 } from 'o1js';
-import { assert, assertHasProperty, chunk, pad, zip } from '../util.ts';
+import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
 import {
   HashInput,
   type ProvableHashablePure,
@@ -291,7 +291,7 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
-   * Dynamic array hash that only depends on the actual values, not the padding.
+   * Dynamic array hash that only depends on the actual values (not the padding).
    */
   hash() {
     let type = ProvableType.get(this.innerType);
@@ -307,23 +307,28 @@ class DynamicArrayBase<T = any, V = any> {
     let mustPack = packedFieldSize(type) > 1;
     let elementSize = bitSize(type);
     let elementsPerHalfBlock = Math.floor(254 / elementSize);
-    if (elementsPerHalfBlock < 1) elementsPerHalfBlock = 1; // larger types are compressed
+    if (elementsPerHalfBlock === 0) elementsPerHalfBlock = 1; // larger types are compressed
 
     let elementsPerBlock = 2 * elementsPerHalfBlock;
     assert(!mustPack, 'TODO'); // this should get a separate branch here
 
-    // TODO pack the `length` here as well, into the minimum (whole) number of elements
-    // we can just put zeros in front for the length and finally add it to the first block
+    // we pack the length at the beginning of the first block
+    // for efficiency (to avoid unpacking the length), we first put zeros at the beginning
+    // and later just add the length to the first block
+    let elementsPerUint32 = Math.max(Math.floor(32 / elementSize), 1);
+    let array = fill(elementsPerUint32, NULL).concat(this.array);
 
     let Block = StaticArray(type, elementsPerBlock);
-    let maxBlocks = Math.ceil(this.maxLength / elementsPerBlock);
+    let maxBlocks = Math.ceil(
+      (elementsPerUint32 + this.maxLength) / elementsPerBlock
+    );
     let Blocks = DynamicArray(Block, { maxLength: maxBlocks });
 
     // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
     let nBlocks = UInt32.Unsafe.fromField(
-      this.length.add(elementsPerBlock - 1)
+      this.length.add(elementsPerUint32 + elementsPerBlock - 1)
     ).div(elementsPerBlock).value;
-    let padded = pad(this.array, maxBlocks * elementsPerBlock, NULL);
+    let padded = pad(array, maxBlocks * elementsPerBlock, NULL);
     let chunked = chunk(padded, elementsPerBlock).map(Block.from);
     let blocks = new Blocks(chunked, nBlocks).map(
       StaticArray(Field, 2),
@@ -338,8 +343,13 @@ class DynamicArrayBase<T = any, V = any> {
       }
     );
 
+    // add length to the first block
+    let firstBlock = blocks.array[0]!;
+    firstBlock.set(0, firstBlock.get(0).add(this.length).seal());
+
     // TODO remove
     // Provable.log({
+    //   elementsPerUint32,
     //   elementSize,
     //   elementsPerBlock,
     //   maxBlocks,
@@ -349,7 +359,6 @@ class DynamicArrayBase<T = any, V = any> {
     // now hash the 2-field elements blocks, on permutation at a time
     // TODO: first we hash the length, but this should be included in the rest
     let state = Poseidon.initialState();
-    state = Poseidon.update(state, [this.length, Field(0)]);
     blocks.forEach((block, isPadding) => {
       let newState = Poseidon.update(state, block.array);
       state[0] = Provable.if(isPadding, state[0], newState[0]);

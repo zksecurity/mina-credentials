@@ -8,6 +8,7 @@ export {
   zip,
   chunk,
   pad,
+  fill,
   mapObject,
   mapEntries,
   zipObjects,
@@ -93,6 +94,12 @@ function pad<T>(array: T[], size: number, value: T | (() => T)): T[] {
   let cb: () => T =
     typeof value === 'function' ? (value as () => T) : () => value;
   return array.concat(Array.from({ length: size - array.length }, cb));
+}
+
+function fill<T>(size: number, value: T | (() => T)): T[] {
+  let cb: () => T =
+    typeof value === 'function' ? (value as () => T) : () => value;
+  return Array.from({ length: size }, cb);
 }
 
 function mapObject<
