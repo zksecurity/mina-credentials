@@ -335,10 +335,10 @@ class DynamicArrayBase<T = any, V = any> {
       (block) => {
         let firstHalf = block.array
           .slice(0, elementsPerHalfBlock)
-          .map((el) => packToField(type, el));
+          .map((el) => packToField(el, type));
         let secondHalf = block.array
           .slice(elementsPerHalfBlock)
-          .map((el) => packToField(type, el));
+          .map((el) => packToField(el, type));
         return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
       }
     );

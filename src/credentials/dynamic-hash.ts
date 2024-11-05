@@ -46,7 +46,7 @@ function packStringToField(string: string) {
   return Poseidon.hash(fields);
 }
 
-function packToField<T>(type: ProvableType<T> | undefined, value: T): Field {
+function packToField<T>(value: T, type?: ProvableType<T>): Field {
   type ??= NestedProvable.get(NestedProvable.fromValue(value));
 
   // record types
@@ -70,7 +70,7 @@ function hashRecord(data: unknown) {
   );
   let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
     let type = NestedProvable.get(NestedProvable.fromValue(value));
-    return [packStringToField(key), packToField(type, value)];
+    return [packStringToField(key), packToField(value, type)];
   });
   return Poseidon.hash(entryHashes.flat());
 }

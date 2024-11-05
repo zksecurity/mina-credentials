@@ -94,7 +94,7 @@ function DynamicRecord<
               type === undefined ? value : type.fromValue(value);
             return {
               key: packStringToField(key).toBigInt(),
-              value: packToField(type, actualValue).toBigInt(),
+              value: packToField(actualValue, type).toBigInt(),
             };
           });
           return { entries: pad(entries, maxEntries, undefined), actual };
@@ -146,7 +146,7 @@ class GenericRecordBase {
       let type = NestedProvable.get(NestedProvable.fromValue(value));
       return {
         key: packStringToField(key),
-        value: packToField(type, type.fromValue(value)),
+        value: packToField(type.fromValue(value), type),
       };
     });
     let options = pad(
@@ -176,7 +176,7 @@ class GenericRecordBase {
     );
 
     // assert that value matches hash, and return it
-    packToField(valueType, value).assertEquals(
+    packToField(value, valueType).assertEquals(
       valueHash,
       `Bug: Invalid value for key "${key}"`
     );
