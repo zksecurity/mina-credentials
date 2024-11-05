@@ -307,6 +307,7 @@ class DynamicArrayBase<T = any, V = any> {
     let mustPack = packedFieldSize(type) > 1;
     let elementSize = bitSize(type);
     let elementsPerHalfBlock = Math.floor(254 / elementSize);
+    let fullField = elementsPerHalfBlock === 0;
     if (elementsPerHalfBlock === 0) elementsPerHalfBlock = 1; // larger types are compressed
 
     let elementsPerBlock = 2 * elementsPerHalfBlock;
@@ -339,6 +340,7 @@ class DynamicArrayBase<T = any, V = any> {
         let secondHalf = block.array
           .slice(elementsPerHalfBlock)
           .map((el) => packToField(el, type));
+        if (fullField) return [firstHalf[0]!, secondHalf[1]!];
         return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
       }
     );
