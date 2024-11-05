@@ -4,7 +4,26 @@
 import { Bool, Field, Gadgets, Provable, UInt32 } from 'o1js';
 import { assert } from '../util.ts';
 
-export { unsafeIf, seal, lessThan16, assertInRange16, assertLessThan16 };
+export { pack, unsafeIf, seal, lessThan16, assertInRange16, assertLessThan16 };
+
+/**
+ * Pack a list of fields of bit size `chunkSize` each into a single field.
+ * Uses little-endian encoding.
+ *
+ * **Warning**: Assumes, but doesn't prove, that each chunk fits in the chunk size.
+ */
+function pack(chunks: Field[], chunkSize: number) {
+  let p = chunks.length * chunkSize;
+  assert(
+    p < Field.sizeInBits,
+    () => `pack(): too many chunks, got ${chunks.length} * ${chunkSize} = ${p}`
+  );
+  let sum = Field(0);
+  chunks.forEach((chunk, i) => {
+    sum = sum.add(chunk.mul(1n << BigInt(i * chunkSize)));
+  });
+  return sum.seal();
+}
 
 /**
  * Slightly more efficient version of Provable.if() which produces garbage if both t is a non-dummy and b is true.
