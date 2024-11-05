@@ -1,6 +1,7 @@
 import { DynamicArray } from './dynamic-array.ts';
 import { DynamicString } from './dynamic-string.ts';
-import { hashString, packToField } from './dynamic-hash.ts';
+import './dynamic-record.ts';
+import { hashDynamic, hashString } from './dynamic-hash.ts';
 import { test } from 'node:test';
 import * as nodeAssert from 'node:assert';
 
@@ -36,15 +37,16 @@ test('hash strings', () => {
 });
 
 let ShortArray = DynamicArray(ShortString, { maxLength: 5 });
+let LongArray = DynamicArray(LongString, { maxLength: 5 });
 
 test('hash arrays', () => {
-  let shortArrayHash = packToField([shortString, shortString]);
+  let shortArrayHash = hashDynamic([shortString, shortString]);
   ShortArray.from([shortString, shortString])
     .hash()
     .assertEquals(shortArrayHash, 'hash mismatch (short array)');
 
-  let longArrayHash = packToField([longString, longString]);
-  ShortArray.from([longString, longString])
+  let longArrayHash = hashDynamic([longString, longString]);
+  LongArray.from([longString, longString])
     .hash()
     .assertEquals(longArrayHash, 'hash mismatch (long array)');
 });
