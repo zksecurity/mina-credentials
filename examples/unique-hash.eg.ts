@@ -81,9 +81,12 @@ console.log('✅ WALLET: imported and validated credential');
 // VERIFIER: request a presentation
 
 // it's enough to know a subset of the schema to create the request
+// and we don't have to use the original string lengths
+const NewString = DynamicString({ maxLength: 30 });
+
 const Subschema = DynamicRecord(
   {
-    nationality: String,
+    nationality: NewString,
     expiresAt: UInt64, // we don't have to match the original order of keys
     id: Bytes16,
   },

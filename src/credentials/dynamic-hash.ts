@@ -10,6 +10,7 @@ import {
 import { assert, hasProperty, mapEntries } from '../util.ts';
 import { NestedProvable } from '../nested.ts';
 import { GenericRecord, type UnknownRecord } from './dynamic-record.ts';
+import { DynamicArray } from './dynamic-array.ts';
 
 export {
   hashString,
@@ -48,9 +49,13 @@ function packStringToField(string: string) {
 function packToField<T>(type: ProvableType<T> | undefined, value: T): Field {
   type ??= NestedProvable.get(NestedProvable.fromValue(value));
 
-  // identify "record" types
+  // record types
   if (isStruct(type) || value instanceof GenericRecord.Base) {
     return hashRecord(value);
+  }
+  // dynamic array types
+  if (value instanceof DynamicArray.Base) {
+    return value.hash();
   }
   let fields = toFieldsPacked(type, value);
   if (fields.length === 1) return fields[0]!;

@@ -46,15 +46,22 @@ let originalStruct = OriginalWrappedInStruct.fromValue(input);
 
 // subset schema and circuit that doesn't know the full original layout
 
+// not necessarily matches the length of the original schema
+const MyString = DynamicString({ maxLength: 20 });
+
 const Fifth = DynamicRecord(
-  { field: Field, string: String },
+  {
+    field: Field,
+    // different max length here as well
+    string: DynamicString({ maxLength: 5 }),
+  },
   { maxEntries: 5 }
 );
 
 const Subschema = DynamicRecord(
   {
     // not necessarily in order
-    third: DynamicString({ maxLength: 10 }),
+    third: MyString,
     fifth: Fifth,
     first: Field,
   },
@@ -70,7 +77,11 @@ async function circuit() {
 
   await test('DynamicRecord.get()', () => {
     record.get('first').assertEquals(1, 'first');
-    Provable.assertEqual(String, record.get('third'), String.from('something'));
+    Provable.assertEqual(
+      MyString,
+      record.get('third'),
+      MyString.from('something')
+    );
 
     Provable.assertEqual(
       Fifth,
@@ -83,8 +94,9 @@ async function circuit() {
     record.getAny(Bool, 'second').assertEquals(true, 'second');
     record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
 
-    // this works because structs are hashed in dynamic record form
-    const FifthStruct = Struct({ field: Field, string: String });
+    // this works because structs are hashed in dynamic record style,
+    // and the string is hashed in dynamic array style
+    const FifthStruct = Struct({ field: Field, string: MyString });
     Provable.assertEqual(
       FifthStruct,
       record.getAny(FifthStruct, 'fifth'),
