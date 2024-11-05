@@ -17,6 +17,8 @@ import assert from 'assert';
 import { hashCredential } from '../credential.ts';
 import { owner } from '../../tests/test-utils.ts';
 import { hashRecord } from './dynamic-hash.ts';
+import { array } from '../o1js-missing.ts';
+import { DynamicArray } from './dynamic-array.ts';
 
 const String10 = DynamicString({ maxLength: 10 });
 
@@ -28,6 +30,7 @@ const OriginalSchema = Schema({
   third: String10,
   fourth: UInt64,
   fifth: { field: Field, string: String10 },
+  sixth: array(Field, 3),
 });
 
 let input = {
@@ -36,6 +39,7 @@ let input = {
   third: 'something',
   fourth: 123n,
   fifth: { field: 2, string: '...' },
+  sixth: [1n, 2n, 3n],
 };
 
 let original = OriginalSchema.from(input);
@@ -102,6 +106,13 @@ async function circuit() {
       FifthStruct,
       record.getAny(FifthStruct, 'fifth'),
       FifthStruct.fromValue({ field: 2, string: '...' })
+    );
+
+    const SixthDynamic = DynamicArray(Field, { maxLength: 7 });
+    Provable.assertEqual(
+      SixthDynamic,
+      record.getAny(SixthDynamic, 'sixth'),
+      SixthDynamic.from([1n, 2n, 3n])
     );
 
     assert.throws(() => record.getAny(Bool, 'missing'), /Key not found/);
