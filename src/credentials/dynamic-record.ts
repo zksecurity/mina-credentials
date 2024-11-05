@@ -33,6 +33,7 @@ import {
   serializeNestedProvableValue,
 } from '../serialize-provable.ts';
 import { packStringToField, packToField } from './dynamic-hash.ts';
+import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicRecord, GenericRecord, type UnknownRecord, extractProperty };
 
@@ -113,6 +114,7 @@ function DynamicRecord<
     }
   };
 }
+BaseType.set('DynamicRecord', DynamicRecord);
 
 const OptionField = Option(Field);
 const OptionKeyValue = Option(Struct({ key: Field, value: Field }));
@@ -127,6 +129,7 @@ function GenericRecord({ maxEntries }: { maxEntries: number }) {
     }
   };
 }
+BaseType.set('GenericRecord', GenericRecord);
 
 class GenericRecordBase {
   entries: Option<{ key: Field; value: Field }>[];

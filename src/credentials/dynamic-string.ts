@@ -2,6 +2,7 @@ import { Bool, Field, type ProvableHashable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert } from '../util.ts';
+import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicString };
 
@@ -60,6 +61,7 @@ function DynamicString({ maxLength }: { maxLength: number }) {
 
   return DynamicString;
 }
+BaseType.set('DynamicString', DynamicString);
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();

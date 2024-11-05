@@ -36,6 +36,7 @@ import {
 import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 import { StaticArray } from './static-array.ts';
 import { bitSize, packedFieldSize, packToField } from './dynamic-hash.ts';
+import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicArray };
 
@@ -126,6 +127,7 @@ function DynamicArray<
 
   return DynamicArray_;
 }
+BaseType.set('DynamicArray', DynamicArray);
 
 class DynamicArrayBase<T = any, V = any> {
   /**
