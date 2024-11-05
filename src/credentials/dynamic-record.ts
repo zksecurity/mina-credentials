@@ -86,14 +86,15 @@ function DynamicRecord<
           assertExtendsShape(actual, knownShape);
 
           let entries = Object.entries<unknown>(actual).map(([key, value]) => {
-            let type = NestedProvable.get(
+            let type =
               key in knownShape
-                ? (knownShape[key] as any)
-                : NestedProvable.fromValue(value)
-            );
+                ? NestedProvable.get(knownShape[key]!)
+                : undefined;
+            let actualValue =
+              type === undefined ? value : type.fromValue(value);
             return {
               key: packStringToField(key).toBigInt(),
-              value: packToField(type, type.fromValue(value)).toBigInt(),
+              value: packToField(type, actualValue).toBigInt(),
             };
           });
           return { entries: pad(entries, maxEntries, undefined), actual };

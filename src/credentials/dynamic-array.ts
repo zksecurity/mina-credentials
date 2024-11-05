@@ -11,15 +11,21 @@ import {
   type From,
   type ProvablePure,
   type IsPure,
+  Poseidon,
 } from 'o1js';
-import { assert, pad, zip } from '../util.ts';
+import { assert, assertHasProperty, chunk, pad, zip } from '../util.ts';
 import {
   HashInput,
   type ProvableHashablePure,
   type ProvableHashableType,
   ProvableType,
 } from '../o1js-missing.ts';
-import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
+import {
+  assertInRange16,
+  assertLessThan16,
+  lessThan16,
+  pack,
+} from './gadgets.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import {
   deserializeProvable,
@@ -28,6 +34,8 @@ import {
   serializeProvableType,
 } from '../serialize-provable.ts';
 import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
+import { StaticArray } from './static-array.ts';
+import { bitSize, packedFieldSize, packToField } from './dynamic-hash.ts';
 
 export { DynamicArray };
 
@@ -283,6 +291,75 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Dynamic array hash that only depends on the actual values, not the padding.
+   */
+  hash() {
+    let type = ProvableType.get(this.innerType);
+
+    // assert that all padding elements are 0. this allows us to pack values into blocks
+    let NULL = ProvableType.synthesize(type);
+    this.forEach((x, isPadding) => {
+      Provable.assertEqualIf(isPadding, this.innerType, x, NULL);
+    });
+
+    // create blocks of 2 field elements each
+    // TODO abstract this into a `chunk()` method that returns a DynamicArray<StaticArray<T>>
+    let mustPack = packedFieldSize(type) > 1;
+    let elementSize = bitSize(type);
+    let elementsPerHalfBlock = Math.floor(254 / elementSize);
+    if (elementsPerHalfBlock < 1) elementsPerHalfBlock = 1; // larger types are compressed
+
+    let elementsPerBlock = 2 * elementsPerHalfBlock;
+    assert(!mustPack, 'TODO'); // this should get a separate branch here
+
+    // TODO pack the `length` here as well, into the minimum (whole) number of elements
+    // we can just put zeros in front for the length and finally add it to the first block
+
+    let Block = StaticArray(type, elementsPerBlock);
+    let maxBlocks = Math.ceil(this.maxLength / elementsPerBlock);
+    let Blocks = DynamicArray(Block, { maxLength: maxBlocks });
+
+    // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
+    let nBlocks = UInt32.Unsafe.fromField(
+      this.length.add(elementsPerBlock - 1)
+    ).div(elementsPerBlock).value;
+    let padded = pad(this.array, maxBlocks * elementsPerBlock, NULL);
+    let chunked = chunk(padded, elementsPerBlock).map(Block.from);
+    let blocks = new Blocks(chunked, nBlocks).map(
+      StaticArray(Field, 2),
+      (block) => {
+        let firstHalf = block.array
+          .slice(0, elementsPerHalfBlock)
+          .map((el) => packToField(type, el));
+        let secondHalf = block.array
+          .slice(elementsPerHalfBlock)
+          .map((el) => packToField(type, el));
+        return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
+      }
+    );
+
+    // TODO remove
+    // Provable.log({
+    //   elementSize,
+    //   elementsPerBlock,
+    //   maxBlocks,
+    //   hash: blocks.array.flatMap((x) => x.array),
+    // });
+
+    // now hash the 2-field elements blocks, on permutation at a time
+    // TODO: first we hash the length, but this should be included in the rest
+    let state = Poseidon.initialState();
+    state = Poseidon.update(state, [this.length, Field(0)]);
+    blocks.forEach((block, isPadding) => {
+      let newState = Poseidon.update(state, block.array);
+      state[0] = Provable.if(isPadding, state[0], newState[0]);
+      state[1] = Provable.if(isPadding, state[1], newState[1]);
+      state[2] = Provable.if(isPadding, state[2], newState[2]);
+    });
+    return state[0];
+  }
+
+  /**
    * Push a value, without changing the maxLength.
    *
    * Proves that the new length is still within the maxLength, fails otherwise.
@@ -381,9 +458,8 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   toValue() {
-    return (
-      this.constructor as any as { provable: Provable<any, V[]> }
-    ).provable.toValue(this);
+    assertHasProperty(this.constructor, 'provable', 'Need subclass');
+    return (this.constructor.provable as Provable<this, V[]>).toValue(this);
   }
 }
 
