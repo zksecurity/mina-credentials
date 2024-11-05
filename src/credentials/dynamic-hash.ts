@@ -54,7 +54,9 @@ function hashDynamic(value: HashableValue) {
 
 const simpleTypes = new Set(['number', 'boolean', 'bigint', 'undefined']);
 
-function isSimple(value: HashableValue) {
+function isSimple(
+  value: unknown
+): value is number | boolean | bigint | undefined {
   return simpleTypes.has(typeof value);
 }
 
@@ -94,7 +96,6 @@ function innerArrayType(array: HashableValue[]): ProvableHashableType {
   let type = provableTypeOf(array[0]);
   assert(
     array.every((v) => {
-      console.log(v, type, provableTypeOf(v));
       return provableTypeEquals(v, type);
     }),
     'Array elements must be homogenous'
@@ -106,7 +107,8 @@ function hashArray(array: HashableValue[]) {
   let type = innerArrayType(array);
   let Array = BaseType.DynamicArray(type, { maxLength: array.length });
   let as = Array.from(array);
-  console.log(as);
+  // TODO remove
+  console.dir(as, { depth: 4 });
   return as.hash();
 }
 
@@ -133,6 +135,11 @@ function packStringToField(string: string) {
 }
 
 function packToField<T>(value: T, type?: ProvableType<T>): Field {
+  // hashable values
+  if (isSimple(value) || typeof value === 'string' || Array.isArray(value)) {
+    return hashDynamic(value);
+  }
+
   // dynamic array types
   if (value instanceof BaseType.DynamicArray.Base) {
     return value.hash();
