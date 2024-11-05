@@ -511,11 +511,15 @@ function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
         there({ array, length }) {
           return array.slice(0, Number(length));
         },
-        back(array) {
+        backAndDistinguish(array) {
+          // gracefully handle different maxLength
+          if (array instanceof DynamicArrayBase) {
+            if (array.maxLength === maxLength) return array;
+            array = array.toValue();
+          }
           let padded = pad(array, maxLength, NULL);
           return { array: padded, length: BigInt(array.length) };
         },
-        distinguish: (s) => s instanceof DynamicArrayBase,
       })
 
       // custom hash input

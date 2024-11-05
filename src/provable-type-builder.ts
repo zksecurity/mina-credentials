@@ -58,11 +58,18 @@ class TypeBuilder<T, V> {
     });
   }
 
-  mapValue<W>(transform: {
-    there: (x: V) => W;
-    back: (x: W) => V;
-    distinguish: (x: T | W) => x is T;
-  }): TypeBuilder<T, W> {
+  mapValue<W>(
+    transform:
+      | {
+          there: (x: V) => W;
+          back: (x: W) => V;
+          distinguish: (x: T | W) => x is T;
+        }
+      | {
+          there: (x: V) => W;
+          backAndDistinguish: (x: W | T) => V | T;
+        }
+  ): TypeBuilder<T, W> {
     let type = this.type;
     return new TypeBuilder({
       ...type,
@@ -71,6 +78,9 @@ class TypeBuilder<T, V> {
         return transform.there(type.toValue(value));
       },
       fromValue(value) {
+        if ('backAndDistinguish' in transform) {
+          return type.fromValue(transform.backAndDistinguish(value));
+        }
         if (transform.distinguish(value)) return value;
         return type.fromValue(transform.back(value));
       },
@@ -109,11 +119,18 @@ class TypeBuilderPure<T, V> extends TypeBuilder<T, V> {
     return super.forConstructor(constructor) as TypeBuilderPure<C, V>;
   }
 
-  mapValue<W>(transform: {
-    there: (x: V) => W;
-    back: (x: W) => V;
-    distinguish: (x: T | W) => x is T;
-  }): TypeBuilderPure<T, W> {
+  mapValue<W>(
+    transform:
+      | {
+          there: (x: V) => W;
+          back: (x: W) => V;
+          distinguish: (x: T | W) => x is T;
+        }
+      | {
+          there: (x: V) => W;
+          backAndDistinguish: (x: W | T) => V | T;
+        }
+  ): TypeBuilderPure<T, W> {
     return super.mapValue(transform) as TypeBuilderPure<T, W>;
   }
 

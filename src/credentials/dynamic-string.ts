@@ -47,10 +47,14 @@ function DynamicString({ maxLength }: { maxLength: number }) {
       there(s) {
         return dec.decode(Uint8Array.from(s, ({ value }) => Number(value)));
       },
-      back(s) {
+      backAndDistinguish(s) {
+        // gracefully handle different maxLength
+        if (s instanceof DynamicStringBase) {
+          if (s.maxLength === maxLength) return s;
+          s = s.toString();
+        }
         return [...enc.encode(s)].map((t) => ({ value: BigInt(t) }));
       },
-      distinguish: (s) => s instanceof DynamicStringBase,
     })
     .build();
 
