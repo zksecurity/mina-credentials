@@ -6,7 +6,7 @@ import {
   Field,
   type InferProvable,
   type InferValue,
-  Packed,
+  Poseidon,
   Provable,
   type ProvableHashable,
   type ProvablePure,
@@ -25,6 +25,7 @@ export {
   type ProvableMaybeHashable,
   array,
   toFieldsPacked,
+  hashPacked,
   HashInput,
   type WithProvable,
 };
@@ -152,6 +153,8 @@ type ProvableHashablePure<T = any, V = any> = ProvablePure<T, V> &
 
 /**
  * Pack a value to as few field elements as possible using `toInput()`, falling back to `toFields()` if that's not available.
+ *
+ * Note: Different than `Packed` in o1js, this uses little-endian packing.
  */
 function toFieldsPacked<T>(
   type_: WithProvable<ProvableMaybeHashable<T>>,
@@ -159,7 +162,37 @@ function toFieldsPacked<T>(
 ): Field[] {
   let type = ProvableType.get(type_);
   if (type.toInput === undefined) return type.toFields(value);
-  return Packed.create(type as ProvableHashable<T>).pack(value).packed;
+
+  let { fields = [], packed = [] } = toInput(type, value);
+  let result = [...fields];
+  let current = Field(0);
+  let currentSize = 0;
+
+  for (let [field, size] of packed) {
+    if (currentSize + size < Field.sizeInBits) {
+      current = current.add(field.mul(1n << BigInt(currentSize)));
+      currentSize += size;
+    } else {
+      result.push(current.seal());
+      current = field;
+      currentSize = size;
+    }
+  }
+  if (currentSize > 0) result.push(current.seal());
+  return result;
+}
+
+/**
+ * Hash a provable value efficiently, by first packing it into as few field elements as possible.
+ *
+ * Note: Different than `Poseidon.hashPacked()` and `Hashed` (by default) in o1js, this uses little-endian packing.
+ */
+function hashPacked<T>(
+  type: WithProvable<ProvableMaybeHashable<T>>,
+  value: T
+): Field {
+  let fields = toFieldsPacked(type, value);
+  return Poseidon.hash(fields);
 }
 
 // temporary, until we land `StaticArray`

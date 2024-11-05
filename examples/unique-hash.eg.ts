@@ -1,4 +1,4 @@
-import { Bytes, Field, Poseidon, UInt64 } from 'o1js';
+import { Bytes, Field, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -10,6 +10,7 @@ import {
   type InferSchema,
   DynamicString,
   DynamicArray,
+  hashPacked,
 } from '../src/index.ts';
 import {
   issuer,
@@ -136,7 +137,7 @@ let request = PresentationRequest.https(
   spec,
   {
     acceptedNations: FieldArray.from(
-      acceptedNations.map((s) => Poseidon.hashPacked(String, String.from(s)))
+      acceptedNations.map((s) => hashPacked(String, String.from(s)))
     ),
     acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
