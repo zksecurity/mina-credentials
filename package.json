@@ -1,6 +1,6 @@
 {
   "name": "mina-credentials",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Private Credentials on Mina",
   "author": "zksecurity <hello@zksecurity.xyz>",
   "license": "Apache-2.0",
