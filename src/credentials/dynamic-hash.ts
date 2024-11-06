@@ -24,13 +24,11 @@ import {
   mapEntries,
   stringLength,
 } from '../util.ts';
-import { NestedProvable } from '../nested.ts';
 import type { UnknownRecord } from './dynamic-record.ts';
 import { BaseType } from './dynamic-base-types.ts';
 
 export {
   hashDynamic,
-  packDynamic,
   hashArray,
   hashString,
   packStringToField,
@@ -52,17 +50,55 @@ type HashableValue =
   | { [key in string]: HashableValue };
 
 function hashDynamic(value: HashableValue) {
-  return packDynamic(value, { mustHash: true });
+  return packToField(value, undefined, { mustHash: true });
 }
 
-function packDynamic(value: HashableValue, config?: { mustHash: boolean }) {
+function packToField<T>(
+  value: T,
+  type?: ProvableType<T>,
+  config?: { mustHash: boolean }
+): Field {
+  // hashable values
   if (typeof value === 'string') return hashString(value);
   if (typeof value === 'number')
     return packToField(UInt64.from(value), UInt64, config);
   if (typeof value === 'boolean') return packToField(Bool(value), Bool, config);
   if (typeof value === 'bigint')
     return packToField(Field(value), Field, config);
-  if (Array.isArray(value)) return hashArray(value);
+
+  // dynamic array types
+  if (Array.isArray(value)) {
+    return hashArray(value);
+  }
+  if (value instanceof BaseType.DynamicArray.Base) {
+    return value.hash();
+  }
+  // dynamic records
+  if (value instanceof BaseType.GenericRecord.Base) {
+    return hashRecord(value);
+  }
+
+  // now let's simply try to get the type from the value
+  try {
+    // this may throw, in that case we continue below
+    type ??= ProvableType.fromValue(value);
+
+    // handle structs as dynamic records
+    if (isStruct(type)) {
+      return hashRecord(value);
+    }
+
+    // other provable types use directly
+    let fields = toFieldsPacked(type, value);
+    if (fields.length === 1 && !config?.mustHash) return fields[0]!;
+    return Poseidon.hash(fields);
+  } catch {}
+
+  // at this point, the only valid types are records
+  assert(
+    typeof value === 'object' && value !== null,
+    `Failed to get type for value ${value}`
+  );
   return hashRecord(value);
 }
 
@@ -72,12 +108,49 @@ function hashArray(array: unknown[]) {
   return Array.from(array).hash();
 }
 
+function hashRecord(data: unknown) {
+  if (data instanceof BaseType.GenericRecord.Base) return data.hash();
+  assert(
+    typeof data === 'object' && data !== null,
+    'Expected DynamicRecord or plain object as data'
+  );
+  let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
+    return [packStringToField(key), packToField(value)];
+  });
+  return Poseidon.hash(entryHashes.flat());
+}
+
+const enc = new TextEncoder();
+
+function hashString(string: string) {
+  // encode length + bytes
+  let stringBytes = enc.encode(string);
+  let length = stringBytes.length;
+  let bytes = new Uint8Array(4 + length);
+  new DataView(bytes.buffer).setUint32(0, length, true);
+  bytes.set(stringBytes, 4);
+  let B = Bytes(4 + length);
+  let fields = toFieldsPacked(B, B.from(bytes));
+  return Poseidon.hash(fields);
+}
+
 const simpleTypes = new Set(['number', 'boolean', 'bigint', 'undefined']);
 
 function isSimple(
   value: unknown
 ): value is number | boolean | bigint | undefined {
   return simpleTypes.has(typeof value);
+}
+
+function innerArrayType(array: unknown[]): ProvableHashableType {
+  let type = provableTypeOf(array[0]);
+  assert(
+    array.every((v) => {
+      return provableTypeEquals(v, type);
+    }),
+    'Array elements must be homogenous'
+  );
+  return type;
 }
 
 function provableTypeOf(value: unknown): ProvableHashableType {
@@ -167,76 +240,6 @@ function provableTypeEquals(
     isSubclass(type, BaseType.DynamicRecord.Base) &&
     length <= type.prototype.maxEntries
   );
-}
-
-function innerArrayType(array: unknown[]): ProvableHashableType {
-  let type = provableTypeOf(array[0]);
-  assert(
-    array.every((v) => {
-      return provableTypeEquals(v, type);
-    }),
-    'Array elements must be homogenous'
-  );
-  return type;
-}
-
-const enc = new TextEncoder();
-
-function hashString(string: string) {
-  // encode length + bytes
-  let stringBytes = enc.encode(string);
-  let length = stringBytes.length;
-  let bytes = new Uint8Array(4 + length);
-  new DataView(bytes.buffer).setUint32(0, length, true);
-  bytes.set(stringBytes, 4);
-  let B = Bytes(4 + length);
-  let fields = toFieldsPacked(B, B.from(bytes));
-  return Poseidon.hash(fields);
-}
-
-function packToField<T>(
-  value: T,
-  type?: ProvableType<T>,
-  config?: { mustHash: boolean }
-): Field {
-  // hashable values
-  if (isSimple(value) || typeof value === 'string') {
-    return packDynamic(value, config);
-  }
-
-  // dynamic array types
-  if (Array.isArray(value)) {
-    return hashArray(value);
-  }
-  if (value instanceof BaseType.DynamicArray.Base) {
-    return value.hash();
-  }
-
-  // record types
-  if (value instanceof BaseType.GenericRecord.Base) {
-    return hashRecord(value);
-  }
-
-  type ??= NestedProvable.get(NestedProvable.fromValue(value));
-  if (isStruct(type)) {
-    return hashRecord(value);
-  }
-
-  let fields = toFieldsPacked(type, value);
-  if (fields.length === 1 && !config?.mustHash) return fields[0]!;
-  return Poseidon.hash(fields);
-}
-
-function hashRecord(data: unknown) {
-  if (data instanceof BaseType.GenericRecord.Base) return data.hash();
-  assert(
-    typeof data === 'object' && data !== null,
-    'Expected DynamicRecord or plain object as data'
-  );
-  let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
-    return [packStringToField(key), packToField(value)];
-  });
-  return Poseidon.hash(entryHashes.flat());
 }
 
 // for packing keys -- not compatible with dynamic string hash! (as keys will be known at compile time)

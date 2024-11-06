@@ -1,7 +1,7 @@
 import { DynamicArray } from './dynamic-array.ts';
 import { DynamicString } from './dynamic-string.ts';
 import './dynamic-record.ts';
-import { hashDynamic, hashString, packDynamic } from './dynamic-hash.ts';
+import { hashDynamic, hashString, packToField } from './dynamic-hash.ts';
 import { test } from 'node:test';
 import * as nodeAssert from 'node:assert';
 import { Bytes, Field, MerkleList, Poseidon, Provable, UInt8 } from 'o1js';
@@ -58,9 +58,10 @@ async function main() {
   // single-field values
   await test('plain values', () => {
     // stay the same when packing
-    packDynamic(-1n).assertEquals(Field(-1n), 'pack bigint');
-    packDynamic(true).assertEquals(Field(1), 'pack boolean');
-    packDynamic(123).assertEquals(Field(123), 'pack number');
+    packToField(-1n).assertEquals(Field(-1n), 'pack bigint');
+    packToField(true).assertEquals(Field(1), 'pack boolean');
+    packToField(123).assertEquals(Field(123), 'pack number');
+    // packDynamic(undefined).assertEquals(Field(0), 'pack undefined');
 
     // hash is plain poseidon hash
     hashDynamic(-1n).assertEquals(Poseidon.hash([Field(-1n)]), 'hash bigint');
