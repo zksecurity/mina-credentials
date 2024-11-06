@@ -79,6 +79,18 @@ async function main() {
       .hash()
       .assertEquals(recordHash, 'record');
   });
+
+  // arrays of records
+  let array = [record, record, record];
+  let arrayHash = hashDynamic(array);
+
+  let RecordArray = DynamicArray(Record, { maxLength: 5 });
+
+  // await test('hash arrays of records', () => {
+  Provable.witness(RecordArray, () => array)
+    .hash()
+    .assertEquals(arrayHash, 'array');
+  // });
 }
 
 await test('outside circuit', () => main());
