@@ -49,7 +49,12 @@ type HashableValue =
   | HashableValue[]
   | { [key in string]: HashableValue };
 
-function hashDynamic(value: HashableValue) {
+/**
+ * Hash an input that is either a simple JSON-with-bigints object or a provable type.
+ *
+ * The hashing algorithm is compatible with dynamic-length schemas.
+ */
+function hashDynamic(value: HashableValue | unknown) {
   return packToField(value, undefined, { mustHash: true });
 }
 
@@ -75,7 +80,7 @@ function packToField<T>(
   }
   // dynamic records
   if (value instanceof BaseType.GenericRecord.Base) {
-    return hashRecord(value);
+    return value.hash();
   }
 
   // now let's simply try to get the type from the value
@@ -109,7 +114,6 @@ function hashArray(array: unknown[]) {
 }
 
 function hashRecord(data: unknown) {
-  if (data instanceof BaseType.GenericRecord.Base) return data.hash();
   assert(
     typeof data === 'object' && data !== null,
     'Expected DynamicRecord or plain object as data'

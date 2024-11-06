@@ -16,7 +16,7 @@ import { test } from 'node:test';
 import assert from 'assert';
 import { hashCredential } from '../credential.ts';
 import { owner } from '../../tests/test-utils.ts';
-import { hashRecord } from './dynamic-hash.ts';
+import { hashDynamic, hashRecord } from './dynamic-hash.ts';
 import { array } from '../o1js-missing.ts';
 import { DynamicArray } from './dynamic-array.ts';
 
@@ -121,9 +121,10 @@ async function circuit() {
   await test('DynamicRecord.hash()', () =>
     record.hash().assertEquals(expectedHash, 'hash'));
 
-  await test('hashRecord()', () => {
-    hashRecord(originalStruct).assertEquals(expectedHash);
-    hashRecord(record).assertEquals(expectedHash);
+  await test('hashDynamic()', () => {
+    hashDynamic(original).assertEquals(expectedHash);
+    hashDynamic(originalStruct).assertEquals(expectedHash);
+    hashDynamic(record).assertEquals(expectedHash);
   });
 
   await test('hashCredential()', () => {
