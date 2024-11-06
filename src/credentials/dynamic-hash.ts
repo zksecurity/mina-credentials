@@ -18,6 +18,7 @@ import {
 } from '../o1js-missing.ts';
 import {
   assert,
+  assertIsObject,
   hasProperty,
   isSubclass,
   mapEntries,
@@ -58,6 +59,12 @@ function hashDynamic(value: HashableValue) {
   return hashRecord(value);
 }
 
+function hashArray(array: unknown[]) {
+  let type = innerArrayType(array);
+  let Array = BaseType.DynamicArray(type, { maxLength: array.length });
+  return Array.from(array).hash();
+}
+
 const simpleTypes = new Set(['number', 'boolean', 'bigint', 'undefined']);
 
 function isSimple(
@@ -66,7 +73,7 @@ function isSimple(
   return simpleTypes.has(typeof value);
 }
 
-function provableTypeOf(value: HashableValue): ProvableHashableType {
+function provableTypeOf(value: unknown): ProvableHashableType {
   if (value === undefined) return Undefined;
   if (typeof value === 'string') {
     return BaseType.DynamicString({ maxLength: stringLength(value) });
@@ -79,11 +86,22 @@ function provableTypeOf(value: HashableValue): ProvableHashableType {
       maxLength: value.length,
     });
   }
-  return BaseType.DynamicRecord({}, { maxEntries: Object.keys(value).length });
+  if (value instanceof BaseType.GenericRecord.Base)
+    return ProvableType.fromValue(value);
+
+  let type = NestedProvable.get(NestedProvable.fromValue(value));
+  if (isStruct(type)) {
+    assertIsObject(value);
+    return BaseType.DynamicRecord(
+      {},
+      { maxEntries: Object.keys(value).length }
+    );
+  }
+  return type;
 }
 
 function provableTypeEquals(
-  value: HashableValue,
+  value: unknown,
   type: ProvableHashableType
 ): boolean {
   if (isSimple(value)) return provableTypeOf(value) === type;
@@ -95,10 +113,17 @@ function provableTypeEquals(
     let innerType = type.prototype.innerType;
     return value.every((v) => provableTypeEquals(v, innerType));
   }
-  return isSubclass(type, BaseType.GenericRecord.Base);
+  if (value instanceof BaseType.GenericRecord.Base)
+    return isSubclass(type, BaseType.GenericRecord.Base);
+
+  let valueType = NestedProvable.get(NestedProvable.fromValue(value));
+  if (isStruct(type)) {
+    return isSubclass(valueType, BaseType.DynamicRecord.Base);
+  }
+  return valueType === ProvableType.get(type);
 }
 
-function innerArrayType(array: HashableValue[]): ProvableHashableType {
+function innerArrayType(array: unknown[]): ProvableHashableType {
   let type = provableTypeOf(array[0]);
   assert(
     array.every((v) => {
@@ -107,12 +132,6 @@ function innerArrayType(array: HashableValue[]): ProvableHashableType {
     'Array elements must be homogenous'
   );
   return type;
-}
-
-function hashArray(array: HashableValue[]) {
-  let type = innerArrayType(array);
-  let Array = BaseType.DynamicArray(type, { maxLength: array.length });
-  return Array.from(array).hash();
 }
 
 const enc = new TextEncoder();
@@ -139,11 +158,14 @@ function packStringToField(string: string) {
 
 function packToField<T>(value: T, type?: ProvableType<T>): Field {
   // hashable values
-  if (isSimple(value) || typeof value === 'string' || Array.isArray(value)) {
+  if (isSimple(value) || typeof value === 'string') {
     return hashDynamic(value);
   }
 
   // dynamic array types
+  if (Array.isArray(value)) {
+    return hashArray(value);
+  }
   if (value instanceof BaseType.DynamicArray.Base) {
     return value.hash();
   }
@@ -167,6 +189,7 @@ function hashRecord(data: unknown) {
     'Expected DynamicRecord or plain object as data'
   );
   let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
+    // TODO does it have any benefit here to get the type?
     let type = NestedProvable.get(NestedProvable.fromValue(value));
     return [packStringToField(key), packToField(value, type)];
   });
