@@ -313,14 +313,12 @@ class DynamicArrayBase<T = any, V = any> {
 
     // create blocks of 2 field elements each
     // TODO abstract this into a `chunk()` method that returns a DynamicArray<StaticArray<T>>
-    let mustPack = packedFieldSize(type) > 1;
     let elementSize = bitSize(type);
     let elementsPerHalfBlock = Math.floor(254 / elementSize);
     let fullField = elementsPerHalfBlock === 0;
     if (elementsPerHalfBlock === 0) elementsPerHalfBlock = 1; // larger types are compressed
 
     let elementsPerBlock = 2 * elementsPerHalfBlock;
-    assert(!mustPack, 'TODO'); // this should get a separate branch here
 
     // we pack the length at the beginning of the first block
     // for efficiency (to avoid unpacking the length), we first put zeros at the beginning
@@ -343,12 +341,9 @@ class DynamicArrayBase<T = any, V = any> {
     let blocks = new Blocks(chunked, nBlocks).map(
       StaticArray(Field, 2),
       (block) => {
-        let firstHalf = block.array
-          .slice(0, elementsPerHalfBlock)
-          .map((el) => packToField(el, type));
-        let secondHalf = block.array
-          .slice(elementsPerHalfBlock)
-          .map((el) => packToField(el, type));
+        let fields = block.array.map((el) => packToField(el, type));
+        let firstHalf = fields.slice(0, elementsPerHalfBlock);
+        let secondHalf = fields.slice(elementsPerHalfBlock);
         if (fullField) {
           return [defined(firstHalf[0]), defined(secondHalf[0])];
         }
