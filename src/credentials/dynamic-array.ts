@@ -305,10 +305,13 @@ class DynamicArrayBase<T = any, V = any> {
   hash() {
     let type = ProvableType.get(this.innerType);
 
+    // pack all elements into a single field element
+    let fields = this.array.map((x) => packToField(x, type));
+    let NULL = packToField(ProvableType.synthesize(type), type);
+
     // assert that all padding elements are 0. this allows us to pack values into blocks
-    let NULL = ProvableType.synthesize(type);
-    this.forEach((x, isPadding) => {
-      Provable.assertEqualIf(isPadding, this.innerType, x, NULL);
+    zip(fields, this._dummyMask()).forEach(([x, isPadding]) => {
+      Provable.assertEqualIf(isPadding, Field, x, NULL);
     });
 
     // create blocks of 2 field elements each
@@ -323,38 +326,34 @@ class DynamicArrayBase<T = any, V = any> {
     // for efficiency (to avoid unpacking the length), we first put zeros at the beginning
     // and later just add the length to the first block
     let elementsPerUint32 = Math.max(Math.floor(32 / elementSize), 1);
-    let array = fill(elementsPerUint32, NULL).concat(this.array);
+    let array = fill(elementsPerUint32, Field(0)).concat(fields);
 
-    let Block = StaticArray(type, elementsPerBlock);
     let maxBlocks = Math.ceil(
       (elementsPerUint32 + this.maxLength) / elementsPerBlock
     );
-    let Blocks = DynamicArray(Block, { maxLength: maxBlocks });
+    let padded = pad(array, maxBlocks * elementsPerBlock, NULL);
+    let chunked = chunk(padded, elementsPerBlock);
+    let blocks = chunked.map((block): [Field, Field] => {
+      let firstHalf = block.slice(0, elementsPerHalfBlock);
+      let secondHalf = block.slice(elementsPerHalfBlock);
+      return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
+    });
+
+    // add length to the first block
+    let firstBlock = blocks[0]!;
+    firstBlock[0] = firstBlock[0].add(this.length).seal();
 
     // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
+    let Fieldx2 = StaticArray(Field, 2);
+    let Blocks = DynamicArray(Fieldx2, { maxLength: maxBlocks });
     let nBlocks = UInt32.Unsafe.fromField(
       this.length.add(elementsPerUint32 + elementsPerBlock - 1)
     ).div(elementsPerBlock).value;
-    let padded = pad(array, maxBlocks * elementsPerBlock, NULL);
-    let chunked = chunk(padded, elementsPerBlock).map(Block.from);
-    let blocks = new Blocks(chunked, nBlocks).map(
-      StaticArray(Field, 2),
-      (block) => {
-        let fields = block.array.map((el) => packToField(el, type));
-        let firstHalf = fields.slice(0, elementsPerHalfBlock);
-        let secondHalf = fields.slice(elementsPerHalfBlock);
-        return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
-      }
-    );
-
-    // add length to the first block
-    let firstBlock = blocks.array[0]!;
-    firstBlock.set(0, firstBlock.get(0).add(this.length).seal());
+    let dynBlocks = new Blocks(blocks.map(Fieldx2.from), nBlocks);
 
     // now hash the 2-field elements blocks, on permutation at a time
-    // TODO: first we hash the length, but this should be included in the rest
     let state = Poseidon.initialState();
-    blocks.forEach((block, isPadding) => {
+    dynBlocks.forEach((block, isPadding) => {
       let newState = Poseidon.update(state, block.array);
       state[0] = Provable.if(isPadding, state[0], newState[0]);
       state[1] = Provable.if(isPadding, state[1], newState[1]);

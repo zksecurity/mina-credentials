@@ -15,7 +15,7 @@ export { pack, unsafeIf, seal, lessThan16, assertInRange16, assertLessThan16 };
 function pack(chunks: Field[], chunkSize: number) {
   let p = chunks.length * chunkSize;
   assert(
-    p < Field.sizeInBits,
+    chunks.length <= 1 || p < Field.sizeInBits,
     () => `pack(): too many chunks, got ${chunks.length} * ${chunkSize} = ${p}`
   );
   let sum = Field(0);
