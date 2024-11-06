@@ -343,9 +343,9 @@ class DynamicArrayBase<T = any, V = any> {
     let firstBlock = blocks[0]!;
     firstBlock[0] = firstBlock[0].add(this.length).seal();
 
-    // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
     let Fieldx2 = StaticArray(Field, 2);
     let Blocks = DynamicArray(Fieldx2, { maxLength: maxBlocks });
+    // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
     let nBlocks = UInt32.Unsafe.fromField(
       this.length.add(elementsPerUint32 + elementsPerBlock - 1)
     ).div(elementsPerBlock).value;
