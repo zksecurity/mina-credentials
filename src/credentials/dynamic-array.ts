@@ -315,7 +315,6 @@ class DynamicArrayBase<T = any, V = any> {
     // TODO abstract this into a `chunk()` method that returns a DynamicArray<StaticArray<T>>
     let elementSize = bitSize(type);
     let elementsPerHalfBlock = Math.floor(254 / elementSize);
-    let fullField = elementsPerHalfBlock === 0;
     if (elementsPerHalfBlock === 0) elementsPerHalfBlock = 1; // larger types are compressed
 
     let elementsPerBlock = 2 * elementsPerHalfBlock;
@@ -344,9 +343,6 @@ class DynamicArrayBase<T = any, V = any> {
         let fields = block.array.map((el) => packToField(el, type));
         let firstHalf = fields.slice(0, elementsPerHalfBlock);
         let secondHalf = fields.slice(elementsPerHalfBlock);
-        if (fullField) {
-          return [defined(firstHalf[0]), defined(secondHalf[0])];
-        }
         return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
       }
     );
@@ -354,15 +350,6 @@ class DynamicArrayBase<T = any, V = any> {
     // add length to the first block
     let firstBlock = blocks.array[0]!;
     firstBlock.set(0, firstBlock.get(0).add(this.length).seal());
-
-    // TODO remove
-    // Provable.log({
-    //   elementsPerUint32,
-    //   elementSize,
-    //   elementsPerBlock,
-    //   maxBlocks,
-    //   hash: blocks.array.flatMap((x) => x.array),
-    // });
 
     // now hash the 2-field elements blocks, on permutation at a time
     // TODO: first we hash the length, but this should be included in the rest
