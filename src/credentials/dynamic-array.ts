@@ -13,9 +13,16 @@ import {
   type IsPure,
   Poseidon,
 } from 'o1js';
-import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
 import {
-  HashInput,
+  assert,
+  assertHasProperty,
+  chunk,
+  defined,
+  fill,
+  pad,
+  zip,
+} from '../util.ts';
+import {
   type ProvableHashablePure,
   type ProvableHashableType,
   ProvableType,
@@ -342,7 +349,9 @@ class DynamicArrayBase<T = any, V = any> {
         let secondHalf = block.array
           .slice(elementsPerHalfBlock)
           .map((el) => packToField(el, type));
-        if (fullField) return [firstHalf[0]!, secondHalf[1]!];
+        if (fullField) {
+          return [defined(firstHalf[0]), defined(secondHalf[0])];
+        }
         return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
       }
     );
@@ -496,7 +505,7 @@ function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
   Class: Class
 ) {
   let maxLength = Class.maxLength;
-  let NULL = type.toValue(ProvableType.synthesize(type));
+  let NULL = ProvableType.synthesize(type);
 
   return (
     TypeBuilder.shape({
@@ -521,26 +530,16 @@ function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
             if (array.maxLength === maxLength) return array;
             array = array.toValue();
           }
-          let padded = pad(array, maxLength, NULL);
-          return { array: padded, length: BigInt(array.length) };
+          // fully convert back so that we can pad with NULL
+          let converted = array.map((x) => type.fromValue(x));
+          let padded = pad(converted, maxLength, NULL);
+          return new Class(padded, Field(array.length));
         },
       })
 
       // custom hash input
-      .hashInput(({ array, length }) => {
-        let lengthInput: HashInput = { packed: [[length, 32]] };
-        let arrayInput = array.map((x): HashInput => {
-          let { fields = [], packed = [] } = type.toInput(x);
-          return {
-            packed: fields
-              .map((x) => [x, 254] as [Field, number])
-              .concat(packed),
-          };
-        });
-        return [lengthInput, ...arrayInput].reduce(
-          HashInput.append,
-          HashInput.empty
-        );
+      .hashInput((array) => {
+        return { fields: [array.hash()] };
       })
   );
 }

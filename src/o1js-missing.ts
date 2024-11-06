@@ -26,6 +26,8 @@ export {
   array,
   toFieldsPacked,
   hashPacked,
+  empty,
+  toInput,
   HashInput,
   type WithProvable,
 };

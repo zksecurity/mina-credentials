@@ -1,6 +1,7 @@
 export {
   assert,
   assertDefined,
+  defined,
   assertHasProperty,
   hasProperty,
   assertIsObject,
@@ -14,6 +15,7 @@ export {
   zipObjects,
   assertExtendsShape,
   isSubclass,
+  stringLength,
 };
 
 function assert(
@@ -33,6 +35,11 @@ function assertDefined<T>(
   if (input === undefined) {
     throw Error(message ?? 'Input is undefined');
   }
+}
+
+function defined<T>(input: T | undefined, message?: string): T {
+  assertDefined(input, message);
+  return input;
 }
 
 function assertIsObject(
@@ -150,4 +157,10 @@ function isSubclass<B extends Constructor<any>>(
   if (typeof constructor !== 'function') return false;
   if (!hasProperty(constructor, 'prototype')) return false;
   return constructor.prototype instanceof base;
+}
+
+let enc = new TextEncoder();
+
+function stringLength(str: string): number {
+  return enc.encode(str).length;
 }

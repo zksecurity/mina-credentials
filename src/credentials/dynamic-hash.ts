@@ -16,7 +16,13 @@ import {
   ProvableType,
   toFieldsPacked,
 } from '../o1js-missing.ts';
-import { assert, hasProperty, isSubclass, mapEntries } from '../util.ts';
+import {
+  assert,
+  hasProperty,
+  isSubclass,
+  mapEntries,
+  stringLength,
+} from '../util.ts';
 import { NestedProvable } from '../nested.ts';
 import type { UnknownRecord } from './dynamic-record.ts';
 import { BaseType } from './dynamic-base-types.ts';
@@ -63,7 +69,7 @@ function isSimple(
 function provableTypeOf(value: HashableValue): ProvableHashableType {
   if (value === undefined) return Undefined;
   if (typeof value === 'string') {
-    return BaseType.DynamicString({ maxLength: value.length });
+    return BaseType.DynamicString({ maxLength: stringLength(value) });
   }
   if (typeof value === 'number') return UInt64;
   if (typeof value === 'boolean') return Bool;
@@ -106,10 +112,7 @@ function innerArrayType(array: HashableValue[]): ProvableHashableType {
 function hashArray(array: HashableValue[]) {
   let type = innerArrayType(array);
   let Array = BaseType.DynamicArray(type, { maxLength: array.length });
-  let as = Array.from(array);
-  // TODO remove
-  console.dir(as, { depth: 4 });
-  return as.hash();
+  return Array.from(array).hash();
 }
 
 const enc = new TextEncoder();
