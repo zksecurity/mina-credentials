@@ -260,7 +260,7 @@ function withOwner<DataType extends NestedProvable>(data: DataType) {
 function HashableCredential<Data>(
   dataType: NestedProvableFor<Data>
 ): ProvableHashable<Credential<Data>> {
-  return NestedProvable.get(withOwner(dataType)) as any;
+  return NestedProvable.get(withOwner(dataType));
 }
 
 function HashedCredential<Data>(
