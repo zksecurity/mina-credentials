@@ -1,10 +1,11 @@
 import { DynamicArray } from './dynamic-array.ts';
 import { DynamicString } from './dynamic-string.ts';
 import './dynamic-record.ts';
-import { hashDynamic, hashString } from './dynamic-hash.ts';
+import { hashDynamic, hashString, packDynamic } from './dynamic-hash.ts';
 import { test } from 'node:test';
 import * as nodeAssert from 'node:assert';
-import { Bytes, MerkleList, Poseidon, Provable, UInt8 } from 'o1js';
+import { Bytes, Field, MerkleList, Poseidon, Provable, UInt8 } from 'o1js';
+import { DynamicRecord } from './dynamic-record.ts';
 
 let shortString = 'hi';
 let ShortString = DynamicString({ maxLength: 5 });
@@ -35,6 +36,7 @@ async function main() {
     }, /larger than target size/);
   });
 
+  // arrays of strings
   let shortArray = [shortString, shortString];
   let ShortArray = DynamicArray(ShortString, { maxLength: 5 });
   let longArray = Array(8).fill(longString);
@@ -51,6 +53,31 @@ async function main() {
     Provable.witness(LongArray, () => longArray)
       .hash()
       .assertEquals(longArrayHash, 'long array');
+  });
+
+  // single-field values
+  await test('plain values', () => {
+    // stay the same when packing
+    packDynamic(-1n).assertEquals(Field(-1n), 'pack bigint');
+    packDynamic(true).assertEquals(Field(1), 'pack boolean');
+    packDynamic(123).assertEquals(Field(123), 'pack number');
+
+    // hash is plain poseidon hash
+    hashDynamic(-1n).assertEquals(Poseidon.hash([Field(-1n)]), 'hash bigint');
+    hashDynamic(true).assertEquals(Poseidon.hash([Field(1)]), 'hash boolean');
+    hashDynamic(123).assertEquals(Poseidon.hash([Field(123)]), 'hash number');
+  });
+
+  // records of plain values
+  let record = { a: shortString, b: 1, c: true, d: -1n };
+  let recordHash = hashDynamic(record);
+
+  let Record = DynamicRecord({}, { maxEntries: 5 });
+
+  await test('hash records', () => {
+    Provable.witness(Record, () => record)
+      .hash()
+      .assertEquals(recordHash, 'record');
   });
 }
 

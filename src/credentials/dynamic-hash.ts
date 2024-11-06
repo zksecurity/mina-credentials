@@ -30,6 +30,7 @@ import { BaseType } from './dynamic-base-types.ts';
 
 export {
   hashDynamic,
+  packDynamic,
   hashArray,
   hashString,
   packStringToField,
@@ -51,10 +52,16 @@ type HashableValue =
   | { [key in string]: HashableValue };
 
 function hashDynamic(value: HashableValue) {
+  return packDynamic(value, { mustHash: true });
+}
+
+function packDynamic(value: HashableValue, config?: { mustHash: boolean }) {
   if (typeof value === 'string') return hashString(value);
-  if (typeof value === 'number') return packToField(UInt64.from(value), UInt64);
-  if (typeof value === 'boolean') return packToField(Bool(value), Bool);
-  if (typeof value === 'bigint') return packToField(Field(value), Field);
+  if (typeof value === 'number')
+    return packToField(UInt64.from(value), UInt64, config);
+  if (typeof value === 'boolean') return packToField(Bool(value), Bool, config);
+  if (typeof value === 'bigint')
+    return packToField(Field(value), Field, config);
   if (Array.isArray(value)) return hashArray(value);
   return hashRecord(value);
 }
@@ -148,18 +155,14 @@ function hashString(string: string) {
   return Poseidon.hash(fields);
 }
 
-function packStringToField(string: string) {
-  let bytes = enc.encode(string);
-  let B = Bytes(bytes.length);
-  let fields = toFieldsPacked(B, B.from(bytes));
-  if (fields.length === 1) return fields[0]!;
-  return Poseidon.hash(fields);
-}
-
-function packToField<T>(value: T, type?: ProvableType<T>): Field {
+function packToField<T>(
+  value: T,
+  type?: ProvableType<T>,
+  config?: { mustHash: boolean }
+): Field {
   // hashable values
   if (isSimple(value) || typeof value === 'string') {
-    return hashDynamic(value);
+    return packDynamic(value, config);
   }
 
   // dynamic array types
@@ -170,15 +173,18 @@ function packToField<T>(value: T, type?: ProvableType<T>): Field {
     return value.hash();
   }
 
-  type ??= NestedProvable.get(NestedProvable.fromValue(value));
-
   // record types
-  if (isStruct(type) || value instanceof BaseType.GenericRecord.Base) {
+  if (value instanceof BaseType.GenericRecord.Base) {
+    return hashRecord(value);
+  }
+
+  type ??= NestedProvable.get(NestedProvable.fromValue(value));
+  if (isStruct(type)) {
     return hashRecord(value);
   }
 
   let fields = toFieldsPacked(type, value);
-  if (fields.length === 1) return fields[0]!;
+  if (fields.length === 1 && !config?.mustHash) return fields[0]!;
   return Poseidon.hash(fields);
 }
 
@@ -189,11 +195,18 @@ function hashRecord(data: unknown) {
     'Expected DynamicRecord or plain object as data'
   );
   let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
-    // TODO does it have any benefit here to get the type?
-    let type = NestedProvable.get(NestedProvable.fromValue(value));
-    return [packStringToField(key), packToField(value, type)];
+    return [packStringToField(key), packToField(value)];
   });
   return Poseidon.hash(entryHashes.flat());
+}
+
+// for packing keys -- not compatible with dynamic string hash! (as keys will be known at compile time)
+function packStringToField(string: string) {
+  let bytes = enc.encode(string);
+  let B = Bytes(bytes.length);
+  let fields = toFieldsPacked(B, B.from(bytes));
+  if (fields.length === 1) return fields[0]!;
+  return Poseidon.hash(fields);
 }
 
 // helpers
