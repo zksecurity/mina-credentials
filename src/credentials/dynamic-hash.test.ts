@@ -18,20 +18,18 @@ let longHash = hashString(longString);
 
 async function main() {
   await test('hash strings', () => {
-    Provable.witness(ShortString, () => shortString)
-      .hash()
-      .assertEquals(shortHash, 'hash mismatch (short)');
+    let shortStringVar = Provable.witness(ShortString, () => shortString);
+    shortStringVar.hash().assertEquals(shortHash, 'short string');
 
-    LongString.from(longString)
-      .hash()
-      .assertEquals(longHash, 'hash mismatch (long)');
+    let longStringVar = Provable.witness(LongString, () => longString);
+    longStringVar.hash().assertEquals(longHash, 'long string');
 
     // we can even convert the `ShortString` into a `LongString`
-    Provable.witness(LongString, () => ShortString.from(shortString))
+    LongString.from(shortStringVar)
       .hash()
-      .assertEquals(shortHash, 'hash mismatch (short -> long)');
+      .assertEquals(shortHash, 'short -> long string');
 
-    // (the other way round doesn't work because the string is too long)
+    // the other way round doesn't work because the string is too long
     nodeAssert.throws(() => {
       ShortString.from(LongString.from(longString));
     }, /larger than target size/);
@@ -46,13 +44,13 @@ async function main() {
   let longArrayHash = hashDynamic(longArray);
 
   await test('hash arrays of strings', () => {
-    Provable.witness(ShortArray, () => [shortString, shortString])
+    Provable.witness(ShortArray, () => shortArray)
       .hash()
-      .assertEquals(shortArrayHash, 'hash mismatch (short array)');
+      .assertEquals(shortArrayHash, 'short array');
 
-    Provable.witness(LongArray, () => Array(8).fill(longString))
+    Provable.witness(LongArray, () => longArray)
       .hash()
-      .assertEquals(longArrayHash, 'hash mismatch (long array)');
+      .assertEquals(longArrayHash, 'long array');
   });
 }
 
