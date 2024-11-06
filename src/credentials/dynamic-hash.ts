@@ -96,15 +96,28 @@ function provableTypeOf(value: unknown): ProvableHashableType {
   if (value instanceof BaseType.GenericRecord.Base)
     return ProvableType.fromValue(value);
 
-  let type = NestedProvable.get(NestedProvable.fromValue(value));
-  if (isStruct(type)) {
-    assertIsObject(value);
-    return BaseType.DynamicRecord(
-      {},
-      { maxEntries: Object.keys(value).length }
-    );
-  }
-  return type;
+  // now let's simply try to get the type from the value
+  try {
+    // this may throw, in that case we continue below
+    let type = ProvableType.fromValue(value);
+
+    // handle structs as dynamic records
+    if (isStruct(type)) {
+      assertIsObject(value);
+      let length = Object.keys(value).length;
+      return BaseType.DynamicRecord({}, { maxEntries: length });
+    }
+
+    // other types use directly
+    return type;
+  } catch {}
+
+  // at this point, the only valid types are records
+  assert(
+    typeof value === 'object' && value !== null,
+    `Failed to get type for value ${value}`
+  );
+  return BaseType.DynamicRecord({}, { maxEntries: Object.keys(value).length });
 }
 
 function provableTypeEquals(
@@ -121,13 +134,39 @@ function provableTypeEquals(
     return value.every((v) => provableTypeEquals(v, innerType));
   }
   if (value instanceof BaseType.GenericRecord.Base)
-    return isSubclass(type, BaseType.GenericRecord.Base);
+    return (
+      isSubclass(type, BaseType.GenericRecord.Base) &&
+      value.maxEntries <= type.prototype.maxEntries
+    );
 
-  let valueType = NestedProvable.get(NestedProvable.fromValue(value));
-  if (isStruct(type)) {
-    return isSubclass(valueType, BaseType.DynamicRecord.Base);
-  }
-  return valueType === ProvableType.get(type);
+  try {
+    // this may throw, in that case we continue below
+    let valueType = ProvableType.fromValue(value);
+
+    // handle structs as dynamic records
+    if (isStruct(valueType)) {
+      assertIsObject(value);
+      let length = Object.keys(value).length;
+      return (
+        isSubclass(type, BaseType.DynamicRecord.Base) &&
+        length <= type.prototype.maxEntries
+      );
+    }
+
+    // other types check directly
+    return valueType === ProvableType.get(type);
+  } catch {}
+
+  // at this point, the only valid types are records
+  assert(
+    typeof value === 'object' && value !== null,
+    `Failed to get type for value ${value}`
+  );
+  let length = Object.keys(value).length;
+  return (
+    isSubclass(type, BaseType.DynamicRecord.Base) &&
+    length <= type.prototype.maxEntries
+  );
 }
 
 function innerArrayType(array: unknown[]): ProvableHashableType {
