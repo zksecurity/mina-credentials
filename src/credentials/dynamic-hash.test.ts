@@ -34,6 +34,12 @@ async function main() {
     nodeAssert.throws(() => {
       ShortString.from(LongString.from(longString));
     }, /larger than target size/);
+
+    // for strings, hashDynamic === packToField === hashString
+    hashDynamic(shortString).assertEquals(shortHash, 'short string');
+    packToField(shortString).assertEquals(shortHash, 'short string');
+    hashDynamic(shortStringVar).assertEquals(shortHash, 'short string');
+    packToField(shortStringVar).assertEquals(shortHash, 'short string');
   });
 
   // arrays of strings
@@ -53,6 +59,10 @@ async function main() {
     Provable.witness(LongArray, () => longArray)
       .hash()
       .assertEquals(longArrayHash, 'long array');
+
+    // for arrays, hashDynamic === packToField === hashArray
+    hashDynamic(shortArray).assertEquals(shortArrayHash, 'short array');
+    packToField(shortArray).assertEquals(shortArrayHash, 'short array');
   });
 
   // single-field values
@@ -61,12 +71,13 @@ async function main() {
     packToField(-1n).assertEquals(Field(-1n), 'pack bigint');
     packToField(true).assertEquals(Field(1), 'pack boolean');
     packToField(123).assertEquals(Field(123), 'pack number');
-    // packDynamic(undefined).assertEquals(Field(0), 'pack undefined');
+    packToField(undefined).assertEquals(Poseidon.hash([]), 'pack undefined');
 
     // hash is plain poseidon hash
     hashDynamic(-1n).assertEquals(Poseidon.hash([Field(-1n)]), 'hash bigint');
     hashDynamic(true).assertEquals(Poseidon.hash([Field(1)]), 'hash boolean');
     hashDynamic(123).assertEquals(Poseidon.hash([Field(123)]), 'hash number');
+    hashDynamic(undefined).assertEquals(Poseidon.hash([]), 'pack undefined');
   });
 
   // records of plain values
