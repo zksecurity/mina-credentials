@@ -34,7 +34,7 @@ function DynamicString({ maxLength }: { maxLength: number }) {
     /**
      * Create DynamicBytes from a string.
      */
-    static from(s: string) {
+    static from(s: string | DynamicStringBase) {
       return provableString.fromValue(s);
     }
   }
