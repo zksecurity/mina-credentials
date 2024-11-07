@@ -19,6 +19,7 @@ import { owner } from '../../tests/test-utils.ts';
 import { hashDynamic, hashRecord } from './dynamic-hash.ts';
 import { array } from '../o1js-missing.ts';
 import { DynamicArray } from './dynamic-array.ts';
+import { Schema } from './schema.ts';
 
 const String5 = DynamicString({ maxLength: 5 });
 const String10 = DynamicString({ maxLength: 10 });
@@ -29,10 +30,10 @@ const String20 = DynamicString({ maxLength: 20 });
 const OriginalSchema = Schema({
   first: Field,
   second: Bool,
-  third: String10,
+  third: Schema.String,
   fourth: UInt64,
   fifth: { field: Field, string: String10 },
-  sixth: array(Field, 3),
+  sixth: Schema.Array(Schema.Bigint),
 });
 
 let original = OriginalSchema.from({
@@ -45,7 +46,7 @@ let original = OriginalSchema.from({
 });
 const expectedHash = hashRecord(original);
 
-const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
+const OriginalWrappedInStruct = Struct(OriginalSchema.type(original));
 let originalStruct = OriginalWrappedInStruct.fromValue(original);
 
 // subset schema and circuit that doesn't know the full original layout
@@ -132,7 +133,7 @@ async function circuit() {
   });
 
   await test('hashCredential()', () => {
-    let originalHash = hashCredential(OriginalSchema.schema, {
+    let originalHash = hashCredential(OriginalSchema.type(original), {
       owner,
       data: original,
     }).hash;
@@ -157,20 +158,20 @@ await test('inside circuit', () => Provable.runAndCheck(circuit));
 
 // could also use `Struct` instead of `Schema`,
 // but `Schema.from()` returns a plain object which is slightly more idiomatic
-function Schema<A extends Record<string, NestedProvable>>(schema: A) {
-  let shape = mapObject<A, { [K in keyof A]: Provable<InferProvable<A[K]>> }>(
-    schema,
-    (type) => NestedProvable.get(type)
-  );
-  return {
-    schema,
+// function Schema<A extends Record<string, NestedProvable>>(schema: A) {
+//   let shape = mapObject<A, { [K in keyof A]: Provable<InferProvable<A[K]>> }>(
+//     schema,
+//     (type) => NestedProvable.get(type)
+//   );
+//   return {
+//     schema,
 
-    from(value: { [K in keyof A]: From<A[K]> }) {
-      let actual: { [K in keyof A]: InferProvable<A[K]> } = mapObject(
-        zipObjects(shape, value),
-        ([type, value]) => ProvableType.get(type).fromValue(value)
-      );
-      return actual;
-    },
-  };
-}
+//     from(value: { [K in keyof A]: From<A[K]> }) {
+//       let actual: { [K in keyof A]: InferProvable<A[K]> } = mapObject(
+//         zipObjects(shape, value),
+//         ([type, value]) => ProvableType.get(type).fromValue(value)
+//       );
+//       return actual;
+//     },
+//   };
+// }
