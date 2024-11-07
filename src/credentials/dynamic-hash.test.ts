@@ -6,12 +6,25 @@ import {
   hashDynamic,
   hashRecord,
   hashString,
+  packStringToField,
   packToField,
 } from './dynamic-hash.ts';
 import { test } from 'node:test';
 import * as nodeAssert from 'node:assert';
 import { Bytes, Field, MerkleList, Poseidon, Provable, UInt8 } from 'o1js';
 import { DynamicRecord } from './dynamic-record.ts';
+
+// some hash collisions to be aware of
+hashDynamic(5).assertEquals(hashDynamic(5n), '1');
+hashDynamic(undefined).assertEquals(hashDynamic(null), '2');
+hashDynamic([0]).assertEquals(hashDynamic('\x00'), '3');
+hashDynamic([1, 2].map(UInt8.from)).assertEquals(hashDynamic('\x01\x02'), '4');
+
+// TODO: this is a hash collision we need to fix
+let emptyString = packStringToField('\x00').toBigInt();
+let emptyValue = packToField(0).toBigInt();
+console.log({ emptyString, emptyValue });
+hashRecord({ '\x00': 0 }).assertEquals(hashRecord({}));
 
 let shortString = 'hi';
 let ShortString = DynamicString({ maxLength: 5 });

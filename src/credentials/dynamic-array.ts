@@ -317,6 +317,7 @@ class DynamicArrayBase<T = any, V = any> {
     // create blocks of 2 field elements each
     // TODO abstract this into a `chunk()` method that returns a DynamicArray<StaticArray<T>>
     let elementSize = bitSize(type);
+    if (elementSize === 0) elementSize = 1; // edge case for empty types like `Undefined`
     let elementsPerHalfBlock = Math.floor(254 / elementSize);
     if (elementsPerHalfBlock === 0) elementsPerHalfBlock = 1; // larger types are compressed
 

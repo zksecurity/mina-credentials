@@ -53,11 +53,34 @@ type HashableValue =
  * Hash an input that is either a simple JSON-with-bigints object or a provable type.
  *
  * The hashing algorithm is compatible with dynamic-length schemas.
+ *
+ * Note: There are expected hash collisions between _different_ types, like
+ * ```ts
+ * hashDynamic(5) === hashDynamic(5n);
+ * hashDynamic(undefined) === hashDynamic(null);
+ * hashDynamic([1]) === hashDynamic("\x01");
+ * ```
  */
 function hashDynamic(value: HashableValue | unknown) {
   return packToField(value, undefined, { mustHash: true });
 }
 
+/**
+ * Pack an arbitrary value into a field element.
+ *
+ * The packing algorithm is compatible with dynamic-length schemas.
+ *
+ * This is the same as `hashDynamic()`, with the (default) option to not hash
+ * types that are single field elements after packing, but return them directly.
+ *
+ * e.g.
+ * ```ts
+ * packToField(5) === Field(5);
+ * hashDynamic(5) === Poseidon.hash([Field(5)]);
+ * ```
+ *
+ * The fallback algorithm for unknown objects is to call `hashRecord()` on them.
+ */
 function packToField<T>(
   value: T,
   type?: ProvableHashableType<T>,
@@ -104,12 +127,21 @@ function packToField<T>(
   return hashRecord(value);
 }
 
+/**
+ * Hash an array, packing the elements if possible.
+ *
+ * Avoids hash collisions by encoding the length of the array at the beginning.
+ */
 function hashArray(array: unknown[]) {
   let type = innerArrayType(array);
   let Array = BaseType.DynamicArray(type, { maxLength: array.length });
   return Array.from(array).hash();
 }
 
+/**
+ * Hash an arbitrary object, by first packing keys and values into 1 field element each,
+ * and then using Poseidon on the concatenated elements (which are a multiple of 2, so we avoid collisions).
+ */
 function hashRecord(data: {}) {
   assert(typeof data === 'object', 'Expected plain object');
   let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
@@ -191,7 +223,7 @@ function provableTypeOfConstructor<T>(
  * These should be represented as records i.e. { first: 1, second: 'a' }.
  */
 function innerArrayType(array: unknown[]): ProvableHashableType {
-  let type = provableTypeOf(array[0]);
+  let type = provableTypeOf(array[0]); // empty array => Undefined
   assert(
     array.every((v) => provableTypeEquals(v, type)),
     'Array elements must be homogenous'
