@@ -149,19 +149,15 @@ class GenericRecordBase {
   }
 
   static from(actual: UnknownRecord): GenericRecordBase {
-    let entries = Object.entries<unknown>(actual).map(([key, value]) => {
-      let type = NestedProvable.get(NestedProvable.fromValue(value));
-      return {
+    let entries = Object.entries(actual).map(([key, value]) => {
+      return OptionKeyValue.from({
         key: hashString(key),
-        value: packToField(type.fromValue(value), type),
-      };
+        value: packToField(value),
+      });
     });
-    let options = pad(
-      entries.map((entry) => OptionKeyValue.from(entry)),
-      this.prototype.maxEntries,
-      OptionKeyValue.none()
-    );
-    return new this({ entries: options, actual: Unconstrained.from(actual) });
+    let maxEntries = this.prototype.maxEntries;
+    let padded = pad(entries, maxEntries, OptionKeyValue.none());
+    return new this({ entries: padded, actual: Unconstrained.from(actual) });
   }
 
   getAny<A extends ProvableHashableType>(valueType: A, key: string) {

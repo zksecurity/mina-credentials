@@ -88,22 +88,37 @@ async function circuit() {
   });
 
   await test('DynamicRecord.getAny()', () => {
+    // we can get the other fields as well, if we know their type
     record.getAny(Bool, 'second').assertEquals(true, 'second');
     record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
 
-    // this works because structs are hashed in dynamic record style,
-    // and the string is hashed in dynamic array style
+    // `packToField()` collisions mean that we can also reinterpret fields into types with equivalent packing
+    // (if the new type's `fromValue()` allows the original value)
+    record.getAny(Bool, 'first').assertEquals(true, 'first');
+    record.getAny(UInt64, 'first').assertEquals(UInt64.one);
+
+    // we can get a nested record as struct (and nested strings can have different length)
+    // this works because structs are hashed in dynamic record style
     const FifthStruct = Struct({ field: Field, string: String20 });
+    let fifth = record.getAny(FifthStruct, 'fifth');
     Provable.assertEqual(
       FifthStruct,
-      record.getAny(FifthStruct, 'fifth'),
-      FifthStruct.fromValue({ field: 2, string: '...' })
+      fifth,
+      FifthStruct.fromValue(original.fifth)
     );
 
+    // can get an array as dynamic array, as long as the maxLength is >= the actual length
     const SixthDynamic = DynamicArray(Field, { maxLength: 7 });
     let sixth = record.getAny(SixthDynamic, 'sixth');
-    sixth.assertEqualsStrict(SixthDynamic.from([1n, 2n, 3n]));
+    sixth.assertEqualsStrict(SixthDynamic.from(original.sixth));
 
+    const SixthDynamicShort = DynamicArray(Field, { maxLength: 2 });
+    assert.throws(
+      () => record.getAny(SixthDynamicShort, 'sixth'),
+      /larger than target size/
+    );
+
+    // can't get a missing key
     assert.throws(() => record.getAny(Bool, 'missing'), /Key not found/);
   });
 
