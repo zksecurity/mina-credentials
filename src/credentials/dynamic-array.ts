@@ -348,13 +348,16 @@ class DynamicArrayBase<T = any, V = any> {
 
     let Fieldx2 = StaticArray(Field, 2);
     let Blocks = DynamicArray(Fieldx2, { maxLength: maxBlocks });
+
     // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
     let nBlocks = UInt32.Unsafe.fromField(
       this.length.add(elementsPerUint32 + elementsPerBlock - 1)
     ).div(elementsPerBlock).value;
     let dynBlocks = new Blocks(blocks.map(Fieldx2.from), nBlocks);
 
-    // now hash the 2-field elements blocks, on permutation at a time
+    // now hash the 2-field elements blocks, one permutation at a time
+    // note: there's a padding element included at the end in the case of uneven number of blocks
+    // however, this doesn't cause hash collisions because we encoded the length at the beginning
     let state = Poseidon.initialState();
     dynBlocks.forEach((block, isPadding) => {
       let newState = Poseidon.update(state, block.array);
