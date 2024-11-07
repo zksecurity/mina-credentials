@@ -1,7 +1,13 @@
 import { DynamicArray } from './dynamic-array.ts';
 import { DynamicString } from './dynamic-string.ts';
 import './dynamic-record.ts';
-import { hashDynamic, hashString, packToField } from './dynamic-hash.ts';
+import {
+  hashArray,
+  hashDynamic,
+  hashRecord,
+  hashString,
+  packToField,
+} from './dynamic-hash.ts';
 import { test } from 'node:test';
 import * as nodeAssert from 'node:assert';
 import { Bytes, Field, MerkleList, Poseidon, Provable, UInt8 } from 'o1js';
@@ -52,17 +58,18 @@ async function main() {
   let longArrayHash = hashDynamic(longArray);
 
   await test('hash arrays of strings', () => {
-    Provable.witness(ShortArray, () => shortArray)
-      .hash()
-      .assertEquals(shortArrayHash, 'short array');
+    let shortArrayVar = Provable.witness(ShortArray, () => shortArray);
+    shortArrayVar.hash().assertEquals(shortArrayHash, 'short array');
 
     Provable.witness(LongArray, () => longArray)
       .hash()
       .assertEquals(longArrayHash, 'long array');
 
     // for arrays, hashDynamic === packToField === hashArray
-    hashDynamic(shortArray).assertEquals(shortArrayHash, 'short array');
+    hashArray(shortArray).assertEquals(shortArrayHash, 'short array');
     packToField(shortArray).assertEquals(shortArrayHash, 'short array');
+    hashDynamic(shortArrayVar).assertEquals(shortArrayHash, 'short array');
+    packToField(shortArrayVar).assertEquals(shortArrayHash, 'short array');
   });
 
   // single-field values
@@ -87,9 +94,11 @@ async function main() {
   let Record = DynamicRecord({}, { maxEntries: 5 });
 
   await test('hash records', () => {
-    Provable.witness(Record, () => record)
-      .hash()
-      .assertEquals(recordHash, 'record');
+    let recordVar = Provable.witness(Record, () => record);
+    recordVar.hash().assertEquals(recordHash, 'record');
+
+    packToField(recordVar).assertEquals(recordHash, 'record');
+    hashRecord(record).assertEquals(recordHash, 'record');
   });
 
   // arrays of records
