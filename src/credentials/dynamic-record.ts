@@ -160,7 +160,7 @@ class GenericRecordBase {
     return new this({ entries: options, actual: Unconstrained.from(actual) });
   }
 
-  getAny<A extends ProvableType>(valueType: A, key: string) {
+  getAny<A extends ProvableHashableType>(valueType: A, key: string) {
     // find valueHash for key
     let keyHash = packStringToField(key);
     let current = OptionField.none();

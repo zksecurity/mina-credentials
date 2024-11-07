@@ -35,11 +35,7 @@ export {
 const ProvableType = {
   get<A extends WithProvable<any>>(type: A): ToProvable<A> {
     return (
-      (typeof type === 'object' || typeof type === 'function') &&
-      type !== null &&
-      'provable' in type
-        ? type.provable
-        : type
+      hasProperty(type, 'provable') ? type.provable : type
     ) as ToProvable<A>;
   },
 
@@ -70,6 +66,15 @@ const ProvableType = {
   isProvableType(type: unknown): type is ProvableType {
     let type_ = ProvableType.get(type);
     return hasProperty(type_, 'toFields') && hasProperty(type_, 'fromFields');
+  },
+
+  isProvableHashableType(type: unknown): type is ProvableHashableType {
+    let type_ = ProvableType.get(type);
+    return (
+      ProvableType.isProvableType(type_) &&
+      hasProperty(type_, 'toInput') &&
+      hasProperty(type_, 'empty')
+    );
   },
 
   constant<T>(value: T): ProvablePure<T, T> & { serialize(): any } {
@@ -113,7 +118,9 @@ function lengthRecursive(array: NestedArray): number {
   return length;
 }
 
-function assertIsProvable(type: unknown): asserts type is Provable<any> {
+function assertIsProvable(
+  type: unknown
+): asserts type is ProvableMaybeHashable {
   assertHasProperty(
     type,
     'toFields',

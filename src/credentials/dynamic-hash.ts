@@ -12,13 +12,13 @@ import {
   Undefined,
 } from 'o1js';
 import {
+  hashPacked,
   type ProvableHashableType,
   ProvableType,
   toFieldsPacked,
 } from '../o1js-missing.ts';
 import {
   assert,
-  assertIsObject,
   hasProperty,
   isSubclass,
   mapEntries,
@@ -60,7 +60,7 @@ function hashDynamic(value: HashableValue | unknown) {
 
 function packToField<T>(
   value: T,
-  type?: ProvableType<T>,
+  type?: ProvableHashableType<T>,
   config?: { mustHash: boolean }
 ): Field {
   // hashable values
@@ -70,6 +70,8 @@ function packToField<T>(
   if (typeof value === 'boolean') return packToField(Bool(value), Bool, config);
   if (typeof value === 'bigint')
     return packToField(Field(value), Field, config);
+  if (value === undefined || value === null)
+    return hashPacked(Undefined, undefined);
 
   // dynamic array types
   if (Array.isArray(value)) {
@@ -83,27 +85,22 @@ function packToField<T>(
     return value.hash();
   }
 
-  // now let's simply try to get the type from the value
-  try {
-    // this may throw, in that case we continue below
-    type ??= ProvableType.fromValue(value);
+  // now let's try to get the type from the value
+  type ??= provableTypeOfConstructor<T>(value);
 
+  if (type !== undefined) {
     // handle structs as dynamic records
-    if (isStruct(type)) {
-      return hashRecord(value);
-    }
+    if (isStruct(type)) return hashRecord(value);
 
     // other provable types use directly
     let fields = toFieldsPacked(type, value);
     if (fields.length === 1 && !config?.mustHash) return fields[0]!;
     return Poseidon.hash(fields);
-  } catch {}
+  }
 
   // at this point, the only valid types are records
-  assert(
-    typeof value === 'object' && value !== null,
-    `Failed to get type for value ${value}`
-  );
+  // functions are a hint that something went wrong, so throw a descriptive error
+  assert(typeof value === 'object', `Failed to get type for value ${value}`);
   return hashRecord(value);
 }
 
@@ -113,11 +110,8 @@ function hashArray(array: unknown[]) {
   return Array.from(array).hash();
 }
 
-function hashRecord(data: unknown) {
-  assert(
-    typeof data === 'object' && data !== null,
-    'Expected DynamicRecord or plain object as data'
-  );
+function hashRecord(data: {}) {
+  assert(typeof data === 'object', 'Expected plain object');
   let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
     return [packStringToField(key), packToField(value)];
   });
@@ -126,6 +120,11 @@ function hashRecord(data: unknown) {
 
 const enc = new TextEncoder();
 
+/**
+ * Hash a string using Poseidon on packed UInt8s.
+ *
+ * Avoids hash collisions by encoding the length of the string at the beginning.
+ */
 function hashString(string: string) {
   // encode length + bytes
   let stringBytes = enc.encode(string);
@@ -138,112 +137,112 @@ function hashString(string: string) {
   return Poseidon.hash(fields);
 }
 
-const simpleTypes = new Set(['number', 'boolean', 'bigint', 'undefined']);
-
-function isSimple(
-  value: unknown
-): value is number | boolean | bigint | undefined {
-  return simpleTypes.has(typeof value);
-}
-
-function innerArrayType(array: unknown[]): ProvableHashableType {
-  let type = provableTypeOf(array[0]);
-  assert(
-    array.every((v) => {
-      return provableTypeEquals(v, type);
-    }),
-    'Array elements must be homogenous'
-  );
-  return type;
-}
-
+/**
+ * Gets a provable type from any value.
+ *
+ * The fallback type for unknown objects is DynamicRecord.
+ */
 function provableTypeOf(value: unknown): ProvableHashableType {
-  if (value === undefined) return Undefined;
   if (typeof value === 'string') {
     return BaseType.DynamicString({ maxLength: stringLength(value) });
   }
   if (typeof value === 'number') return UInt64;
   if (typeof value === 'boolean') return Bool;
   if (typeof value === 'bigint') return Field;
+  if (value === undefined || value === null) return Undefined;
   if (Array.isArray(value)) {
     return BaseType.DynamicArray(innerArrayType(value), {
       maxLength: value.length,
     });
   }
-  if (value instanceof BaseType.GenericRecord.Base)
-    return ProvableType.fromValue(value);
+  let type = provableTypeOfConstructor(value);
 
-  // now let's simply try to get the type from the value
-  try {
-    // this may throw, in that case we continue below
-    let type = ProvableType.fromValue(value);
+  // handle structs and unknown objects as dynamic records
+  if (type === undefined || isStruct(type)) {
+    let length = Object.keys(value).length;
+    return BaseType.DynamicRecord({}, { maxEntries: length });
+  }
 
-    // handle structs as dynamic records
-    if (isStruct(type)) {
-      assertIsObject(value);
-      let length = Object.keys(value).length;
-      return BaseType.DynamicRecord({}, { maxEntries: length });
-    }
+  // other types use directly
+  return type;
+}
 
-    // other types use directly
-    return type;
-  } catch {}
+/**
+ * Gets a provable type from value.constructor, otherwise returns undefined.
+ */
+function provableTypeOfConstructor<T>(
+  value: T
+): ProvableHashableType<T> | undefined {
+  if (!hasProperty(value, 'constructor')) return undefined;
 
-  // at this point, the only valid types are records
+  // special checks for Field, Bool because their constructor doesn't match the function that wraps it
+  if (value instanceof Field) return Field as any;
+  if (value instanceof Bool) return Bool as any;
+
+  let constructor = value.constructor;
+  if (!ProvableType.isProvableHashableType(constructor)) return undefined;
+  return constructor;
+}
+
+/**
+ * Gets the inner type of an array, asserting that it is unique.
+ *
+ * Throws an error for inhomogeneous arrays like [1, 'a'].
+ * These should be represented as records i.e. { first: 1, second: 'a' }.
+ */
+function innerArrayType(array: unknown[]): ProvableHashableType {
+  let type = provableTypeOf(array[0]);
   assert(
-    typeof value === 'object' && value !== null,
-    `Failed to get type for value ${value}`
+    array.every((v) => provableTypeEquals(v, type)),
+    'Array elements must be homogenous'
   );
-  return BaseType.DynamicRecord({}, { maxEntries: Object.keys(value).length });
+  return type;
 }
 
 function provableTypeEquals(
   value: unknown,
   type: ProvableHashableType
 ): boolean {
-  if (isSimple(value)) return provableTypeOf(value) === type;
   if (typeof value === 'string') {
     return isSubclass(type, BaseType.DynamicString.Base);
   }
+  if (typeof value === 'number') return type === UInt64;
+  if (typeof value === 'boolean') return type === Bool;
+  if (typeof value === 'bigint') return type === Field;
+  if (value === undefined || value === null) return type === Undefined;
+
   if (Array.isArray(value)) {
     if (!isSubclass(type, BaseType.DynamicArray.Base)) return false;
     let innerType = type.prototype.innerType;
     return value.every((v) => provableTypeEquals(v, innerType));
   }
-  if (value instanceof BaseType.GenericRecord.Base)
+  // dynamic types only have to be compatible
+  if (value instanceof BaseType.DynamicArray.Base)
     return (
-      isSubclass(type, BaseType.GenericRecord.Base) &&
-      value.maxEntries <= type.prototype.maxEntries
+      isSubclass(type, BaseType.DynamicArray.Base) &&
+      value.maxLength <= type.prototype.maxLength
     );
 
-  try {
-    // this may throw, in that case we continue below
-    let valueType = ProvableType.fromValue(value);
+  let valueType = provableTypeOfConstructor(value);
 
-    // handle structs as dynamic records
-    if (isStruct(valueType)) {
-      assertIsObject(value);
-      let length = Object.keys(value).length;
-      return (
-        isSubclass(type, BaseType.DynamicRecord.Base) &&
-        length <= type.prototype.maxEntries
-      );
-    }
+  // handle structs and unknown objects as dynamic records
+  if (
+    valueType === undefined ||
+    isStruct(valueType) ||
+    value instanceof BaseType.GenericRecord.Base
+  ) {
+    let length =
+      value instanceof BaseType.GenericRecord.Base
+        ? value.maxEntries
+        : Object.keys(value).length;
+    return (
+      isSubclass(type, BaseType.GenericRecord.Base) &&
+      length <= type.prototype.maxEntries
+    );
+  }
 
-    // other types check directly
-    return valueType === ProvableType.get(type);
-  } catch {}
-
-  // at this point, the only valid types are records
-  assert(
-    typeof value === 'object' && value !== null,
-    `Failed to get type for value ${value}`
-  );
-  let length = Object.keys(value).length;
-  return (
-    isSubclass(type, BaseType.DynamicRecord.Base) &&
-    length <= type.prototype.maxEntries
-  );
+  // other types check directly
+  return valueType === type;
 }
 
 // for packing keys -- not compatible with dynamic string hash! (as keys will be known at compile time)
