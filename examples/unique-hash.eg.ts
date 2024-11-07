@@ -22,7 +22,6 @@ import { DynamicRecord } from '../src/credentials/dynamic-record.ts';
 import { Schema } from '../src/credentials/schema.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
-const String = DynamicString({ maxLength: 50 });
 const Bytes16 = Bytes(16);
 
 const schema = Schema({
@@ -93,6 +92,7 @@ const Subschema = DynamicRecord(
   { maxEntries: 20 }
 );
 
+const String = DynamicString({ maxLength: 50 });
 const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
 const spec = Spec(
@@ -114,6 +114,7 @@ const spec = Spec(
     // 2. the credential was issued by one of the accepted issuers
     // 3. the credential is not expired (by comparing with the current date)
     let assert = Operation.and(
+      // TODO hash() must use hashDynamic()
       Operation.equalsOneOf(Operation.hash(nationality), acceptedNations),
       Operation.equalsOneOf(issuer, acceptedIssuers),
       Operation.lessThanEq(currentDate, expiresAt)
@@ -139,6 +140,7 @@ let request = PresentationRequest.https(
   spec,
   {
     acceptedNations: FieldArray.from(
+      // TODO we want hashDynamic here
       acceptedNations.map((s) => hashPacked(String, String.from(s)))
     ),
     acceptedIssuers: FieldArray.from(acceptedIssuers),
