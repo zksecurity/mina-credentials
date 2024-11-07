@@ -2,8 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { Operation, Spec, Node, Claim, Constant } from '../src/program-spec.ts';
 import {
-  serializeProvableType,
-  serializeNestedProvable,
   serializeNode,
   serializeInput,
   convertSpecToSerializable,
@@ -17,6 +15,10 @@ import {
   deserializeSpec,
 } from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
+import {
+  serializeNestedProvable,
+  serializeProvableType,
+} from '../src/serialize-provable.ts';
 import { ContextSchema, InputSchema, NodeSchema } from '../src/validation.ts';
 
 test('Serialize Inputs', async (t) => {

@@ -12,7 +12,7 @@ import {
   type InferProvable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
-import { assertPure, ProvableType } from './o1js-missing.ts';
+import { assertPure, ProvableType, toFieldsPacked } from './o1js-missing.ts';
 import { assert, assertHasProperty, zip } from './util.ts';
 import {
   type InferNestedProvable,
@@ -30,6 +30,10 @@ import {
   type CredentialOutputs,
 } from './credential.ts';
 import { DynamicArray } from './credentials/dynamic-array.ts';
+import {
+  DynamicRecord,
+  extractProperty,
+} from './credentials/dynamic-record.ts';
 
 export type {
   PublicInputs,
@@ -221,11 +225,9 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
         'credential' in inner &&
         'issuer' in inner
       ) {
-        assertHasProperty(inner.credential, node.key);
-        return inner.credential[node.key] as Data;
+        return extractProperty(inner.credential, node.key) as Data;
       } else {
-        assertHasProperty(inner, node.key);
-        return inner[node.key] as Data;
+        return extractProperty(inner, node.key) as Data;
       }
     }
     case 'record': {
@@ -286,7 +288,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
         NestedProvable.get(NestedProvable.fromValue(i))
       );
       let fields = zip(types, inputs).flatMap(([type, value]) =>
-        type.toFields(value)
+        toFieldsPacked(type, value)
       );
       let hash =
         node.prefix === undefined
@@ -471,7 +473,7 @@ function root<Inputs extends Record<string, Input>>(
 }
 
 function property<K extends string, Data extends { [key in K]: any }>(
-  node: Node<Data>,
+  node: Node<Data | DynamicRecord<Data>>,
   key: K
 ): Node<Data[K]> {
   return { type: 'property', key, inner: node as Node<any> };

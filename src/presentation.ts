@@ -16,21 +16,24 @@ import {
   type CredentialSpec,
   type StoredCredential,
 } from './credential.ts';
-import { assert } from './util.ts';
+import { assert, isSubclass } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
 import {
   convertSpecToSerializable,
   serializeInputContext,
-  serializeNestedProvableValue,
-  serializeProvable,
 } from './serialize.ts';
 import {
   convertSpecFromSerializable,
   deserializeInputContext,
+} from './deserialize.ts';
+import {
   deserializeNestedProvableValue,
   deserializeProvable,
-} from './deserialize.ts';
+  serializeNestedProvableValue,
+  serializeProvable,
+} from './serialize-provable.ts';
+import { DynamicRecord } from './credentials/dynamic-record.ts';
 
 // external API
 export { PresentationRequest, Presentation };
@@ -270,13 +273,23 @@ async function createPresentation<R extends PresentationRequest>(
     credentialsNeeded.map(([key]) => key),
     credentials
   );
+  let credentialsAndTypes = credentialsNeeded.map(([key, credentialType]) => {
+    let credentialAndType = { ...credentialsUsed[key]!, credentialType };
+
+    // if the credential uses a subschema, we have to wrap it inside DynamicRecord
+    if (isSubclass(credentialType.data, DynamicRecord.Base)) {
+      let { owner, data } = credentialAndType.credential;
+      credentialAndType.credential = {
+        owner,
+        data: credentialType.data.from(data),
+      };
+    }
+    return credentialAndType;
+  });
   let ownerSignature = signCredentials(
     ownerKey,
     context,
-    ...credentialsNeeded.map(([key, input]) => ({
-      ...credentialsUsed[key]!,
-      credentialType: input,
-    }))
+    ...credentialsAndTypes
   );
 
   // create the presentation proof

@@ -73,7 +73,7 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
     UInt8,
     { value: bigint },
     typeof DynamicBytesBase
-  >(UInt8 as any, DynamicBytes);
+  >(UInt8 as any, DynamicBytes).build();
 
   return DynamicBytes;
 }

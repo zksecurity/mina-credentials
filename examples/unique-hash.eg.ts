@@ -1,4 +1,4 @@
-import { Bytes, Field, UInt64 } from 'o1js';
+import { Bytes, Field, Poseidon, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -18,9 +18,11 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
+import { DynamicRecord } from '../src/credentials/dynamic-record.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const String = DynamicString({ maxLength: 50 });
+const LongString = DynamicString({ maxLength: 200 });
 const Bytes16 = Bytes(16);
 
 const Schema = {
@@ -28,6 +30,16 @@ const Schema = {
    * Nationality of the owner.
    */
   nationality: String,
+
+  /**
+   * Full name of the owner.
+   */
+  name: LongString,
+
+  /**
+   * Date of birth of the owner.
+   */
+  birthDate: UInt64,
 
   /**
    * Owner ID (16 bytes).
@@ -45,6 +57,8 @@ const Schema = {
 
 let data: InferSchema<typeof Schema> = {
   nationality: String.from('United States of America'),
+  name: LongString.from('John Doe'),
+  birthDate: UInt64.from(Date.UTC(1990, 1, 1)),
   id: Bytes16.random(),
   expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
 };
@@ -65,13 +79,23 @@ console.log('✅ WALLET: imported and validated credential');
 // ---------------------------------------------
 // VERIFIER: request a presentation
 
-const StringArray = DynamicArray(String, { maxLength: 20 });
-const FieldArray = DynamicArray(Field, { maxLength: 20 });
+// it's enough to know a subset of the schema to create the request
+const Subschema = DynamicRecord(
+  {
+    nationality: String,
+    expiresAt: UInt64, // we don't have to match the original order of keys
+    id: Bytes16,
+  },
+  // have to specify maximum number of entries of the original schema
+  { maxEntries: 20 }
+);
+
+const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
 const spec = Spec(
   {
-    credential: Credential.Simple(Schema), // schema needed here!
-    acceptedNations: Claim(StringArray),
+    credential: Credential.Simple(Subschema),
+    acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
     acceptedIssuers: Claim(FieldArray),
     currentDate: Claim(UInt64),
     appId: Claim(String),
@@ -87,7 +111,7 @@ const spec = Spec(
     // 2. the credential was issued by one of the accepted issuers
     // 3. the credential is not expired (by comparing with the current date)
     let assert = Operation.and(
-      Operation.equalsOneOf(nationality, acceptedNations),
+      Operation.equalsOneOf(Operation.hash(nationality), acceptedNations),
       Operation.equalsOneOf(issuer, acceptedIssuers),
       Operation.lessThanEq(currentDate, expiresAt)
     );
@@ -111,7 +135,9 @@ const acceptedIssuers = [issuer, randomPublicKey(), randomPublicKey()].map(
 let request = PresentationRequest.https(
   spec,
   {
-    acceptedNations: StringArray.from(acceptedNations),
+    acceptedNations: FieldArray.from(
+      acceptedNations.map((s) => Poseidon.hashPacked(String, String.from(s)))
+    ),
     acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
     appId: String.from('my-app-id:123'),
@@ -132,6 +158,9 @@ console.time('compile');
 let deserialized = PresentationRequest.fromJSON('https', requestJson);
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
+
+let info = (await compiled.program.program.analyzeMethods()).run;
+console.log('circuit gates summary', info?.summary());
 
 console.time('create');
 let presentation = await Presentation.create(ownerKey, {
