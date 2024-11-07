@@ -7,7 +7,6 @@ import {
   Presentation,
   PresentationRequest,
   assert,
-  type InferSchema,
   DynamicString,
   DynamicArray,
   hashPacked,
@@ -20,27 +19,27 @@ import {
   randomPublicKey,
 } from '../tests/test-utils.ts';
 import { DynamicRecord } from '../src/credentials/dynamic-record.ts';
+import { Schema } from '../src/credentials/schema.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const String = DynamicString({ maxLength: 50 });
-const LongString = DynamicString({ maxLength: 200 });
 const Bytes16 = Bytes(16);
 
-const Schema = {
+const schema = Schema({
   /**
    * Nationality of the owner.
    */
-  nationality: String,
+  nationality: Schema.String,
 
   /**
    * Full name of the owner.
    */
-  name: LongString,
+  name: Schema.String,
 
   /**
    * Date of birth of the owner.
    */
-  birthDate: UInt64,
+  birthDate: Schema.Number,
 
   /**
    * Owner ID (16 bytes).
@@ -50,19 +49,19 @@ const Schema = {
   /**
    * Timestamp when the credential expires.
    */
-  expiresAt: UInt64,
-};
+  expiresAt: Schema.Number,
+});
 
 // ---------------------------------------------
 // ISSUER: issue a signed credential to the owner
 
-let data: InferSchema<typeof Schema> = {
-  nationality: String.from('United States of America'),
-  name: LongString.from('John Doe'),
-  birthDate: UInt64.from(Date.UTC(1990, 1, 1)),
+let data = schema.from({
+  nationality: 'United States of America',
+  name: 'John Doe',
+  birthDate: Date.UTC(1990, 1, 1),
   id: Bytes16.random(),
-  expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
-};
+  expiresAt: Date.UTC(2028, 7, 1),
+});
 let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);
 
