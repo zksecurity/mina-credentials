@@ -32,7 +32,7 @@ import {
   serializeNestedProvable,
   serializeNestedProvableValue,
 } from '../serialize-provable.ts';
-import { packStringToField, packToField } from './dynamic-hash.ts';
+import { hashString, packToField } from './dynamic-hash.ts';
 import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicRecord, GenericRecord, type UnknownRecord, extractProperty };
@@ -94,7 +94,7 @@ function DynamicRecord<
             let actualValue =
               type === undefined ? value : type.fromValue(value);
             return {
-              key: packStringToField(key).toBigInt(),
+              key: hashString(key).toBigInt(),
               value: packToField(actualValue, type).toBigInt(),
             };
           });
@@ -148,7 +148,7 @@ class GenericRecordBase {
     let entries = Object.entries<unknown>(actual).map(([key, value]) => {
       let type = NestedProvable.get(NestedProvable.fromValue(value));
       return {
-        key: packStringToField(key),
+        key: hashString(key),
         value: packToField(type.fromValue(value), type),
       };
     });
@@ -162,7 +162,7 @@ class GenericRecordBase {
 
   getAny<A extends ProvableHashableType>(valueType: A, key: string) {
     // find valueHash for key
-    let keyHash = packStringToField(key);
+    let keyHash = hashString(key);
     let current = OptionField.none();
 
     for (let { isSome, value: entry } of this.entries) {

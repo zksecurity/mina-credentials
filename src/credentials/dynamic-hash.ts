@@ -31,7 +31,6 @@ export {
   hashDynamic,
   hashArray,
   hashString,
-  packStringToField,
   packToField,
   hashRecord,
   bitSize,
@@ -54,11 +53,14 @@ type HashableValue =
  *
  * The hashing algorithm is compatible with dynamic-length schemas.
  *
- * Note: There are expected hash collisions between _different_ types, like
+ * Note: There are expected hash collisions between different types
+ * - that have the same overall shape in terms of dynamic-length types, and
+ * - individual atomic pieces have the same representation as field elements
  * ```ts
- * hashDynamic(5) === hashDynamic(5n);
+ * hashDynamic(true) === hashDynamic(1);
+ * hashDynamic({ a: 5 }) === hashDynamic({ a: 5n });
  * hashDynamic(undefined) === hashDynamic(null);
- * hashDynamic([1]) === hashDynamic("\x01");
+ * hashDynamic("\x01") === hashDynamic([UInt8.from(1)]);
  * ```
  */
 function hashDynamic(value: HashableValue | unknown) {
@@ -145,7 +147,7 @@ function hashArray(array: unknown[]) {
 function hashRecord(data: {}) {
   assert(typeof data === 'object', 'Expected plain object');
   let entryHashes = mapEntries(data as UnknownRecord, (key, value) => {
-    return [packStringToField(key), packToField(value)];
+    return [hashString(key), packToField(value)];
   });
   return Poseidon.hash(entryHashes.flat());
 }
@@ -275,15 +277,6 @@ function provableTypeEquals(
 
   // other types check directly
   return valueType === type;
-}
-
-// for packing keys -- not compatible with dynamic string hash! (as keys will be known at compile time)
-function packStringToField(string: string) {
-  let bytes = enc.encode(string);
-  let B = Bytes(bytes.length);
-  let fields = toFieldsPacked(B, B.from(bytes));
-  if (fields.length === 1) return fields[0]!;
-  return Poseidon.hash(fields);
 }
 
 // helpers
