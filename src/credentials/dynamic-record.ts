@@ -207,7 +207,7 @@ class GenericRecordBase {
   }
 }
 
-BaseType.set('GenericRecord', GenericRecord);
+BaseType.GenericRecord = GenericRecord;
 GenericRecord.Base = GenericRecordBase;
 
 class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
@@ -223,7 +223,7 @@ class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
   }
 }
 
-BaseType.set('DynamicRecord', DynamicRecord);
+BaseType.DynamicRecord = DynamicRecord;
 DynamicRecord.Base = DynamicRecordBase;
 
 type DynamicRecordRaw = {

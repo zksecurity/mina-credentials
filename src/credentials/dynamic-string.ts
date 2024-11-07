@@ -63,7 +63,7 @@ function DynamicString({ maxLength }: { maxLength: number }) {
 
   return DynamicString;
 }
-BaseType.set('DynamicString', DynamicString);
+BaseType.DynamicString = DynamicString;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();

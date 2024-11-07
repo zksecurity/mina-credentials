@@ -2,6 +2,7 @@ export {
   assert,
   assertDefined,
   defined,
+  Required,
   assertHasProperty,
   hasProperty,
   assertIsObject,
@@ -40,6 +41,21 @@ function assertDefined<T>(
 function defined<T>(input: T | undefined, message?: string): T {
   assertDefined(input, message);
   return input;
+}
+
+function Required<T extends {}>(
+  t: T
+): {
+  [P in keyof T]-?: T[P];
+} {
+  return new Proxy(t, {
+    get(target, key) {
+      return defined(
+        (target as any)[key],
+        `Property "${String(key)}" is undefined`
+      );
+    },
+  }) as Required<T>;
 }
 
 function assertIsObject(

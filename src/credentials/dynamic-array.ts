@@ -13,15 +13,7 @@ import {
   type IsPure,
   Poseidon,
 } from 'o1js';
-import {
-  assert,
-  assertHasProperty,
-  chunk,
-  defined,
-  fill,
-  pad,
-  zip,
-} from '../util.ts';
+import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
 import {
   type ProvableHashablePure,
   type ProvableHashableType,
@@ -134,7 +126,7 @@ function DynamicArray<
 
   return DynamicArray_;
 }
-BaseType.set('DynamicArray', DynamicArray);
+BaseType.DynamicArray = DynamicArray;
 
 class DynamicArrayBase<T = any, V = any> {
   /**
