@@ -33,7 +33,9 @@ function Schema<T extends Record<string, SchemaType>>(
 
   from(value: SchemaInput<T>): SchemaOutput<T>;
 
-  type(value: SchemaOutput<T>): NestedProvableFor<SchemaOutput<T>>;
+  type(value: SchemaOutput<T>): {
+    [key in keyof T]: ProvableHashableType<SchemaOutput<T>[key]>;
+  };
 } {
   return {
     schema,
