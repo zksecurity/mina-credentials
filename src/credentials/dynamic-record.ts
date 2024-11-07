@@ -73,6 +73,12 @@ function DynamicRecord<
       return DynamicRecord.provable.fromValue(actual);
     }
 
+    static get shape(): {
+      [K in keyof TKnown]: ProvableHashableType<TKnown[K]>;
+    } {
+      return shape;
+    }
+
     static provable = TypeBuilder.shape({
       entries: array(Option(Struct({ key: Field, value: Field })), maxEntries),
       actual: Unconstrained.withEmpty<UnknownRecord>(emptyTKnown),
@@ -114,7 +120,6 @@ function DynamicRecord<
     }
   };
 }
-BaseType.set('DynamicRecord', DynamicRecord);
 
 const OptionField = Option(Field);
 const OptionKeyValue = Option(Struct({ key: Field, value: Field }));
@@ -129,7 +134,6 @@ function GenericRecord({ maxEntries }: { maxEntries: number }) {
     }
   };
 }
-BaseType.set('GenericRecord', GenericRecord);
 
 class GenericRecordBase {
   entries: Option<{ key: Field; value: Field }>[];
@@ -203,6 +207,7 @@ class GenericRecordBase {
   }
 }
 
+BaseType.set('GenericRecord', GenericRecord);
 GenericRecord.Base = GenericRecordBase;
 
 class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
@@ -218,6 +223,7 @@ class DynamicRecordBase<TKnown = any> extends GenericRecordBase {
   }
 }
 
+BaseType.set('DynamicRecord', DynamicRecord);
 DynamicRecord.Base = DynamicRecordBase;
 
 type DynamicRecordRaw = {

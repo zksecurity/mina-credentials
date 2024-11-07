@@ -42,7 +42,7 @@ import {
 } from '../serialize-provable.ts';
 import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 import { StaticArray } from './static-array.ts';
-import { bitSize, packedFieldSize, packToField } from './dynamic-hash.ts';
+import { bitSize, packToField } from './dynamic-hash.ts';
 import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicArray };
@@ -301,6 +301,8 @@ class DynamicArrayBase<T = any, V = any> {
 
   /**
    * Dynamic array hash that only depends on the actual values (not the padding).
+   *
+   * Avoids hash collisions by encoding the number of actual elements at the beginning of the hash input.
    */
   hash() {
     let type = ProvableType.get(this.innerType);
@@ -361,6 +363,20 @@ class DynamicArrayBase<T = any, V = any> {
       state[2] = Provable.if(isPadding, state[2], newState[2]);
     });
     return state[0];
+  }
+
+  /**
+   * Assert that the array is exactly equal, in its representation in field elements, to another array.
+   *
+   * Warning: Also checks equality of the padding and maxLength, which don't contribute to the "meaningful" part of the array.
+   * Therefore, this method is mainly intended for testing.
+   */
+  assertEqualsStrict(other: DynamicArray<T, V>) {
+    assert(this.maxLength === other.maxLength, 'max length mismatch');
+    this.length.assertEquals(other.length, 'length mismatch');
+    zip(this.array, other.array).forEach(([a, b]) => {
+      Provable.assertEqual(this.innerType, a, b);
+    });
   }
 
   /**

@@ -20,7 +20,9 @@ import { hashDynamic, hashRecord } from './dynamic-hash.ts';
 import { array } from '../o1js-missing.ts';
 import { DynamicArray } from './dynamic-array.ts';
 
+const String5 = DynamicString({ maxLength: 5 });
 const String10 = DynamicString({ maxLength: 10 });
+const String20 = DynamicString({ maxLength: 20 });
 
 // original schema, data and hash from known layout
 
@@ -33,41 +35,35 @@ const OriginalSchema = Schema({
   sixth: array(Field, 3),
 });
 
-let input = {
+let original = OriginalSchema.from({
   first: 1,
   second: true,
   third: 'something',
   fourth: 123n,
   fifth: { field: 2, string: '...' },
   sixth: [1n, 2n, 3n],
-};
-
-let original = OriginalSchema.from(input);
+});
 const expectedHash = hashRecord(original);
 
 const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
-let originalStruct = OriginalWrappedInStruct.fromValue(input);
+let originalStruct = OriginalWrappedInStruct.fromValue(original);
 
 // subset schema and circuit that doesn't know the full original layout
 
-// not necessarily matches the length of the original schema
-const String20 = DynamicString({ maxLength: 20 });
-const String5 = DynamicString({ maxLength: 5 });
-
-const Fifth = DynamicRecord(
-  {
-    // _nested_ subset of original schema
-    string: String5, // different max length here as well
-  },
-  { maxEntries: 5 }
-);
-
 const Subschema = DynamicRecord(
   {
-    // not necessarily in order
+    // different max length of string/array properties
     third: String20,
-    fifth: Fifth,
+    // not necessarily in original order
     first: Field,
+    // subset in nested schema
+    fifth: DynamicRecord(
+      {
+        // different max length here as well
+        string: String5,
+      },
+      { maxEntries: 5 }
+    ),
   },
   { maxEntries: 10 }
 );
@@ -84,15 +80,11 @@ async function circuit() {
     record.get('first').assertEquals(1, 'first');
 
     // dynamic string with different max length
-    Provable.assertEqual(
-      String20,
-      record.get('third'),
-      String20.from('something')
-    );
+    record.get('third').assertEqualsStrict(String20.from('something'));
 
     // nested subschema
     let fifthString = record.get('fifth').get('string');
-    Provable.assertEqual(String5, fifthString, String5.from('...'));
+    fifthString.assertEqualsStrict(String5.from('...'));
   });
 
   await test('DynamicRecord.getAny()', () => {
@@ -109,11 +101,8 @@ async function circuit() {
     );
 
     const SixthDynamic = DynamicArray(Field, { maxLength: 7 });
-    Provable.assertEqual(
-      SixthDynamic,
-      record.getAny(SixthDynamic, 'sixth'),
-      SixthDynamic.from([1n, 2n, 3n])
-    );
+    let sixth = record.getAny(SixthDynamic, 'sixth');
+    sixth.assertEqualsStrict(SixthDynamic.from([1n, 2n, 3n]));
 
     assert.throws(() => record.getAny(Bool, 'missing'), /Key not found/);
   });
@@ -140,11 +129,7 @@ async function circuit() {
 
     originalStructHash.assertEquals(originalHash, 'hashCredential() (struct)');
 
-    let subschemaHash = hashCredential(Subschema, {
-      owner,
-      data: record,
-    }).hash;
-
+    let subschemaHash = hashCredential(Subschema, { owner, data: record }).hash;
     subschemaHash.assertEquals(
       originalHash,
       'hashCredential() (dynamic record)'

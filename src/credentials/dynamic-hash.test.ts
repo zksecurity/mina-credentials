@@ -140,9 +140,10 @@ async function main() {
   let RecordArray = DynamicArray(Record, { maxLength: 5 });
 
   await test('hash arrays of records', () => {
-    Provable.witness(RecordArray, () => array)
-      .hash()
-      .assertEquals(arrayHash, 'array');
+    let arrayVar = Provable.witness(RecordArray, () => array);
+
+    arrayVar.hash().assertEquals(arrayHash, 'array');
+    hashDynamic(array).assertEquals(arrayHash, 'array');
   });
 }
 
