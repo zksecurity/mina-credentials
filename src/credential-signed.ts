@@ -61,8 +61,7 @@ function createSigned<Data>(
   credential: Credential<Data>
 ): Signed<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
-  let dataType = NestedProvable.fromValue(credential.data);
-  let credHash = hashCredential(dataType, credential);
+  let credHash = hashCredential(credential);
   let issuerSignature = Signature.create(issuerPrivateKey, [credHash.hash]);
 
   return {

@@ -16,6 +16,7 @@ import {
 } from './nested.ts';
 import { zip } from './util.ts';
 import { hashDynamic } from './credentials/dynamic-hash.ts';
+import { Schema } from './credentials/schema.ts';
 
 export {
   type Credential,
@@ -84,11 +85,9 @@ type StoredCredential<Data = any, Witness = any, Metadata = any> = {
   credential: Credential<Data>;
 };
 
-function hashCredential<Data>(
-  dataType: NestedProvableFor<Data>,
-  credential: Credential<Data>
-) {
-  return HashedCredential(dataType).hash(credential);
+function hashCredential<Data>(credential: Credential<Data>) {
+  let type = Schema.type(credential);
+  return Hashed.create(type, credentialHash).hash(type.fromValue(credential));
 }
 
 /**
@@ -122,8 +121,8 @@ function verifyCredentials({
   credentials,
 }: CredentialInputs): CredentialOutputs {
   // pack credentials in hashes
-  let credHashes = credentials.map(({ spec: { data }, credential }) =>
-    hashCredential(data, credential)
+  let credHashes = credentials.map(({ credential }) =>
+    hashCredential(credential)
   );
 
   // verify each credential using its own verification method
@@ -174,8 +173,7 @@ function signCredentials<Private, Data>(
   }[]
 ) {
   let hashes = credentials.map(
-    ({ credentialType: { data }, credential }) =>
-      hashCredential(data, credential).hash
+    ({ credential }) => hashCredential(credential).hash
   );
   let issuers = credentials.map(({ credentialType, witness }) =>
     credentialType.issuer(witness)
@@ -251,26 +249,20 @@ function createUnsigned<Data>(data: Data): Unsigned<Data> {
   };
 }
 
-function withOwner<DataType extends NestedProvable>(data: DataType) {
-  return { owner: PublicKey, data };
+function credentialHash({ owner, data }: Credential<unknown>) {
+  let ownerHash = Poseidon.hash(owner.toFields());
+  let dataHash = hashDynamic(data);
+  return Poseidon.hash([ownerHash, dataHash]);
 }
 
 // helpers to create derived types
+
+function withOwner<DataType extends NestedProvable>(data: DataType) {
+  return { owner: PublicKey, data };
+}
 
 function HashableCredential<Data>(
   dataType: NestedProvableFor<Data>
 ): ProvableHashable<Credential<Data>> {
   return NestedProvable.get(withOwner(dataType));
-}
-
-function HashedCredential<Data>(
-  dataType: NestedProvableFor<Data>
-): typeof Hashed<Credential<Data>> {
-  return Hashed.create(HashableCredential(dataType), credentialHash);
-}
-
-function credentialHash({ owner, data }: Credential<unknown>) {
-  let ownerHash = Poseidon.hash(owner.toFields());
-  let dataHash = hashDynamic(data);
-  return Poseidon.hash([ownerHash, dataHash]);
 }

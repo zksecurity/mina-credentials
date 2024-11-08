@@ -38,7 +38,7 @@ const schema = Schema({
   /**
    * Date of birth of the owner.
    */
-  birthDate: UInt64,
+  birthDate: Schema.Number,
 
   /**
    * Owner ID (16 bytes).
@@ -48,7 +48,7 @@ const schema = Schema({
   /**
    * Timestamp when the credential expires.
    */
-  expiresAt: UInt64,
+  expiresAt: Schema.Number,
 });
 
 // ---------------------------------------------
@@ -57,9 +57,9 @@ const schema = Schema({
 let data = schema.from({
   nationality: 'United States of America',
   name: 'John Doe',
-  birthDate: UInt64.from(Date.UTC(1990, 1, 1)),
+  birthDate: Date.UTC(1990, 1, 1),
   id: Bytes16.random(),
-  expiresAt: UInt64.from(Date.UTC(2028, 7, 1)),
+  expiresAt: Date.UTC(2028, 7, 1),
 });
 let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);

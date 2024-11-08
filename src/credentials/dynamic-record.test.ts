@@ -39,8 +39,6 @@ const expectedHash = hashRecord(original);
 const OriginalWrappedInStruct = Struct(OriginalSchema.nestedType(original));
 let originalStruct = OriginalWrappedInStruct.fromValue(original);
 
-console.dir({ original, originalStruct }, { depth: 6 });
-
 // subset schema and circuit that doesn't know the full original layout
 
 const Subschema = DynamicRecord(
@@ -126,20 +124,19 @@ async function circuit() {
   });
 
   await test('hashCredential()', () => {
-    let type = OriginalSchema.type(original);
-    let originalHash = hashCredential(type, {
+    let originalHash = hashCredential({
       owner,
-      data: type.fromValue(original),
+      data: original,
     }).hash;
 
-    let originalStructHash = hashCredential(OriginalWrappedInStruct, {
+    let originalStructHash = hashCredential({
       owner,
       data: originalStruct,
     }).hash;
 
     originalStructHash.assertEquals(originalHash, 'hashCredential() (struct)');
 
-    let subschemaHash = hashCredential(Subschema, { owner, data: record }).hash;
+    let subschemaHash = hashCredential({ owner, data: record }).hash;
     subschemaHash.assertEquals(
       originalHash,
       'hashCredential() (dynamic record)'

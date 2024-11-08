@@ -17,16 +17,12 @@ import {
   type Witness as RecursiveWitness,
 } from './credential-recursive.ts';
 import { assert, hasProperty } from './util.ts';
-import {
-  type InferNestedProvable,
-  NestedProvable,
-  type NestedProvablePure,
-} from './nested.ts';
-import { assertPure } from './o1js-missing.ts';
+import { type InferNestedProvable, NestedProvable } from './nested.ts';
 import {
   deserializeNestedProvableValue,
   serializeNestedProvableValue,
 } from './serialize-provable.ts';
+import { Schema } from './credentials/schema.ts';
 
 export { Credential, validateCredential };
 
@@ -100,10 +96,15 @@ async function validateCredential(
   let data = NestedProvable.get(
     NestedProvable.fromValue(credential.credential.data)
   );
-  assertPure(data);
   let spec = getCredentialSpec(credential.witness)(data);
 
-  let credHash = hashCredential(data, credential.credential);
+  // TODO: do this?
+  // let spec = getCredentialSpec(credential.witness)(
+  //   // nestedType() would feel more natural here but is rejected as type
+  //   Schema.type(credential.credential.data)
+  // );
+
+  let credHash = hashCredential(credential.credential);
   await spec.verifyOutsideCircuit(credential.witness, credHash);
 }
 
@@ -118,7 +119,7 @@ function knownWitness(witness: unknown): witness is Witness {
 
 function getCredentialSpec<W extends Witness>(
   witness: W
-): <DataType extends NestedProvablePure>(
+): <DataType extends NestedProvable>(
   dataType: DataType
 ) => CredentialSpec<CredentialType, W, InferNestedProvable<DataType>> {
   switch (witness.type) {
