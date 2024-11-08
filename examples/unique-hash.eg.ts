@@ -9,9 +9,9 @@ import {
   assert,
   DynamicString,
   DynamicArray,
-  hashPacked,
   DynamicRecord,
   Schema,
+  hashDynamic,
 } from '../src/index.ts';
 import {
   issuer,
@@ -140,8 +140,7 @@ let request = PresentationRequest.https(
   spec,
   {
     acceptedNations: FieldArray.from(
-      // TODO we want hashDynamic here
-      acceptedNations.map((s) => hashPacked(String, String.from(s)))
+      acceptedNations.map((s) => hashDynamic(s))
     ),
     acceptedIssuers: FieldArray.from(acceptedIssuers),
     currentDate: UInt64.from(Date.now()),
