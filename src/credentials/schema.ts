@@ -1,10 +1,17 @@
-import { Bool, Field, type From, type InferProvable, UInt64 } from 'o1js';
+import {
+  Bool,
+  Field,
+  type From,
+  type InferProvable,
+  type ProvableHashable,
+  UInt64,
+} from 'o1js';
 import { assert, mapObject, stringLength, zipObjects } from '../util.ts';
 import { type ProvableHashableType, ProvableType } from '../o1js-missing.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { DynamicArray } from './dynamic-array.ts';
 import { innerArrayType, provableTypeOf } from './dynamic-hash.ts';
-import type { NestedProvableFor } from '../nested.ts';
+import { NestedProvable } from '../nested.ts';
 
 export { Schema };
 
@@ -26,29 +33,31 @@ type SchemaArray<T extends SchemaType = SchemaType> = {
   inner: T;
 };
 
-function Schema<T extends Record<string, SchemaType>>(
-  schema: T
-): {
-  schema: T;
-
-  from(value: SchemaInput<T>): SchemaOutput<T>;
-
-  type(value: SchemaOutput<T>): {
-    [key in keyof T]: ProvableHashableType<SchemaOutput<T>[key]>;
-  };
-} {
+function Schema<T extends Record<string, SchemaType>>(schema: T) {
   return {
     schema,
 
-    from(value) {
-      return (validateAndConvert as any)(schema, value);
-    },
-
-    type(value) {
-      return mapObject<any, any>(value, (v: unknown) => provableTypeOf(v));
+    from(value: SchemaInput<T>): {
+      [key in keyof T]: SchemaOutput<T[key]>;
+    } {
+      return mapObject(zipObjects(schema, value), ([s, v]) =>
+        validateAndConvert(s, v)
+      );
     },
   };
 }
+Schema.nestedType = function nestedType<S extends SchemaOutput<unknown>>(
+  value: S
+): {
+  [key in keyof S]: ProvableHashableType<S[key], S[key]>;
+} {
+  return mapObject<any, any>(value, (v: unknown) => provableTypeOf(v));
+};
+Schema.type = function type<S extends SchemaOutput<unknown>>(
+  value: S
+): ProvableHashable<S, S> {
+  return NestedProvable.get(Schema.nestedType(value));
+};
 
 Schema.String = { type: 'string' } satisfies SchemaType;
 Schema.Number = { type: 'number' } satisfies SchemaType;
@@ -109,7 +118,7 @@ type SchemaInput<T extends SchemaType = SchemaType> =
     ? { [key in keyof T]: SchemaInput<T[key]> }
     : never;
 
-// TODO: this type is somehow breaking TS completely
+// TODO: this type is hard for TS to process
 type SchemaOutput<T = SchemaType> = T extends ProvableHashableType
   ? InferProvable<T>
   : T extends SchemaString

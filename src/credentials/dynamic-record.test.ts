@@ -46,8 +46,10 @@ let original = OriginalSchema.from({
 });
 const expectedHash = hashRecord(original);
 
-const OriginalWrappedInStruct = Struct(OriginalSchema.type(original));
+const OriginalWrappedInStruct = Struct(Schema.nestedType(original));
 let originalStruct = OriginalWrappedInStruct.fromValue(original);
+
+console.dir({ original, originalStruct }, { depth: 6 });
 
 // subset schema and circuit that doesn't know the full original layout
 
@@ -133,9 +135,10 @@ async function circuit() {
   });
 
   await test('hashCredential()', () => {
-    let originalHash = hashCredential(OriginalSchema.type(original), {
+    let type = Schema.type(original);
+    let originalHash = hashCredential(type, {
       owner,
-      data: original,
+      data: type.fromValue(original),
     }).hash;
 
     let originalStructHash = hashCredential(OriginalWrappedInStruct, {
