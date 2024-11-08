@@ -141,11 +141,11 @@ type ProvableHashableType<T = any, V = any> = WithProvable<
   ProvableHashable<T, V>
 >;
 
-type ProvableHashableWide<T = any, V extends W = any, W = any> = Omit<
+type ProvableHashableWide<T = any, V = any, W = any> = Omit<
   ProvableHashable<T, V>,
   'fromValue'
 > & {
-  fromValue: (value: W) => T;
+  fromValue: (value: T | W) => T;
 };
 
 type ToProvable<A extends WithProvable<any>> = A extends {
