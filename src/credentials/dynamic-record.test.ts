@@ -83,12 +83,13 @@ async function circuit() {
   await test('DynamicRecord.getAny()', () => {
     // we can get the other fields as well, if we know their type
     record.getAny(Bool, 'second').assertEquals(true, 'second');
-    record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
+    record.getAny(UInt32, 'fourth').assertEquals(UInt32.from(123n));
 
     // `packToField()` collisions mean that we can also reinterpret fields into types with equivalent packing
     // (if the new type's `fromValue()` allows the original value)
     record.getAny(Bool, 'first').assertEquals(true, 'first');
     record.getAny(UInt64, 'first').assertEquals(UInt64.one);
+    record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
 
     // we can get a nested record as struct (and nested strings can have different length)
     // this works because structs are hashed in dynamic record style
