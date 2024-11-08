@@ -23,6 +23,7 @@ export {
   type ProvableHashableType,
   type ProvableHashablePure,
   type ProvableMaybeHashable,
+  type ProvableHashableWide,
   array,
   toFieldsPacked,
   hashPacked,
@@ -139,6 +140,13 @@ type ProvablePureType<T = any, V = any> = WithProvable<ProvablePure<T, V>>;
 type ProvableHashableType<T = any, V = any> = WithProvable<
   ProvableHashable<T, V>
 >;
+
+type ProvableHashableWide<T = any, V extends W = any, W = any> = Omit<
+  ProvableHashable<T, V>,
+  'fromValue'
+> & {
+  fromValue: (value: W) => T;
+};
 
 type ToProvable<A extends WithProvable<any>> = A extends {
   provable: infer P;

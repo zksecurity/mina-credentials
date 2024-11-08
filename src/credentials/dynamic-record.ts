@@ -45,8 +45,9 @@ export {
 
 type DynamicRecord<TKnown = any> = DynamicRecordBase<TKnown>;
 
-type DynamicRecordClass<AKnown extends Record<string, ProvableHashableType>> =
-  ReturnType<typeof DynamicRecord<AKnown>>;
+type DynamicRecordClass<AKnown extends Record<string, any>> = ReturnType<
+  typeof DynamicRecord<AKnown>
+>;
 
 function DynamicRecord<
   AKnown extends Record<string, ProvableHashableType>,
