@@ -1,5 +1,5 @@
 import {
-  Bool,
+  type Bool,
   type From,
   type InferProvable,
   type InferValue,
