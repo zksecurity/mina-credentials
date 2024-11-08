@@ -66,8 +66,13 @@ type HashableValue =
  * hashDynamic("\x01") === hashDynamic([UInt8.from(1)]);
  * ```
  */
-function hashDynamic(value: HashableValue | unknown) {
-  return packToField(value, undefined, { mustHash: true });
+function hashDynamic(...values: (HashableValue | unknown)[]) {
+  // for one input, this is just packToField in hashing mode
+  if (values.length === 1) {
+    return packToField(values[0], undefined, { mustHash: true });
+  }
+  // for multiple inputs, first pack each of them and then hash
+  return hashSafe(values.map((x) => packToField(x)));
 }
 
 /**
@@ -98,8 +103,7 @@ function packToField<T>(
   if (typeof value === 'boolean') return packToField(Bool(value), Bool, config);
   if (typeof value === 'bigint')
     return packToField(Field(value), Field, config);
-  if (value === undefined || value === null)
-    return hashPacked(Undefined, undefined);
+  if (value === undefined || value === null) return hashSafe([]);
 
   // dynamic array types
   if (Array.isArray(value)) {
@@ -123,7 +127,7 @@ function packToField<T>(
     // other provable types use directly
     let fields = toFieldsPacked(type, value);
     if (fields.length === 1 && !config?.mustHash) return fields[0]!;
-    return Poseidon.hash(fields);
+    return hashSafe(fields);
   }
 
   // at this point, the only valid types are records
