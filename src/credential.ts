@@ -85,9 +85,27 @@ type StoredCredential<Data = any, Witness = any, Metadata = any> = {
   credential: Credential<Data>;
 };
 
+/**
+ * Hash a credential.
+ */
 function hashCredential<Data>(credential: Credential<Data>) {
   let type = Schema.type(credential);
   return Hashed.create(type, credentialHash).hash(type.fromValue(credential));
+}
+
+/**
+ * Hash a credential inside a zk circuit.
+ *
+ * The differences to `hashCredential()` are:
+ * - we have a dataType given which defines the circuit and therefore shouldn't be derived from the credential
+ * - we can't convert the credential data from plain JS values
+ */
+function hashCredentialInCircuit<Data>(
+  dataType: NestedProvableFor<Data>,
+  credential: Credential<Data>
+) {
+  let type = NestedProvable.get(withOwner(dataType));
+  return Hashed.create(type, credentialHash).hash(credential);
 }
 
 /**
@@ -121,8 +139,8 @@ function verifyCredentials({
   credentials,
 }: CredentialInputs): CredentialOutputs {
   // pack credentials in hashes
-  let credHashes = credentials.map(({ credential }) =>
-    hashCredential(credential)
+  let credHashes = credentials.map(({ spec: { data }, credential }) =>
+    hashCredentialInCircuit(data, credential)
   );
 
   // verify each credential using its own verification method
