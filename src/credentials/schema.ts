@@ -68,9 +68,11 @@ function Schema<T extends Record<string, SchemaType>>(schema: T) {
 
 // loosely-typed versions of the above functions that work without a schema object
 
-Schema.nestedType = function nestedType<S>(value: S): {
-  [key in keyof S]: ProvableHashableType<S[key], S[key]>;
-} {
+Schema.nestedType = function nestedType<S>(value: S): unknown extends S
+  ? NestedProvable
+  : {
+      [key in keyof S]: ProvableHashableType<S[key], S[key]>;
+    } {
   return mapObject<any, any>(value, (v: unknown) => provableTypeOf(v));
 };
 Schema.type = function type<S>(value: S): ProvableHashable<S, S> {

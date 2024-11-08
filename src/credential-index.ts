@@ -92,17 +92,9 @@ async function validateCredential(
 
   assert(knownWitness(credential.witness), 'Unknown credential type');
 
-  // TODO: this is brittle. probably data type should be part of metadata.
-  let data = NestedProvable.get(
-    NestedProvable.fromValue(credential.credential.data)
+  let spec = getCredentialSpec(credential.witness)(
+    Schema.nestedType(credential.credential.data)
   );
-  let spec = getCredentialSpec(credential.witness)(data);
-
-  // TODO: do this?
-  // let spec = getCredentialSpec(credential.witness)(
-  //   // nestedType() would feel more natural here but is rejected as type
-  //   Schema.type(credential.credential.data)
-  // );
 
   let credHash = hashCredential(credential.credential);
   await spec.verifyOutsideCircuit(credential.witness, credHash);
