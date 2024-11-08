@@ -36,7 +36,7 @@ let original = OriginalSchema.from({
 });
 const expectedHash = hashRecord(original);
 
-const OriginalWrappedInStruct = Struct(Schema.nestedType(original));
+const OriginalWrappedInStruct = Struct(OriginalSchema.nestedType(original));
 let originalStruct = OriginalWrappedInStruct.fromValue(original);
 
 console.dir({ original, originalStruct }, { depth: 6 });
@@ -126,7 +126,7 @@ async function circuit() {
   });
 
   await test('hashCredential()', () => {
-    let type = Schema.type(original);
+    let type = OriginalSchema.type(original);
     let originalHash = hashCredential(type, {
       owner,
       data: type.fromValue(original),
