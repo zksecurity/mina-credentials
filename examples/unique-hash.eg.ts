@@ -10,6 +10,8 @@ import {
   DynamicString,
   DynamicArray,
   hashPacked,
+  DynamicRecord,
+  Schema,
 } from '../src/index.ts';
 import {
   issuer,
@@ -18,8 +20,6 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
-import { DynamicRecord } from '../src/credentials/dynamic-record.ts';
-import { Schema } from '../src/credentials/schema.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const Bytes16 = Bytes(16);
