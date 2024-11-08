@@ -37,12 +37,8 @@ function Schema<T extends Record<string, SchemaType>>(schema: T) {
   return {
     schema,
 
-    from(value: SchemaInput<T>): {
-      [key in keyof T]: SchemaOutput<T[key]>;
-    } {
-      return mapObject(zipObjects(schema, value), ([s, v]) =>
-        validateAndConvert(s, v)
-      );
+    from(value: SchemaInput<T>): SchemaOutput<T> {
+      return validateAndConvert(schema, value);
     },
   };
 }
@@ -76,23 +72,20 @@ function validateAndConvert(schema: SchemaType, value: unknown): any {
   switch (schema.type) {
     case 'string':
       assert(typeof value === 'string');
-      return DynamicString({ maxLength: stringLength(value) }).from(value);
+      return value;
     case 'number':
       assert(typeof value === 'number');
       assert(Number.isInteger(value));
       return UInt64.from(value);
     case 'boolean':
       assert(typeof value === 'boolean');
-      return Bool(value);
+      return value;
     case 'bigint':
       assert(typeof value === 'bigint');
-      return Field(value);
+      return value;
     case 'array':
       assert(Array.isArray(value));
-      let innerType = innerArrayType(value);
-      return DynamicArray(innerType, { maxLength: value.length }).from(
-        value.map((v: unknown) => validateAndConvert(schema.inner, v))
-      );
+      return value.map((v) => validateAndConvert(schema.inner, v));
     default:
       assert(typeof value === 'object' && value !== null);
       return mapObject(zipObjects(schema, value), ([s, v]) =>
@@ -122,13 +115,13 @@ type SchemaInput<T extends SchemaType = SchemaType> =
 type SchemaOutput<T = SchemaType> = T extends ProvableHashableType
   ? InferProvable<T>
   : T extends SchemaString
-  ? DynamicString
+  ? string
   : T extends SchemaNumber
   ? UInt64
   : T extends SchemaBoolean
-  ? Bool
+  ? boolean
   : T extends SchemaBigint
-  ? Field
+  ? bigint
   : T extends SchemaArray<infer U>
-  ? DynamicArray<SchemaOutput<U>>
+  ? SchemaOutput<U>[]
   : { [key in keyof T]: SchemaOutput<T[key]> };
