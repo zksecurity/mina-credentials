@@ -3,6 +3,7 @@ import {
   type From,
   type InferProvable,
   type InferValue,
+  type ProvableHashable,
   UInt64,
 } from 'o1js';
 import { assert, mapObject, zipObjects } from '../util.ts';
@@ -65,20 +66,16 @@ function Schema<T extends Record<string, SchemaType>>(schema: T) {
   };
 }
 
-// TODO probably won't need this -- looser-typed versions of the above functions
+// loosely-typed versions of the above functions that work without a schema object
 
-// Schema.nestedType = function nestedType<S extends SchemaOutput<unknown>>(
-//   value: S
-// ): {
-//   [key in keyof S]: ProvableHashableType<S[key], S[key]>;
-// } {
-//   return mapObject<any, any>(value, (v: unknown) => provableTypeOf(v));
-// };
-// Schema.type = function type<S extends SchemaOutput<unknown>>(
-//   value: S
-// ): ProvableHashable<S, S> {
-//   return NestedProvable.get(Schema.nestedType(value));
-// };
+Schema.nestedType = function nestedType<S>(value: S): {
+  [key in keyof S]: ProvableHashableType<S[key], S[key]>;
+} {
+  return mapObject<any, any>(value, (v: unknown) => provableTypeOf(v));
+};
+Schema.type = function type<S>(value: S): ProvableHashable<S, S> {
+  return NestedProvable.get(Schema.nestedType(value));
+};
 
 Schema.String = { type: 'string' } satisfies SchemaType;
 Schema.Number = { type: 'number' } satisfies SchemaType;
