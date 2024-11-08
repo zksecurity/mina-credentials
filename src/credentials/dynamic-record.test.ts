@@ -1,4 +1,4 @@
-import { Bool, Field, Provable, Struct, UInt64 } from 'o1js';
+import { Bool, Field, Provable, Struct, UInt32, UInt64 } from 'o1js';
 import { DynamicRecord } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { test } from 'node:test';
@@ -18,12 +18,12 @@ const OriginalSchema = Schema({
   first: Field,
   second: Schema.Boolean,
   third: Schema.String,
-  fourth: Schema.Bigint,
+  fourth: UInt32,
   fifth: {
     field: Schema.Number,
     string: Schema.String,
   },
-  sixth: Schema.Array(Schema.Bigint),
+  sixth: Schema.Array(Schema.Number),
 });
 
 let original = OriginalSchema.from({
@@ -32,7 +32,7 @@ let original = OriginalSchema.from({
   third: 'something',
   fourth: 123n,
   fifth: { field: 2, string: '...' },
-  sixth: [1n, 2n, 3n],
+  sixth: [1, 2, 3],
 });
 const expectedHash = hashRecord(original);
 
@@ -101,7 +101,7 @@ async function circuit() {
     );
 
     // can get an array as dynamic array, as long as the maxLength is >= the actual length
-    const SixthDynamic = DynamicArray(Field, { maxLength: 7 });
+    const SixthDynamic = DynamicArray(UInt64, { maxLength: 7 });
     let sixth = record.getAny(SixthDynamic, 'sixth');
     sixth.assertEqualsStrict(SixthDynamic.from(original.sixth));
 
