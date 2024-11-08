@@ -6,6 +6,7 @@ import {
   hashDynamic,
   hashRecord,
   hashSafe,
+  hashSafeWithPrefix,
   hashString,
   packToField,
 } from './dynamic-hash.ts';
@@ -166,10 +167,14 @@ await test('collisions', async () => {
   });
 
   await test('No hashSafe collisions', () => {
-    hashSafe([]).assertNotEquals(hashSafe([Field(0)]));
-    hashSafe([]).assertNotEquals(hashSafe([Field(0), Field(0)]));
-    hashSafe([1, 2, 3].map(Field)).assertNotEquals(
-      hashSafe([1, 2, 3, 0].map(Field))
+    hashSafe([]).assertNotEquals(hashSafe([0]));
+    hashSafe([]).assertNotEquals(hashSafe([0, 0]));
+    hashSafe([1, 2, 3]).assertNotEquals(hashSafe([1, 2, 3, 0]));
+  });
+
+  await test('hashSafe with prefix', () => {
+    hashSafeWithPrefix('blub', [1, 2, 3]).assertNotEquals(
+      hashSafeWithPrefix('blob', [1, 2, 3])
     );
   });
 });

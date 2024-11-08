@@ -12,7 +12,6 @@ import {
   Undefined,
 } from 'o1js';
 import {
-  hashPacked,
   type ProvableHashableType,
   ProvableType,
   toFieldsPacked,
@@ -38,6 +37,7 @@ export {
   provableTypeOf,
   innerArrayType,
   hashSafe,
+  hashSafeWithPrefix,
 };
 
 // compatible hashing
@@ -188,10 +188,23 @@ function hashString(string: string) {
  * These collisions are circumvented by using three different hash prefixes
  * for the 'even', 'odd' and 'zero' cases.
  */
-function hashSafe(fields: Field[]) {
+function hashSafe(fields: (Field | number | bigint)[]) {
   let n = fields.length;
-  let prefix = n === 0 ? 'zero' : n % 2 === 0 ? 'even' : 'odd';
-  return Poseidon.hashWithPrefix(prefix, fields);
+  let prefix = n === 0 ? 'zero' : n % 2 === 0 ? 'even' : 'odd_';
+  return Poseidon.hashWithPrefix(prefix, fields.map(Field));
+}
+
+function hashSafeWithPrefix(
+  prefix: string | undefined,
+  fields: (Field | number | bigint)[]
+) {
+  let n = fields.length;
+  let prefix2 = n === 0 ? 'zero' : n % 2 === 0 ? 'even' : 'odd_';
+  // TODO expose `prefixToFields()` to that we can implement this with two separate permutations
+  return Poseidon.hashWithPrefix(
+    `${prefix2}${prefix ?? ''}`,
+    fields.map(Field)
+  );
 }
 
 /**
