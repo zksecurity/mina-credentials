@@ -36,6 +36,15 @@ type SchemaArray<T extends SchemaType = SchemaType> = {
   inner: T;
 };
 
+Schema.String = { type: 'string' } satisfies SchemaType;
+Schema.Number = { type: 'number' } satisfies SchemaType;
+Schema.Boolean = { type: 'boolean' } satisfies SchemaType;
+Schema.Array = function SchemaArray<T extends SchemaType>(
+  inner: T
+): SchemaArray<T> {
+  return { type: 'array', inner };
+};
+
 function Schema<T extends Record<string, SchemaType>>(schema: T) {
   return {
     schema,
@@ -77,15 +86,6 @@ Schema.nestedType = function nestedType<S>(value: S): unknown extends S
 };
 Schema.type = function type<S>(value: S): ProvableHashable<S, S> {
   return NestedProvable.get(Schema.nestedType(value));
-};
-
-Schema.String = { type: 'string' } satisfies SchemaType;
-Schema.Number = { type: 'number' } satisfies SchemaType;
-Schema.Boolean = { type: 'boolean' } satisfies SchemaType;
-Schema.Array = function SchemaArray<T extends SchemaType>(
-  inner: T
-): SchemaArray<T> {
-  return { type: 'array', inner };
 };
 
 function validateAndConvert(schema: SchemaType, value: unknown): any {
