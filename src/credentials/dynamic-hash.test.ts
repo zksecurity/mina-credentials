@@ -5,6 +5,7 @@ import {
   hashArray,
   hashDynamic,
   hashRecord,
+  hashSafe,
   hashString,
   packToField,
 } from './dynamic-hash.ts';
@@ -149,6 +150,26 @@ async function main() {
 
 await test('outside circuit', () => main());
 await test('inside circuit', () => Provable.runAndCheck(main));
+
+// hashSafe
+
+await test('collisions', async () => {
+  await test('Poseidon collisions', () => {
+    Poseidon.hash([]).assertEquals(Poseidon.hash([Field(0)]));
+    Poseidon.hash([]).assertEquals(Poseidon.hash([Field(0), Field(0)]));
+    Poseidon.hash([1, 2, 3].map(Field)).assertEquals(
+      Poseidon.hash([1, 2, 3, 0].map(Field))
+    );
+  });
+
+  await test('No hashSage collisions', () => {
+    hashSafe([]).assertNotEquals(hashSafe([Field(0)]));
+    hashSafe([]).assertNotEquals(hashSafe([Field(0), Field(0)]));
+    hashSafe([1, 2, 3].map(Field)).assertNotEquals(
+      hashSafe([1, 2, 3, 0].map(Field))
+    );
+  });
+});
 
 // comparison of constraint efficiency of different approaches
 

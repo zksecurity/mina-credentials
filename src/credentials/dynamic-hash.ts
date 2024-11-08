@@ -37,6 +37,7 @@ export {
   packedFieldSize,
   provableTypeOf,
   innerArrayType,
+  hashSafe,
 };
 
 // compatible hashing
@@ -171,6 +172,22 @@ function hashString(string: string) {
   let B = Bytes(4 + length);
   let fields = toFieldsPacked(B, B.from(bytes));
   return Poseidon.hash(fields);
+}
+
+/**
+ * Variant of `Poseidon.hash()` which avoids the length collisions
+ * of the original that is due to zero-padding up to multiples of 2, i.e.
+ * ```ts
+ * Poseidon.hash([1,0]) === Poseidon.hash([1])
+ * Poseidon.hash([0,0]) === Poseidon.hash([0]) === Poseidon.hash([])
+ * ```
+ * These collisions are circumvented by using three different hash prefixes
+ * for the 'even', 'odd' and 'zero' cases.
+ */
+function hashSafe(fields: Field[]) {
+  let n = fields.length;
+  let prefix = n === 0 ? 'zero' : n % 2 === 0 ? 'even' : 'odd';
+  return Poseidon.hashWithPrefix(prefix, fields);
 }
 
 /**
