@@ -33,11 +33,7 @@ import {
   DynamicRecord,
   extractProperty,
 } from './credentials/dynamic-record.ts';
-import {
-  hashDynamic,
-  hashSafeWithPrefix,
-  packToField,
-} from './credentials/dynamic-hash.ts';
+import { hashDynamicWithPrefix } from './credentials/dynamic-hash.ts';
 
 export type {
   PublicInputs,
@@ -288,15 +284,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     }
     case 'hash': {
       let inputs = node.inputs.map((i) => evalNode(root, i));
-
-      if (node.prefix === undefined) {
-        return hashDynamic(...inputs) as Data;
-      }
-      // TODO it would be nice to have `hashDynamic()` with a prefix as well, but
-      // that would mean we have to thread the prefix through all our hashing algorithms
-      let fields = inputs.map((value) => packToField(value));
-      let hash = hashSafeWithPrefix(node.prefix, fields);
-      return hash as Data;
+      return hashDynamicWithPrefix(node.prefix, ...inputs) as Data;
     }
     case 'ifThenElse': {
       let condition = evalNode(root, node.condition);

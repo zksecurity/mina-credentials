@@ -28,6 +28,7 @@ import { BaseType } from './dynamic-base-types.ts';
 
 export {
   hashDynamic,
+  hashDynamicWithPrefix,
   hashArray,
   hashString,
   packToField,
@@ -73,6 +74,18 @@ function hashDynamic(...values: (HashableValue | unknown)[]) {
   }
   // for multiple inputs, first pack each of them and then hash
   return hashSafe(values.map((x) => packToField(x)));
+}
+
+function hashDynamicWithPrefix(
+  prefix: string | undefined,
+  ...values: (HashableValue | unknown)[]
+) {
+  if (prefix === undefined) return hashDynamic(...values);
+  // TODO it would be nice to avoid double hashing here,
+  // i.e. have it work exactly like `hashDynamic()` just with a prefix.
+  // but that would mean we have to thread the prefix through all our hashing algorithms
+  let fields = values.map((value) => packToField(value));
+  return hashSafeWithPrefix(prefix, fields);
 }
 
 /**
