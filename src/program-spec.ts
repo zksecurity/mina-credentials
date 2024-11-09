@@ -6,14 +6,13 @@ import {
   Field,
   Provable,
   type ProvablePure,
-  Poseidon,
   Signature,
   PublicKey,
   type InferProvable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
-import { assertPure, ProvableType, toFieldsPacked } from './o1js-missing.ts';
-import { assert, assertHasProperty, zip } from './util.ts';
+import { assertPure, ProvableType } from './o1js-missing.ts';
+import { assert, assertHasProperty } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
