@@ -2,11 +2,12 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes, PublicKey, Signature } from 'o1js';
 import { createProgram } from '../src/program.ts';
-import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
+import { Claim, Constant, Spec } from '../src/program-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { owner, ownerKey } from './test-utils.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
 import { signCredentials } from '../src/credential.ts';
+import { Operation } from '../src/operation.ts';
 
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };

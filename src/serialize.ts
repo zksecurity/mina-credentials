@@ -1,4 +1,5 @@
-import { Spec, type Input, Node } from './program-spec.ts';
+import { Spec, type Input } from './program-spec.ts';
+import { Node } from './operation.ts';
 import {
   type HttpsInputContext,
   type ZkAppInputContext,

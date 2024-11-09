@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { Field, Bytes } from 'o1js';
-import { Claim, Constant, Operation, Spec } from '../src/program-spec.ts';
+import { Claim, Constant, Spec } from '../src/program-spec.ts';
 import {
   issuerKey,
   owner,
@@ -11,6 +11,7 @@ import {
 } from './test-utils.ts';
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
+import { Operation } from '../src/operation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);

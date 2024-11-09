@@ -9,7 +9,6 @@ import {
 } from 'o1js';
 import {
   type Input,
-  Node,
   privateInputTypes,
   publicInputTypes,
   publicOutputType,
@@ -20,6 +19,7 @@ import {
   type PublicInputs,
   type UserInputs,
 } from './program-spec.ts';
+import { Node } from './operation.ts';
 import { NestedProvable } from './nested.ts';
 import { type ProvablePureType } from './o1js-missing.ts';
 import { verifyCredentials } from './credential.ts';

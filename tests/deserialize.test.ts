@@ -15,7 +15,8 @@ import {
   FeatureFlags,
   Bytes,
 } from 'o1js';
-import { Spec, Node, Operation, Constant, Claim } from '../src/program-spec.ts';
+import { Spec, Constant, Claim } from '../src/program-spec.ts';
+import { Node, Operation } from '../src/operation.ts';
 import {
   serializeNode,
   serializeInput,
