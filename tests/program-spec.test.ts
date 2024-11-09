@@ -15,6 +15,7 @@ import {
 import { issuerKey, owner } from './test-utils.ts';
 import { type CredentialOutputs } from '../src/credential.ts';
 import { Credential } from '../src/credential-index.ts';
+import { hashDynamic } from '../src/index.ts';
 
 function cred<D>(data: D): Credential<D> {
   return { owner, data };
@@ -224,7 +225,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const inputValue = Field(123456);
-    const expectedHashValue = Poseidon.hash([inputValue]);
+    const expectedHashValue = hashDynamic(inputValue);
 
     const root: DataInputs<typeof spec.inputs> = {
       data: cred({ value: inputValue }),
