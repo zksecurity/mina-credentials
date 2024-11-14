@@ -225,6 +225,19 @@ const Presentation = {
   create: createPresentation,
 
   /**
+   * Prepare a presentation, given the request, context, and credentials
+   *
+   * This way creating the presentation doesn't requre the private key of the owner but instead lets
+   * the wallet to handle the signing process
+   */
+  prepare: preparePresentation,
+
+  /**
+   * Finalize presentation given request, signature and prepared data from preparePresentation
+   */
+  finalize: finalizePresentation,
+
+  /**
    * Verify a presentation against a request and context.
    *
    * Returns the verified output claim of the proof, to be consumed by application-specific logic.
