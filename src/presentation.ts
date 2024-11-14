@@ -5,6 +5,7 @@ import {
   PrivateKey,
   Provable,
   PublicKey,
+  Signature,
   Struct,
   VerificationKey,
   verify,
@@ -12,11 +13,12 @@ import {
 import { Spec, type Input, type Claims } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
+  hashCredential,
   signCredentials,
   type CredentialSpec,
   type StoredCredential,
 } from './credential.ts';
-import { assert, isSubclass } from './util.ts';
+import { assert, isSubclass, zip } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
 import {
@@ -308,6 +310,118 @@ async function createPresentation<R extends PresentationRequest>(
     clientNonce,
     proof: { maxProofsVerified, proof: proofBase64 },
   };
+}
+
+async function preparePresentation<R extends PresentationRequest>({
+  request,
+  context: walletContext,
+  credentials,
+}: {
+  request: R;
+  context: WalletContext<R>;
+  credentials: (StoredCredential & { key?: string })[];
+}): Promise<{
+  context: Field;
+  fields: string[];
+  credentialsUsed: Record<string, StoredCredential>;
+  clientNonce: Field;
+  compiledRequest: {
+    program: Program<Output<R>, Inputs<R>>;
+    verificationKey: VerificationKey;
+  };
+}> {
+  let { program, verificationKey } = await Presentation.compile(request);
+  let clientNonce = Field.random();
+  let context = request.deriveContext(request.inputContext, walletContext, {
+    clientNonce,
+    vkHash: verificationKey.hash,
+    claims: hashClaims(request.claims),
+  });
+
+  let credentialsNeeded = Object.entries(request.spec.inputs).filter(
+    (c): c is [string, CredentialSpec] => c[1].type === 'credential'
+  );
+  let credentialsUsed = pickCredentials(
+    credentialsNeeded.map(([key]) => key),
+    credentials
+  );
+  let credentialsAndTypes = credentialsNeeded.map(([key, credentialType]) => {
+    let credentialAndType = { ...credentialsUsed[key]!, credentialType };
+    if (isSubclass(credentialType.data, DynamicRecord.Base)) {
+      let { owner, data } = credentialAndType.credential;
+      credentialAndType.credential = {
+        owner,
+        data: credentialType.data.from(data),
+      };
+    }
+    return credentialAndType;
+  });
+
+  let credHashes = credentialsAndTypes.map(({ credentialType, credential }) =>
+    hashCredential(credentialType.data, credential)
+  );
+  let issuers = credentialsAndTypes.map(({ credentialType, witness }) =>
+    credentialType.issuer(witness)
+  );
+
+  const fieldsToSign = [
+    context,
+    ...zip(
+      credHashes.map((c) => c.hash),
+      issuers
+    ).flat(),
+  ];
+  const msg = fieldsToSign.toString();
+  return {
+    context,
+    fields: fieldsToSign.map((f) => f.toString()),
+    credentialsUsed,
+    clientNonce,
+    compiledRequest: { program, verificationKey },
+  };
+}
+
+async function finalizePresentation<R extends PresentationRequest>(
+  request: R,
+  ownerSignature: Signature,
+  preparedData: {
+    clientNonce: Field;
+    context: Field;
+    credentialsUsed: Record<string, StoredCredential>;
+    compiledRequest: { program: Program<Output<R>, Inputs<R>> };
+  }
+): Promise<Presentation<Output<R>, Inputs<R>>> {
+  let proof = await preparedData.compiledRequest.program.run({
+    context: preparedData.context,
+    claims: request.claims as any,
+    ownerSignature,
+    credentials: preparedData.credentialsUsed as any,
+  });
+  let { proof: proofBase64, maxProofsVerified } = proof.toJSON();
+
+  return {
+    version: 'v0',
+    claims: request.claims as any,
+    outputClaim: proof.publicOutput,
+    clientNonce: preparedData.clientNonce,
+    proof: { maxProofsVerified, proof: proofBase64 },
+  };
+}
+
+async function createPresentationPrepareFinalize<R extends PresentationRequest>(
+  ownerKey: PrivateKey,
+  params: {
+    request: R;
+    context: WalletContext<R>;
+    credentials: (StoredCredential & { key?: string })[];
+  }
+): Promise<Presentation<Output<R>, Inputs<R>>> {
+  const prepared = await preparePresentation(params);
+  const ownerSignature = Signature.create(
+    ownerKey,
+    prepared.fields.map(Field.from)
+  );
+  return finalizePresentation(params.request, ownerSignature, prepared);
 }
 
 async function verifyPresentation<R extends PresentationRequest>(
