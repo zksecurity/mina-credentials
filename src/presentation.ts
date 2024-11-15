@@ -335,7 +335,7 @@ async function preparePresentation<R extends PresentationRequest>({
   credentials: (StoredCredential & { key?: string })[];
 }): Promise<{
   context: Field;
-  fields: string[];
+  fieldsToSignStringArray: string[];
   credentialsUsed: Record<string, StoredCredential>;
   clientNonce: Field;
   compiledRequest: {
@@ -387,7 +387,7 @@ async function preparePresentation<R extends PresentationRequest>({
   const msg = fieldsToSign.toString();
   return {
     context,
-    fields: fieldsToSign.map((f) => f.toString()),
+    fieldsToSignStringArray: fieldsToSign.map((f) => f.toString()),
     credentialsUsed,
     clientNonce,
     compiledRequest: { program, verificationKey },
@@ -432,7 +432,7 @@ async function createPresentationPrepareFinalize<R extends PresentationRequest>(
   const prepared = await preparePresentation(params);
   const ownerSignature = Signature.create(
     ownerKey,
-    prepared.fields.map(Field.from)
+    prepared.fieldsToSignStringArray.map(Field.from)
   );
   return finalizePresentation(params.request, ownerSignature, prepared);
 }
