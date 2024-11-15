@@ -227,13 +227,13 @@ const Presentation = {
   /**
    * Prepare a presentation, given the request, context, and credentials
    *
-   * This way creating the presentation doesn't requre the private key of the owner but instead lets
-   * the wallet to handle the signing process
+   * This way creating the presentation doesn't require the private key of the owner but
+   * instead lets the wallet to handle the signing process
    */
   prepare: preparePresentation,
 
   /**
-   * Finalize presentation given request, signature and prepared data from preparePresentation
+   * Finalize presentation given request, signature, and prepared data from preparePresentation
    */
   finalize: finalizePresentation,
 
