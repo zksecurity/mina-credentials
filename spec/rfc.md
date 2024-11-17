@@ -47,7 +47,7 @@ forwarding a clients proof as if it was its own.
 
 The following consideration is formally covered by unforgeability, but should be considered by applications interacting with this RFC:
 
-**Context Binding:** It is rarely intresting to present a credential without binding the presentation to some additional data.\
+**Context Binding:** It is rarely interesting to present a credential without binding the presentation to some additional data.\
 For instance, the presentation of a credential may allow spending from an account,
 in such a scenario the presentation should be bound to the transaction: the recipient, the amount, etc. to prevent the transaction from being mauled.
 This specification details how to bind *arbitrary data* to the presentation,
@@ -79,7 +79,7 @@ This type of credential is supported to allow Mina-native application to have ve
 #### Recursive Credentials
 
 A recursive credential is Kimchi proof taking the set of attributes as public input.
-This type of credential is supported to accomodate any possible credential
+This type of credential is supported to accommodate any possible credential
 and the ability to integrate existing credential systems (such as ePassport) into the Mina ecosystem
 in a modular way.
 
@@ -103,7 +103,7 @@ Attestations are “claims” which can be verified and used across any platform
 
 **Claim:** A statement, for example, “I have 20 eth in my wallet” or “I’m above the age of 24”.
 
-**A Cryptographic Artifact:** Any proof, be it a Merkel proof or ZK proof, which can be independently used to verify the claim.
+**A Cryptographic Artifact:** Any proof, be it a Merkle proof or ZK proof, which can be independently used to verify the claim.
 
 ### Types of Attestations
 
