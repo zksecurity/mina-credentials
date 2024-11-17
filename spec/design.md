@@ -6,7 +6,7 @@ The goal of this project is to design a system sufficiently flexible to encompas
 while unifying the user interface, API and design with the aim of providing a clear specification with minimal footgun potential.
 
 This is achieved by using the recursive proofs of Mina extensively:
-seperating the "creation" of the credential from the "presentation" of the credential:
+separating the "creation" of the credential from the "presentation" of the credential:
 besides unifying the presentation proof, it also allows doing most of the expensive operations (e.g. verifying an RSA signature using SHA256 and parsing a JSON object) once during the creation of the credential.
 
 At the highest possible level of abstraction, Mina credentials
@@ -17,7 +17,7 @@ By exploiting the recursive proofs of Mina, this diverse set of issuers / applic
 can be brought into a standard form: a SNARK on a hash of the attributes.
 All these credentials can also be stored/verified/used in the same way.
 This provides a plug-and-play system:
-allowing developers to create new credential types and application logics seperately, combining them in a safe, modular way.
+allowing developers to create new credential types and application logics separately, combining them in a safe, modular way.
 
 # Related Works & Systems
 
@@ -125,12 +125,12 @@ an in-circuit verification of a native signature,
 is outweighed by the following benefits:
 
 - Allow use of existing infrastructure for key management.
-  Including hardware enclaves and the ability to authortize presentations efficiently using MPC:
-  authortization requires the parties to threshold sign using Schnorr.
+  Including hardware enclaves and the ability to authorize presentations efficiently using MPC:
+  authorization requires the parties to threshold sign using Schnorr.
   An untrusted party can be asked to compute the actual proof at the cost of privacy.
 
 - Out-sourcing the computation of the presentation proof is possible at the cost of privacy:
-  the user must reveal the credential and the context to the prover, but the prover cannot impersonate the user or change the intented action.
+  the user must reveal the credential and the context to the prover, but the prover cannot impersonate the user or change the intended action.
   This is useful in scenarios where the prover is a resource-constrained device.
 
 - A compromise of the credential object itself does not allow impersonation.
@@ -138,7 +138,7 @@ is outweighed by the following benefits:
 - Easy integration with the existing Nullifier system within Mina: every credential comes with a public key
   and nullifiers can be computed / exposed against this public key to allow linkability when desired.
 
-- From a theorectical/robustness perspective, a small benefit is that we can assume weaker properties of the proof system:
+- From a theoretical/robustness perspective, a small benefit is that we can assume weaker properties of the proof system:
   the first scheme requires [(weak) simulation extractability](https://eprint.iacr.org/2020/1306.pdf) since the "context".
 
 We obtain a design in which the SNARK serves only to hide the
