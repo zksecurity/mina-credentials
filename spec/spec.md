@@ -38,7 +38,7 @@ The issuing authority is either:
 
 - A hash of a public key for simple credentials.
 - A hash of a sequence of public inputs and verification keys for recursive credentials:
-binding the credential to a specific verication logic (e.g. a circuit implementing RSA verification) and input (e.g. hash of Google's RSA public key).
+binding the credential to a specific verification logic (e.g. a circuit implementing RSA verification) and input (e.g. hash of Google's RSA public key).
 
 ## Circuit: Present Simple Credential
 
@@ -152,7 +152,7 @@ The scheme MUST be `https`.
 Discuss the following with Gregor:
 
 1. Should the `issuer` be a struct instead? (e.g. `Issuer { pk: PublicKey, signature: Signature }`)
-1. What is the standard way to provide domain-specific for signautures in the Mina ecosystem? should we do:
+1. What is the standard way to provide domain-specific for signatures in the Mina ecosystem? should we do:
 ```
 m = Poseidon.hashWithPrefix("mina-cred:v1:", [credHash, issuer, context]);
 
