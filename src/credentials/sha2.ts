@@ -11,7 +11,7 @@ import {
   UInt8,
 } from 'o1js';
 import { chunk, mod } from '../util.ts';
-import { uint64FromBytesBE } from './gadgets.ts';
+import { uint64FromBytesBE, uint64ToBytesBE } from './gadgets.ts';
 
 export { SHA2 };
 
@@ -37,7 +37,10 @@ function hash(len: Length, data: FlexibleBytes) {
   if (len === 224 || len === 256) {
     return hash256(len, data);
   }
-  throw Error('not implemented');
+  if (len === 384 || len === 512) {
+    return hash512(len, data);
+  }
+  throw Error('Unsupported hash length');
 }
 
 function hash256(len: 224 | 256, data: FlexibleBytes) {
@@ -55,6 +58,23 @@ function hash256(len: 224 | 256, data: FlexibleBytes) {
 
   // the working variables H[i] are 32bit, however we want to decompose them into bytes to be more compatible
   return Bytes.from(H.map((x) => x.toBytesBE()).flat());
+}
+
+function hash512(len: 384 | 512, data: FlexibleBytes) {
+  // preprocessing §6.2
+  // padding the message $5.1.1 into blocks that are a multiple of 512
+  let messageBlocks = padding512(data);
+
+  let H = initialState512(len);
+
+  messageBlocks.forEach((block) => {
+    H = compression512(H, messageSchedule512(block));
+  });
+
+  if (len === 384) H = H.slice(0, 6); // 512 - 2*64 = 384 bit hash
+
+  // decompose 64 bit fields into bytes
+  return Bytes.from(H.flatMap((x) => uint64ToBytesBE(x)));
 }
 
 function initialState256(len: 224 | 256) {
