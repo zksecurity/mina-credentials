@@ -5,6 +5,7 @@ import { zip } from '../util.ts';
 import { DynamicBytes } from './dynamic-bytes.ts';
 import test from 'node:test';
 import { SHA2 } from './sha2.ts';
+import { DynamicString } from './dynamic-string.ts';
 
 const DynBytes = DynamicBytes({ maxLength: 430 });
 const StaticBytes = Bytes(stringLength(longString()));
@@ -35,7 +36,7 @@ const expectedHash256 = await sha2(256, longString());
 const expectedHash384 = await sha2(384, longString());
 const expectedHash512 = await sha2(512, longString());
 
-await test('sha256 outside circuit', () => {
+await test('sha256 outside circuit', async () => {
   deepStrictEqual(
     DynamicSHA2.hash(256, bytes).toBytes(),
     expectedHash256.toBytes()
@@ -44,6 +45,22 @@ await test('sha256 outside circuit', () => {
   deepStrictEqual(
     SHA2.hash(256, staticBytes).toBytes(),
     expectedHash256.toBytes()
+  );
+
+  // also works with DynamicString and DynamicBytes
+
+  let String = DynamicString({ maxLength: 20 });
+  let string = String.from('hello');
+  deepStrictEqual(
+    string.hashToBytes('sha2-256').toHex(),
+    (await sha2(256, 'hello')).toHex()
+  );
+
+  let Bytes = DynamicBytes({ maxLength: 20 });
+  let bytes_ = Bytes.fromString('hello again!');
+  deepStrictEqual(
+    bytes_.hashToBytes('sha2-256').toHex(),
+    (await sha2(256, 'hello again!')).toHex()
   );
 });
 
@@ -140,7 +157,7 @@ async function checkConstraints(len: 256 | 384 | 512) {
 await test('constraints dynamic vs static (256)', () => checkConstraints(256));
 await test('constraints dynamic vs static (512)', () => checkConstraints(512));
 
-// reference implementations in Web Crypto API
+// reference implementation using the Web Crypto API
 
 async function sha2(len: 256 | 384 | 512, input: string) {
   let buffer = await crypto.subtle.digest(

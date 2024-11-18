@@ -2,6 +2,7 @@ import { Bool, Bytes, Field, type ProvableHashable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert, chunk } from '../util.ts';
+import { DynamicSHA2 } from './dynamic-sha2.ts';
 
 export { DynamicBytes };
 
@@ -81,6 +82,22 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
 class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   get innerType() {
     return UInt8 as any as ProvableHashable<UInt8, { value: bigint }>;
+  }
+
+  /**
+   * Hash the bytes using variants of SHA2.
+   */
+  hashToBytes(algorithm: 'sha2-256' | 'sha2-384' | 'sha2-512') {
+    switch (algorithm) {
+      case 'sha2-256':
+        return DynamicSHA2.hash(256, this);
+      case 'sha2-384':
+        return DynamicSHA2.hash(384, this);
+      case 'sha2-512':
+        return DynamicSHA2.hash(512, this);
+      default:
+        assert(false, 'unsupported hash kind');
+    }
   }
 
   /**

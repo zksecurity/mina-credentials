@@ -5,7 +5,7 @@ import { chunk, pad } from '../util.ts';
 import { SHA2 } from './sha2.ts';
 import { uint64FromBytesBE, uint64ToBytesBE } from './gadgets.ts';
 
-export { DynamicSHA2, sha2, padding256, padding512 };
+export { DynamicSHA2 };
 
 const DynamicSHA2 = {
   /**
