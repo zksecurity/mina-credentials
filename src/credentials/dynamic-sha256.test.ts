@@ -3,6 +3,7 @@ import * as nodeAssert from 'node:assert';
 import { DynamicSHA256 } from './dynamic-sha256.ts';
 import { zip } from '../util.ts';
 import { DynamicBytes } from './dynamic-bytes.ts';
+import test from 'node:test';
 
 const { SHA256 } = Gadgets;
 
@@ -19,9 +20,21 @@ nodeAssert.deepStrictEqual(
   expectedPadding.map(blockToHexBytes)
 );
 
-let actualHash = DynamicSHA256.hash(bytes);
-let expectedHash = SHA256.hash(staticBytes);
-nodeAssert.deepStrictEqual(actualHash.toBytes(), expectedHash.toBytes());
+const expectedHash256 = await sha2(256, longString());
+const expectedHash384 = await sha2(384, longString());
+const expectedHash512 = await sha2(512, longString());
+
+await test('sha256 outside circuit', () => {
+  nodeAssert.deepStrictEqual(
+    DynamicSHA256.hash(bytes).toBytes(),
+    expectedHash256.toBytes()
+  );
+
+  nodeAssert.deepStrictEqual(
+    SHA256.hash(staticBytes).toBytes(),
+    expectedHash256.toBytes()
+  );
+});
 
 // in-circuit test
 
@@ -29,7 +42,7 @@ async function circuit() {
   let bytesVar = Provable.witness(DynBytes, () => bytes);
   let hash = DynamicSHA256.hash(bytesVar);
 
-  zip(hash.bytes, expectedHash.bytes).forEach(([a, b], i) => {
+  zip(hash.bytes, expectedHash256.bytes).forEach(([a, b], i) => {
     a.assertEquals(b, `hash[${i}]`);
   });
 }
@@ -38,13 +51,15 @@ async function circuitStatic() {
   let bytesVar = Provable.witness(StaticBytes, () => staticBytes);
   let hash = SHA256.hash(bytesVar);
 
-  zip(hash.bytes, expectedHash.bytes).forEach(([a, b], i) => {
+  zip(hash.bytes, expectedHash256.bytes).forEach(([a, b], i) => {
     a.assertEquals(b, `hash[${i}]`);
   });
 }
 
-await Provable.runAndCheck(circuit);
-await Provable.runAndCheck(circuitStatic);
+await test('sha256 inside circuit', async () => {
+  await Provable.runAndCheck(circuit);
+  await Provable.runAndCheck(circuitStatic);
+});
 
 // constraints
 
@@ -62,6 +77,16 @@ console.log(`max dynamic # of blocks: ${actualPadding.maxLength}`);
 console.log(
   `constraint overhead for dynamic: ${((ratio - 1) * 100).toFixed(2)}%`
 );
+
+// reference implementations in Web Crypto API
+
+async function sha2(len: 256 | 384 | 512, input: string) {
+  let buffer = await crypto.subtle.digest(
+    `SHA-${len}`,
+    new TextEncoder().encode(input)
+  );
+  return Bytes(len / 8).from(new Uint8Array(buffer));
+}
 
 // helpers
 
