@@ -1,6 +1,6 @@
 import { Bytes, Provable, UInt32 } from 'o1js';
 import * as nodeAssert from 'node:assert';
-import { DynamicSHA256 } from './dynamic-sha256.ts';
+import { DynamicSHA256 } from './dynamic-sha2.ts';
 import { zip } from '../util.ts';
 import { DynamicBytes } from './dynamic-bytes.ts';
 import test from 'node:test';
