@@ -13,7 +13,7 @@ let bytes = DynBytes.fromString(longString());
 let staticBytes = StaticBytes.fromString(longString());
 
 let actualPadding = DynamicSHA256.padding(bytes);
-let expectedPadding = SHA2.padding(256, staticBytes);
+let expectedPadding = SHA2.padding256(staticBytes);
 nodeAssert.deepStrictEqual(
   actualPadding.toValue().map(blockToHexBytes),
   expectedPadding.map(blockToHexBytes)

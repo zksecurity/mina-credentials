@@ -44,10 +44,10 @@ function hash(bytes: DynamicArray<UInt8>): Bytes {
   // hash a dynamic number of blocks using DynamicArray.reduce()
   let state = blocks.reduce(
     State,
-    State.from(SHA2.initialState(256)),
+    State.from(SHA2.initialState256(256)),
     (state: State, block: Block) => {
-      let W = SHA2.messageSchedule(256, block.array);
-      return State.from(SHA2.compression(256, state.array, W));
+      let W = SHA2.messageSchedule256(block.array);
+      return State.from(SHA2.compression256(256, state.array, W));
     }
   );
 

@@ -11,18 +11,31 @@ type FlexibleBytes = Bytes | (UInt8 | bigint | number)[] | Uint8Array;
 
 type Length = 224 | 256 | 384 | 512;
 
-const SHA2 = { hash, padding, initialState, messageSchedule, compression };
+const SHA2 = {
+  hash,
+  padding256,
+  initialState256,
+  messageSchedule256,
+  compression256,
+};
 
 function hash(len: Length, data: FlexibleBytes) {
+  if (len === 224 || len === 256) {
+    return hash256(len, data);
+  }
+  throw Error('not implemented');
+}
+
+function hash256(len: 224 | 256, data: FlexibleBytes) {
   // preprocessing §6.2
   // padding the message $5.1.1 into blocks that are a multiple of 512
-  let messageBlocks = padding(len, data);
+  let messageBlocks = padding256(data);
 
-  let H = initialState(len);
+  let H = initialState256(len);
 
   messageBlocks.forEach((block) => {
-    const W = messageSchedule(len, block);
-    H = compression(len, H, W);
+    const W = messageSchedule256(block);
+    H = compression256(len, H, W);
   });
 
   if (len === 224) H = H.slice(0, 7); // 224 bit hash
@@ -31,29 +44,8 @@ function hash(len: Length, data: FlexibleBytes) {
   return Bytes.from(H.map((x) => x.toBytesBE()).flat());
 }
 
-function initialState(len: Length) {
+function initialState256(len: 224 | 256) {
   return constants[len].H.map((x) => UInt32.from(x));
-}
-
-function messageSchedule(len: Length, M: UInt32[]) {
-  if (len === 224 || len === 256) {
-    return messageSchedule256(M);
-  }
-  throw Error('not implemented');
-}
-
-function compression(len: Length, H: UInt32[], W: UInt32[]) {
-  if (len === 224 || len === 256) {
-    return compression256(len, H, W);
-  }
-  throw Error('not implemented');
-}
-
-function padding(len: Length, data: FlexibleBytes) {
-  if (len === 224 || len === 256) {
-    return padding256(data);
-  }
-  throw Error('not implemented');
 }
 
 /**
