@@ -79,12 +79,11 @@ console.log('✅ WALLET: imported and validated credential');
 // VERIFIER: request a presentation
 
 // it's enough to know a subset of the schema to create the request
-// and we don't have to use the original string lengths
-const NewString = DynamicString({ maxLength: 30 });
+const String = DynamicString({ maxLength: 50 });
 
 const Subschema = DynamicRecord(
   {
-    nationality: NewString,
+    nationality: String,
     expiresAt: UInt64, // we don't have to match the original order of keys
     id: Bytes16,
   },
@@ -92,7 +91,6 @@ const Subschema = DynamicRecord(
   { maxEntries: 20 }
 );
 
-const String = DynamicString({ maxLength: 50 });
 const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
 const spec = Spec(
@@ -114,7 +112,6 @@ const spec = Spec(
     // 2. the credential was issued by one of the accepted issuers
     // 3. the credential is not expired (by comparing with the current date)
     let assert = Operation.and(
-      // TODO hash() must use hashDynamic()
       Operation.equalsOneOf(Operation.hash(nationality), acceptedNations),
       Operation.equalsOneOf(issuer, acceptedIssuers),
       Operation.lessThanEq(currentDate, expiresAt)
