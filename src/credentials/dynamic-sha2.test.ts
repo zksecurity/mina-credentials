@@ -1,4 +1,4 @@
-import { Bytes, Provable, UInt32 } from 'o1js';
+import { Bytes, Provable, UInt32, UInt64 } from 'o1js';
 import * as nodeAssert from 'node:assert';
 import { DynamicSHA256 } from './dynamic-sha2.ts';
 import { zip } from '../util.ts';
@@ -12,12 +12,24 @@ const StaticBytes = Bytes(stringLength(longString()));
 let bytes = DynBytes.fromString(longString());
 let staticBytes = StaticBytes.fromString(longString());
 
-let actualPadding = DynamicSHA256.padding(bytes);
+let actualPadding = DynamicSHA256.padding256(bytes);
 let expectedPadding = SHA2.padding256(staticBytes);
-nodeAssert.deepStrictEqual(
-  actualPadding.toValue().map(blockToHexBytes),
-  expectedPadding.map(blockToHexBytes)
-);
+await test('padding 256', () => {
+  nodeAssert.deepStrictEqual(
+    actualPadding.toValue().map(blockToHexBytes),
+    expectedPadding.map(blockToHexBytes)
+  );
+});
+
+await test('padding 512', () => {
+  let actualPadding = DynamicSHA256.padding512(bytes);
+  let expectedPadding = SHA2.padding512(staticBytes);
+
+  nodeAssert.deepStrictEqual(
+    actualPadding.toValue().map(blockToHexBytes64),
+    expectedPadding.map(blockToHexBytes64)
+  );
+});
 
 const expectedHash256 = await sha2(256, longString());
 const expectedHash384 = await sha2(384, longString());
@@ -125,6 +137,13 @@ function toHexBytes(uint32: bigint | UInt32) {
 }
 function blockToHexBytes(block: (bigint | UInt32)[]) {
   return block.map(toHexBytes);
+}
+
+function toHexBytes64(uint32: bigint | UInt64) {
+  return UInt64.from(uint32).toBigInt().toString(16).padStart(16, '0');
+}
+function blockToHexBytes64(block: (bigint | UInt64)[]) {
+  return block.map(toHexBytes64);
 }
 
 // ~400 bytes, needs 7 blocks, also contains unicode

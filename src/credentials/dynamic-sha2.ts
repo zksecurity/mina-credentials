@@ -1,8 +1,9 @@
-import { Bytes, Provable, UInt32, UInt8 } from 'o1js';
+import { Bytes, Provable, UInt32, UInt64, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { chunk, pad } from '../util.ts';
 import { SHA2 } from './sha2.ts';
+import { uint64FromBytesBE, uint64ToBytesBE } from './gadgets.ts';
 
 export { DynamicSHA256 };
 
@@ -28,18 +29,25 @@ const DynamicSHA256 = {
   /**
    * Apply padding to dynamic-length input bytes and convert them to (a dynamic number of) blocks of 16 uint32s.
    */
-  padding,
+  padding256,
+  padding512,
 };
 
 // static array types for blocks / state / result
 class UInt8x4 extends StaticArray(UInt8, 4) {}
+class UInt8x8 extends StaticArray(UInt8, 8) {}
 class UInt8x64 extends StaticArray(UInt8, 64) {}
+class UInt8x128 extends StaticArray(UInt8, 128) {}
 class Block extends StaticArray(UInt32, 16) {}
 class State extends StaticArray(UInt32, 8) {}
+class Block64 extends StaticArray(UInt64, 16) {}
+class State64 extends StaticArray(UInt64, 8) {}
 const Bytes32 = Bytes(32);
+const Bytes48 = Bytes(48);
+const Bytes64 = Bytes(64);
 
 function hash(bytes: DynamicArray<UInt8>): Bytes {
-  let blocks = padding(bytes);
+  let blocks = padding256(bytes);
 
   // hash a dynamic number of blocks using DynamicArray.reduce()
   let state = blocks.reduce(
@@ -55,7 +63,7 @@ function hash(bytes: DynamicArray<UInt8>): Bytes {
   return Bytes32.from(result);
 }
 
-function padding(
+function padding256(
   message: DynamicArray<UInt8>
 ): DynamicArray<StaticArray<UInt32>> {
   /* padded message looks like this:
@@ -125,5 +133,78 @@ function padding(
 function splitMultiIndex(index: UInt32) {
   let { rest: l0, quotient: l1 } = index.divMod(64);
   let { rest: l00, quotient: l01 } = l0.divMod(4);
+  return [l00.value, l01.value, l1.value] as const;
+}
+
+function padding512(
+  message: DynamicArray<UInt8>
+): DynamicArray<StaticArray<UInt64>> {
+  /* padded message looks like this:
+  
+  M ... M 0x80 0x0 ... 0x0 [...L[16]]
+
+  where
+  - M is the original message
+  - the 16 L bytes encode the length of the original message, as a uint128
+  - padding always starts with a 0x80 byte (= big-endian encoding of 1)
+  - there are k 0x0 bytes, where k is the smallest number such that
+    the padded length (in bytes) is a multiple of 128
+
+  Corollaries:
+  - the entire L section is always contained at the end of the last block
+  - the 0x80 byte might be in the last block or the one before that
+  - max number of blocks = ceil((M.maxLength + 17) / 128) 
+  - number of actual blocks = ceil((M.length + 17) / 128) = floor((M.length + 17 + 127) / 128) = floor((M.length + 16) / 128) + 1
+  - block number of L section = floor((M.length + 16) / 128)
+  - block number of 0x80 byte index = floor(M.length / 128)
+  */
+
+  // check that all message bytes beyond the actual length are 0, so that we get valid padding just by adding the 0x80 and L bytes
+  // this step creates most of the constraint overhead of dynamic sha2, but seems unavoidable :/
+  message.forEach((byte, isPadding) => {
+    Provable.assertEqualIf(isPadding, UInt8, byte, UInt8.from(0));
+  });
+
+  // create blocks of 128 bytes each
+  const maxBlocks = Math.ceil((message.maxLength + 17) / 128);
+  const BlocksOfBytes = DynamicArray(UInt8x128, { maxLength: maxBlocks });
+
+  let lastBlockIndex = UInt32.Unsafe.fromField(message.length.add(16)).div(128);
+  let numberOfBlocks = lastBlockIndex.value.add(1);
+  let padded = pad(message.array, maxBlocks * 128, UInt8.from(0));
+  let chunked = chunk(padded, 128).map(UInt8x128.from);
+  let blocksOfBytes = new BlocksOfBytes(chunked, numberOfBlocks);
+
+  // pack each block of 64 bytes into 16 uint64s (8 bytes each)
+  let blocks = blocksOfBytes.map(Block64, (block) =>
+    block.chunk(8).map(UInt64, (b) => uint64FromBytesBE(b.array))
+  );
+
+  // splice the length in the same way
+  // length = l0 + 8*l1 + 128*l2
+  // so that l2 is the block index, l1 the uint64 index in the block, and l0 the byte index in the uint64
+  let [l0, l1, l2] = splitMultiIndex64(UInt32.Unsafe.fromField(message.length));
+
+  // hierarchically get byte at `length` and set to 0x80
+  // we can use unsafe get/set because the indices are in bounds by design
+  let block = blocks.getOrUnconstrained(l2);
+  let uint8x8 = UInt8x8.from(uint64ToBytesBE(block.getOrUnconstrained(l1)));
+  uint8x8.setOrDoNothing(l0, UInt8.from(0x80));
+  block.setOrDoNothing(l1, uint64FromBytesBE(uint8x8.array));
+  blocks.setOrDoNothing(l2, block);
+
+  // set last 128 bits to encoded length (in bits, big-endian encoded)
+  // in fact, since dynamic array asserts that length fits in 16 bits, we can set the second to last uint64 to 0
+  let lastBlock = blocks.getOrUnconstrained(lastBlockIndex.value);
+  lastBlock.set(14, UInt64.from(0));
+  lastBlock.set(15, UInt64.Unsafe.fromField(message.length.mul(8))); // length in bits
+  blocks.setOrDoNothing(lastBlockIndex.value, lastBlock);
+
+  return blocks;
+}
+
+function splitMultiIndex64(index: UInt32) {
+  let { rest: l0, quotient: l1 } = index.divMod(128);
+  let { rest: l00, quotient: l01 } = l0.divMod(8);
   return [l00.value, l01.value, l1.value] as const;
 }
