@@ -19,7 +19,6 @@ nodeAssert.deepStrictEqual(
   expectedPadding.map(blockToHexBytes)
 );
 
-// const expectedHash224 = await sha2(224, longString());
 const expectedHash256 = await sha2(256, longString());
 const expectedHash384 = await sha2(384, longString());
 const expectedHash512 = await sha2(512, longString());
@@ -34,11 +33,6 @@ await test('sha256 outside circuit', () => {
     SHA2.hash(256, staticBytes).toBytes(),
     expectedHash256.toBytes()
   );
-
-  // nodeAssert.deepStrictEqual(
-  //   SHA2.hash(224, staticBytes).toBytes(),
-  //   expectedHash224.toBytes()
-  // );
 });
 
 // in-circuit test

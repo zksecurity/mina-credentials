@@ -25,6 +25,8 @@ function hash(len: Length, data: FlexibleBytes) {
     H = compression(len, H, W);
   });
 
+  if (len === 224) H = H.slice(0, 7); // 224 bit hash
+
   // the working variables H[i] are 32bit, however we want to decompose them into bytes to be more compatible
   return Bytes.from(H.map((x) => x.toBytesBE()).flat());
 }
