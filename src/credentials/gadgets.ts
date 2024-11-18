@@ -1,10 +1,22 @@
 /**
  * Misc gadgets for attestation contracts.
  */
-import { Bool, Field, Gadgets, Provable, UInt32 } from 'o1js';
+import { Bool, Field, Gadgets, Provable, UInt32, UInt64, UInt8 } from 'o1js';
 import { assert } from '../util.ts';
 
-export { pack, unsafeIf, seal, lessThan16, assertInRange16, assertLessThan16 };
+export {
+  pack,
+  unpack,
+  packBytes,
+  unpackBytes,
+  uint64FromBytesBE,
+  uint64ToBytesBE,
+  unsafeIf,
+  seal,
+  lessThan16,
+  assertInRange16,
+  assertLessThan16,
+};
 
 /**
  * Pack a list of fields of bit size `chunkSize` each into a single field.
@@ -23,6 +35,66 @@ function pack(chunks: Field[], chunkSize: number) {
     sum = sum.add(chunk.mul(1n << BigInt(i * chunkSize)));
   });
   return sum.seal();
+}
+
+/**
+ * Unpack a field into a list of fields of bit size `chunkSize` each.
+ * Uses little-endian encoding.
+ *
+ * Proves that the output fields have at most `chunkSize` bits.
+ */
+function unpack(word: Field, chunkSize: 8 | 16 | 32 | 64, numChunks: number) {
+  let chunks = Provable.witnessFields(numChunks, () => {
+    let x = word.toBigInt();
+    let mask = (1n << BigInt(chunkSize)) - 1n;
+    return Array.from(
+      { length: numChunks },
+      (_, i) => (x >> BigInt(i * chunkSize)) & mask
+    );
+  });
+  // range check fields, so decomposition is unique and outputs are in range
+  chunks.forEach((chunk) => rangeCheck(chunk, chunkSize));
+
+  // check decomposition
+  // this asserts that the composition doesn't overflow
+  pack(chunks, chunkSize).assertEquals(word);
+
+  return chunks;
+}
+
+function packBytes(bytes: UInt8[]) {
+  let fields = bytes.map((x) => x.value);
+  return pack(fields, 8);
+}
+
+function unpackBytes(word: Field, numBytes: number) {
+  let fields = unpack(word, 8, numBytes);
+  return fields.map((x) => UInt8.Unsafe.fromField(x));
+}
+
+function uint64FromBytesBE(bytes: UInt8[]) {
+  let field = packBytes(bytes.toReversed());
+  return UInt64.Unsafe.fromField(field);
+}
+function uint64ToBytesBE(x: UInt64) {
+  return unpackBytes(x.value, 8).toReversed();
+}
+
+function rangeCheck(x: Field, bits: 8 | 16 | 32 | 64) {
+  switch (bits) {
+    case 8:
+      Gadgets.rangeCheck8(x);
+      break;
+    case 16:
+      Gadgets.rangeCheck16(x);
+      break;
+    case 32:
+      Gadgets.rangeCheck32(x);
+      break;
+    case 64:
+      UInt64.check(UInt64.Unsafe.fromField(x));
+      break;
+  }
 }
 
 /**

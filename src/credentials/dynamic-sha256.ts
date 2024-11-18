@@ -47,7 +47,7 @@ function hash(bytes: DynamicArray<UInt8>): Bytes {
     State.from(SHA2.initialState256(256)),
     (state: State, block: Block) => {
       let W = SHA2.messageSchedule256(block.array);
-      return State.from(SHA2.compression256(256, state.array, W));
+      return State.from(SHA2.compression256(state.array, W));
     }
   );
 

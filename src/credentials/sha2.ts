@@ -1,7 +1,17 @@
 // the code in this file was copied and modified from o1js
 // https://github.com/o1-labs/o1js
-import { Bytes, Field, Gadgets, Provable, TupleN, UInt32, UInt8 } from 'o1js';
+import {
+  Bytes,
+  Field,
+  Gadgets,
+  Provable,
+  TupleN,
+  UInt32,
+  UInt64,
+  UInt8,
+} from 'o1js';
 import { chunk, mod } from '../util.ts';
+import { uint64FromBytesBE } from './gadgets.ts';
 
 export { SHA2 };
 
@@ -15,6 +25,7 @@ const SHA2 = {
   hash,
   padding256,
   initialState256,
+  initialState512,
   messageSchedule256,
   compression256,
 };
@@ -34,8 +45,7 @@ function hash256(len: 224 | 256, data: FlexibleBytes) {
   let H = initialState256(len);
 
   messageBlocks.forEach((block) => {
-    const W = messageSchedule256(block);
-    H = compression256(len, H, W);
+    H = compression256(H, messageSchedule256(block));
   });
 
   if (len === 224) H = H.slice(0, 7); // 224 bit hash
@@ -47,6 +57,9 @@ function hash256(len: 224 | 256, data: FlexibleBytes) {
 function initialState256(len: 224 | 256) {
   return constants[len].H.map((x) => UInt32.from(x));
 }
+function initialState512(len: 384 | 512) {
+  return constants[len].H.map((x) => UInt64.from(x));
+}
 
 /**
  * Performs the SHA-256 compression function on the given hash values and message schedule.
@@ -56,7 +69,7 @@ function initialState256(len: 224 | 256) {
  *
  * @returns The updated intermediate hash values after compression.
  */
-function compression256(len: 224 | 256, [...H]: UInt32[], W: UInt32[]) {
+function compression256([...H]: UInt32[], W: UInt32[]) {
   // initialize working variables
   let a = H[0]!;
   let b = H[1]!;
@@ -73,7 +86,7 @@ function compression256(len: 224 | 256, [...H]: UInt32[], W: UInt32[]) {
     const unreducedT1 = h.value
       .add(SigmaOne(e).value)
       .add(Ch(e, f, g).value)
-      .add(constants[len].K[t]!)
+      .add(constants[256].K[t]!)
       .add(W[t]!.value)
       .seal();
 
@@ -167,6 +180,45 @@ function padding256(data: FlexibleBytes): UInt32[][] {
     // chunk 4 bytes into one UInt32, as expected by SHA256
     // bytesToWord expects little endian, so we reverse the bytes
     chunks.push(UInt32.fromBytesBE(paddedMessage.slice(i, i + 4)));
+  }
+
+  // split message into 16 element sized message blocks
+  // SHA256 expects n-blocks of 512bit each, 16*32bit = 512bit
+  return chunk(chunks, 16);
+}
+
+function padding512(data: FlexibleBytes): UInt64[][] {
+  let message = Bytes.from(data);
+
+  // pad the data to reach the format expected by sha512
+  // pad 1 bit, followed by k zero bits where k is the smallest non-negative solution to
+  // l + 1 + k + 128 = 0 mod 1024
+  // then append a 128-bit block containing the length of the original message in bits
+
+  let l = message.length * 8; // length in bits
+  let k = Number(mod(-BigInt(l) - 1n - 128n, 1024n));
+
+  let lBinary = l.toString(2);
+
+  let paddingBits = (
+    '1' + // append 1 bit
+    '0'.repeat(k) + // append k zero bits
+    '0'.repeat(128 - lBinary.length) + // append 128 bit containing the length of the original message
+    lBinary
+  ).match(/.{1,8}/g)!; // this should always be divisible by 8
+
+  // map the padding bit string to UInt8 elements
+  let padding = paddingBits.map((x) => UInt8.from(BigInt('0b' + x)));
+
+  // concatenate the padding with the original padded data
+  let paddedMessage = message.bytes.concat(padding);
+
+  // split the message into 64-bit chunks
+  let chunks: UInt64[] = [];
+
+  for (let i = 0; i < paddedMessage.length; i += 8) {
+    // chunk 8 bytes into one UInt64
+    chunks.push(uint64FromBytesBE(paddedMessage.slice(i, i + 8)));
   }
 
   // split message into 16 element sized message blocks
