@@ -24,9 +24,11 @@ type Length = 224 | 256 | 384 | 512;
 const SHA2 = {
   hash,
   padding256,
+  padding512,
   initialState256,
   initialState512,
   messageSchedule256,
+  messageSchedule512,
   compression256,
 };
 
@@ -142,6 +144,34 @@ function messageSchedule256(M: UInt32[]) {
     W[t] = UInt32.Unsafe.fromField(Gadgets.divMod32(unreduced, 48).remainder);
   }
 
+  return W;
+}
+
+/**
+ * Prepares the message schedule for the SHA-512 compression function from the given message block.
+ *
+ * @param M - The 1024-bit message block (16-element array of UInt64).
+ * @returns The message schedule (80-element array of UInt64).
+ */
+function messageSchedule512(M: UInt64[]) {
+  // for each message block of 16 x 64 bit do:
+  let W: UInt64[] = [];
+
+  // prepare message block
+  for (let i = 0; i < 16; i++) W[i] = M[i]!;
+  for (let i = 16; i < 80; i++) {
+    let s0 = sigma64(W[i - 15]!, [7, 8, 1], true);
+    let s1 = sigma64(W[i - 2]!, [6, 19, 61], true);
+
+    let unreduced = s1.value
+      .add(W[i - 7]!.value)
+      .add(s0.value.add(W[i - 16]!.value));
+
+    // mod 64 bit the unreduced field element
+    W[i] = UInt64.Unsafe.fromField(
+      Gadgets.divMod64(unreduced, 64 + 16).remainder
+    );
+  }
   return W;
 }
 
@@ -350,6 +380,15 @@ function sigma(u: UInt32, bits: TupleN<number, 3>, firstShifted = false) {
   return UInt32.Unsafe.fromField(xRotR0)
     .xor(UInt32.Unsafe.fromField(xRotR1))
     .xor(UInt32.Unsafe.fromField(xRotR2));
+}
+
+// TODO optimized version
+function sigma64(u: UInt64, bits: TupleN<number, 3>, firstShifted = false) {
+  let [r0, r1, r2] = bits;
+  let rot0 = firstShifted ? u.rightShift(r0) : u.rotate(r0);
+  let rot1 = u.rotate(r1);
+  let rot2 = u.rotate(r2);
+  return rot0.xor(rot1).xor(rot2);
 }
 
 function bitSlice(x: bigint, start: number, length: number) {
