@@ -1,11 +1,10 @@
-import { Bytes, Gadgets, Provable, UInt32 } from 'o1js';
+import { Bytes, Provable, UInt32 } from 'o1js';
 import * as nodeAssert from 'node:assert';
 import { DynamicSHA256 } from './dynamic-sha256.ts';
 import { zip } from '../util.ts';
 import { DynamicBytes } from './dynamic-bytes.ts';
 import test from 'node:test';
-
-const { SHA256 } = Gadgets;
+import { SHA2 } from './sha2.ts';
 
 const DynBytes = DynamicBytes({ maxLength: 430 });
 const StaticBytes = Bytes(stringLength(longString()));
@@ -14,12 +13,13 @@ let bytes = DynBytes.fromString(longString());
 let staticBytes = StaticBytes.fromString(longString());
 
 let actualPadding = DynamicSHA256.padding(bytes);
-let expectedPadding = SHA256.padding(staticBytes);
+let expectedPadding = SHA2.padding(256, staticBytes);
 nodeAssert.deepStrictEqual(
   actualPadding.toValue().map(blockToHexBytes),
   expectedPadding.map(blockToHexBytes)
 );
 
+// const expectedHash224 = await sha2(224, longString());
 const expectedHash256 = await sha2(256, longString());
 const expectedHash384 = await sha2(384, longString());
 const expectedHash512 = await sha2(512, longString());
@@ -31,9 +31,14 @@ await test('sha256 outside circuit', () => {
   );
 
   nodeAssert.deepStrictEqual(
-    SHA256.hash(staticBytes).toBytes(),
+    SHA2.hash(256, staticBytes).toBytes(),
     expectedHash256.toBytes()
   );
+
+  // nodeAssert.deepStrictEqual(
+  //   SHA2.hash(224, staticBytes).toBytes(),
+  //   expectedHash224.toBytes()
+  // );
 });
 
 // in-circuit test
@@ -49,7 +54,7 @@ async function circuit() {
 
 async function circuitStatic() {
   let bytesVar = Provable.witness(StaticBytes, () => staticBytes);
-  let hash = SHA256.hash(bytesVar);
+  let hash = SHA2.hash(256, bytesVar);
 
   zip(hash.bytes, expectedHash256.bytes).forEach(([a, b], i) => {
     a.assertEquals(b, `hash[${i}]`);

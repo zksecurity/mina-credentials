@@ -2,7 +2,7 @@ import { Bytes, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { chunk, pad } from '../util.ts';
-import { SHA256 } from './sha2.ts';
+import { SHA2 } from './sha2.ts';
 
 export { DynamicSHA256 };
 
@@ -44,10 +44,10 @@ function hash(bytes: DynamicArray<UInt8>): Bytes {
   // hash a dynamic number of blocks using DynamicArray.reduce()
   let state = blocks.reduce(
     State,
-    State.from(SHA256.initialState),
+    State.from(SHA2.initialState(256)),
     (state: State, block: Block) => {
-      let W = SHA256.createMessageSchedule(block.array);
-      return State.from(SHA256.compression(state.array, W));
+      let W = SHA2.messageSchedule(256, block.array);
+      return State.from(SHA2.compression(256, state.array, W));
     }
   );
 
