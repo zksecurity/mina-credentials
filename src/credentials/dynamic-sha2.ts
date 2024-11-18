@@ -5,11 +5,13 @@ import { chunk, pad } from '../util.ts';
 import { SHA2 } from './sha2.ts';
 import { uint64FromBytesBE, uint64ToBytesBE } from './gadgets.ts';
 
-export { DynamicSHA256 };
+export { DynamicSHA2, sha2, padding256, padding512 };
 
-const DynamicSHA256 = {
+const DynamicSHA2 = {
   /**
-   * Hash a dynamic-length byte array.
+   * Hash a dynamic-length byte array using different variants of SHA2.
+   *
+   * The first argument is the output length in bits (224, 256, 384, or 512).
    *
    * The input type `DynamicArray<UInt8>` is compatible with both `DynamicString` and `DynamicBytes`:
    *
@@ -17,21 +19,25 @@ const DynamicSHA256 = {
    * // using DynamicString
    * const String = DynamicString({ maxLength: 120 });
    * let string = String.from('hello');
-   * let hash = DynamicSHA256.hash(string);
+   * let hash = DynamicSHA2.hash(256, string);
    *
    * // using DynamicBytes
    * const Bytes = DynamicBytes({ maxLength: 120 });
    * let bytes = Bytes.fromHex('010203');
-   * let hash = DynamicSHA256.hash(bytes);
+   * let hash = DynamicSHA2.hash(256, bytes);
    * ```
    */
-  hash,
-  /**
-   * Apply padding to dynamic-length input bytes and convert them to (a dynamic number of) blocks of 16 uint32s.
-   */
+  hash: sha2,
+
   padding256,
   padding512,
 };
+
+function sha2(len: 224 | 256 | 384 | 512, bytes: DynamicArray<UInt8>): Bytes {
+  if (len === 224 || len === 256) return hash256(len, bytes);
+  if (len === 384 || len === 512) return hash512(len, bytes);
+  throw new Error('unsupported hash length');
+}
 
 // static array types for blocks / state / result
 class UInt8x4 extends StaticArray(UInt8, 4) {}
@@ -42,27 +48,50 @@ class Block extends StaticArray(UInt32, 16) {}
 class State extends StaticArray(UInt32, 8) {}
 class Block64 extends StaticArray(UInt64, 16) {}
 class State64 extends StaticArray(UInt64, 8) {}
+const Bytes28 = Bytes(28);
 const Bytes32 = Bytes(32);
 const Bytes48 = Bytes(48);
 const Bytes64 = Bytes(64);
 
-function hash(bytes: DynamicArray<UInt8>): Bytes {
+function hash256(len: 224 | 256, bytes: DynamicArray<UInt8>): Bytes {
   let blocks = padding256(bytes);
 
   // hash a dynamic number of blocks using DynamicArray.reduce()
   let state = blocks.reduce(
     State,
-    State.from(SHA2.initialState256(256)),
-    (state: State, block: Block) => {
+    State.from(SHA2.initialState256(len)),
+    (state, block) => {
       let W = SHA2.messageSchedule256(block.array);
       return State.from(SHA2.compression256(state.array, W));
     }
   );
 
+  if (len === 224) state = state.slice(0, 7);
   let result = state.array.flatMap((x) => x.toBytesBE());
-  return Bytes32.from(result);
+  return len === 224 ? Bytes28.from(result) : Bytes32.from(result);
 }
 
+function hash512(len: 384 | 512, bytes: DynamicArray<UInt8>): Bytes {
+  let blocks = padding512(bytes);
+
+  // hash a dynamic number of blocks using DynamicArray.reduce()
+  let state = blocks.reduce(
+    State64,
+    State64.from(SHA2.initialState512(len)),
+    (state, block) => {
+      let W = SHA2.messageSchedule512(block.array);
+      return State64.from(SHA2.compression512(state.array, W));
+    }
+  );
+
+  if (len === 384) state = state.slice(0, 6);
+  let result = state.array.flatMap((x) => uint64ToBytesBE(x));
+  return len === 384 ? Bytes48.from(result) : Bytes64.from(result);
+}
+
+/**
+ * Apply padding to dynamic-length input bytes and convert them to (a dynamic number of) blocks of 16 uint32s.
+ */
 function padding256(
   message: DynamicArray<UInt8>
 ): DynamicArray<StaticArray<UInt32>> {
@@ -136,6 +165,9 @@ function splitMultiIndex(index: UInt32) {
   return [l00.value, l01.value, l1.value] as const;
 }
 
+/**
+ * Apply padding to dynamic-length input bytes and convert them to (a dynamic number of) blocks of 16 uint64s.
+ */
 function padding512(
   message: DynamicArray<UInt8>
 ): DynamicArray<StaticArray<UInt64>> {
