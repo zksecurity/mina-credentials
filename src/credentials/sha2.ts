@@ -30,6 +30,7 @@ const SHA2 = {
   messageSchedule256,
   messageSchedule512,
   compression256,
+  compression512,
 };
 
 function hash(len: Length, data: FlexibleBytes) {
@@ -118,6 +119,68 @@ function compression256([...H]: UInt32[], W: UInt32[]) {
   H[5] = H[5]!.addMod32(f);
   H[6] = H[6]!.addMod32(g);
   H[7] = H[7]!.addMod32(h);
+
+  return H;
+}
+
+/**
+ * Performs the SHA-512 compression function on the given hash values and message schedule.
+ *
+ * @param H - The initial or intermediate hash values (8-element array of UInt64).
+ * @param W - The message schedule (80-element array of UInt64).
+ *
+ * @returns The updated intermediate hash values after compression.
+ */
+function compression512([...H]: UInt64[], W: UInt64[]) {
+  // initialize working variables
+  let a = H[0]!;
+  let b = H[1]!;
+  let c = H[2]!;
+  let d = H[3]!;
+  let e = H[4]!;
+  let f = H[5]!;
+  let g = H[6]!;
+  let h = H[7]!;
+
+  // main loop
+  for (let t = 0; t < 64; t++) {
+    let S0 = sigma64(a, [28, 34, 39]);
+    let S1 = sigma64(e, [14, 18, 41]);
+
+    // T1 is unreduced and not proven to be 64-bit, we will do this later to save constraints
+    const unreducedT1 = h.value
+      .add(S1.value)
+      .add(Ch64(e, f, g).value)
+      .add(constants[512].K[t]!)
+      .add(W[t]!.value)
+      .seal();
+
+    // T2 is also unreduced
+    const unreducedT2 = S0.value.add(Maj64(a, b, c).value);
+
+    h = g;
+    g = f;
+    f = e;
+    e = UInt64.Unsafe.fromField(
+      Gadgets.divMod64(d.value.add(unreducedT1), 64 + 16).remainder
+    ); // mod 2^64
+    d = c;
+    c = b;
+    b = a;
+    a = UInt64.Unsafe.fromField(
+      Gadgets.divMod64(unreducedT2.add(unreducedT1), 64 + 16).remainder
+    ); // mod 2^64
+  }
+
+  // new intermediate hash value
+  H[0] = H[0]!.addMod64(a);
+  H[1] = H[1]!.addMod64(b);
+  H[2] = H[2]!.addMod64(c);
+  H[3] = H[3]!.addMod64(d);
+  H[4] = H[4]!.addMod64(e);
+  H[5] = H[5]!.addMod64(f);
+  H[6] = H[6]!.addMod64(g);
+  H[7] = H[7]!.addMod64(h);
 
   return H;
 }
@@ -380,6 +443,24 @@ function sigma(u: UInt32, bits: TupleN<number, 3>, firstShifted = false) {
   return UInt32.Unsafe.fromField(xRotR0)
     .xor(UInt32.Unsafe.fromField(xRotR1))
     .xor(UInt32.Unsafe.fromField(xRotR2));
+}
+
+function Ch64(x: UInt64, y: UInt64, z: UInt64) {
+  // ch(x, y, z) = (x & y) ^ (~x & z)
+  //             = (x & y) + (~x & z) (since x & ~x = 0)
+  let xAndY = x.and(y).value;
+  let xNotAndZ = x.not().and(z).value;
+  let ch = xAndY.add(xNotAndZ).seal();
+  return UInt64.Unsafe.fromField(ch);
+}
+
+function Maj64(x: UInt64, y: UInt64, z: UInt64) {
+  // maj(x, y, z) = (x & y) ^ (x & z) ^ (y & z)
+  //              = (x + y + z - (x ^ y ^ z)) / 2
+  let sum = x.value.add(y.value).add(z.value).seal();
+  let xor = x.xor(y).xor(z).value;
+  let maj = sum.sub(xor).div(2).seal();
+  return UInt64.Unsafe.fromField(maj);
 }
 
 // TODO optimized version
