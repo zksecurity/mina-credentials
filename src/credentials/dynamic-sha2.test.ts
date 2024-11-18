@@ -1,6 +1,6 @@
 import { Bytes, Provable, UInt32, UInt64 } from 'o1js';
-import * as nodeAssert from 'node:assert';
-import { DynamicSHA256 } from './dynamic-sha2.ts';
+import { deepStrictEqual } from 'node:assert';
+import { DynamicSHA2 } from './dynamic-sha2.ts';
 import { zip } from '../util.ts';
 import { DynamicBytes } from './dynamic-bytes.ts';
 import test from 'node:test';
@@ -12,20 +12,20 @@ const StaticBytes = Bytes(stringLength(longString()));
 let bytes = DynBytes.fromString(longString());
 let staticBytes = StaticBytes.fromString(longString());
 
-let actualPadding = DynamicSHA256.padding256(bytes);
-let expectedPadding = SHA2.padding256(staticBytes);
 await test('padding 256', () => {
-  nodeAssert.deepStrictEqual(
+  let actualPadding = DynamicSHA2.padding256(bytes);
+  let expectedPadding = SHA2.padding256(staticBytes);
+  deepStrictEqual(
     actualPadding.toValue().map(blockToHexBytes),
     expectedPadding.map(blockToHexBytes)
   );
 });
 
 await test('padding 512', () => {
-  let actualPadding = DynamicSHA256.padding512(bytes);
+  let actualPadding = DynamicSHA2.padding512(bytes);
   let expectedPadding = SHA2.padding512(staticBytes);
 
-  nodeAssert.deepStrictEqual(
+  deepStrictEqual(
     actualPadding.toValue().map(blockToHexBytes64),
     expectedPadding.map(blockToHexBytes64)
   );
@@ -36,43 +36,52 @@ const expectedHash384 = await sha2(384, longString());
 const expectedHash512 = await sha2(512, longString());
 
 await test('sha256 outside circuit', () => {
-  nodeAssert.deepStrictEqual(
-    DynamicSHA256.hash(bytes).toBytes(),
+  deepStrictEqual(
+    DynamicSHA2.hash(256, bytes).toBytes(),
     expectedHash256.toBytes()
   );
 
-  nodeAssert.deepStrictEqual(
+  deepStrictEqual(
     SHA2.hash(256, staticBytes).toBytes(),
-    expectedHash256.toBytes(),
-    'SHA-256'
+    expectedHash256.toBytes()
   );
 });
 
 await test('sha384 outside circuit', () => {
-  nodeAssert.deepStrictEqual(
+  deepStrictEqual(
+    DynamicSHA2.hash(384, bytes).toBytes(),
+    expectedHash384.toBytes()
+  );
+
+  deepStrictEqual(
     SHA2.hash(384, staticBytes).toBytes(),
-    expectedHash384.toBytes(),
-    'SHA-384'
+    expectedHash384.toBytes()
   );
 });
 
 await test('sha512 outside circuit', () => {
-  nodeAssert.deepStrictEqual(
+  deepStrictEqual(
+    DynamicSHA2.hash(512, bytes).toBytes(),
+    expectedHash512.toBytes()
+  );
+
+  deepStrictEqual(
     SHA2.hash(512, staticBytes).toBytes(),
-    expectedHash512.toBytes(),
-    'SHA-512'
+    expectedHash512.toBytes()
   );
 });
 
 // in-circuit test
 
-async function circuit() {
+async function circuit(len: 256 | 384 | 512) {
   let bytesVar = Provable.witness(DynBytes, () => bytes);
-  let hash = DynamicSHA256.hash(bytesVar);
+  let hash = DynamicSHA2.hash(len, bytesVar);
 
-  zip(hash.bytes, expectedHash256.bytes).forEach(([a, b], i) => {
-    a.assertEquals(b, `hash[${i}]`);
-  });
+  zip(hash.bytes, (await sha2(len, longString())).bytes).forEach(
+    ([a, b], i) => {
+      a.assertEquals(b, `hash[${i}]`);
+    }
+  );
 }
 
 async function circuitStatic(len: 256 | 384 | 512) {
@@ -87,38 +96,49 @@ async function circuitStatic(len: 256 | 384 | 512) {
 }
 
 await test('sha256 inside circuit', async () => {
-  await Provable.runAndCheck(circuit);
+  await Provable.runAndCheck(() => circuit(256));
   await Provable.runAndCheck(() => circuitStatic(256));
 });
 
 await test('sha384 inside circuit', async () => {
+  await Provable.runAndCheck(() => circuit(384));
   await Provable.runAndCheck(() => circuitStatic(384));
 });
 
 await test('sha512 inside circuit', async () => {
+  await Provable.runAndCheck(() => circuit(512));
   await Provable.runAndCheck(() => circuitStatic(512));
 });
 
 // constraints
 
-await test('constraints dynamic vs static', async () => {
-  let constraints = await Provable.constraintSystem(circuit);
-  console.log('dynamic', constraints.summary());
+async function checkConstraints(len: 256 | 384 | 512) {
+  let constraints = await Provable.constraintSystem(() => circuit(len));
+  console.log(`\nsha2 ${len} constraints`);
+  console.log('dynamic', constraints.rows);
 
   let constraintStatic = await Provable.constraintSystem(() =>
-    circuitStatic(256)
+    circuitStatic(len)
   );
-  console.log('static', constraintStatic.summary());
+  console.log('static', constraintStatic.rows);
+
+  let staticPadding =
+    len === 256 ? SHA2.padding256(staticBytes) : SHA2.padding512(staticBytes);
+  let dynamicPadding =
+    len === 256 ? DynamicSHA2.padding256(bytes) : DynamicSHA2.padding512(bytes);
 
   let ratio = constraints.rows / constraintStatic.rows;
   console.log(`static # of bytes: ${staticBytes.length}`);
   console.log(`max dynamic # of bytes: ${bytes.maxLength}`);
-  console.log(`static # of blocks: ${expectedPadding.length}`);
-  console.log(`max dynamic # of blocks: ${actualPadding.maxLength}`);
+  console.log(`static # of blocks: ${staticPadding.length}`);
+  console.log(`max dynamic # of blocks: ${dynamicPadding.maxLength}`);
   console.log(
     `constraint overhead for dynamic: ${((ratio - 1) * 100).toFixed(2)}%`
   );
-});
+}
+
+await test('constraints dynamic vs static (256)', () => checkConstraints(256));
+await test('constraints dynamic vs static (512)', () => checkConstraints(512));
 
 // reference implementations in Web Crypto API
 
