@@ -17,6 +17,7 @@ export {
   assertExtendsShape,
   isSubclass,
   stringLength,
+  mod,
 };
 
 function assert(
@@ -179,4 +180,10 @@ let enc = new TextEncoder();
 
 function stringLength(str: string): number {
   return enc.encode(str).length;
+}
+
+// modulo that properly handles negative numbers
+function mod(x: bigint, p: bigint): bigint {
+  let z = x % p;
+  return z < 0 ? z + p : z;
 }

@@ -1,8 +1,8 @@
-import { Bytes, Gadgets, Provable, UInt32, UInt8 } from 'o1js';
+import { Bytes, Provable, UInt32, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { chunk, pad } from '../util.ts';
-const { SHA256 } = Gadgets;
+import { SHA256 } from './sha2.ts';
 
 export { DynamicSHA256 };
 
@@ -23,8 +23,6 @@ const DynamicSHA256 = {
    * let bytes = Bytes.fromHex('010203');
    * let hash = DynamicSHA256.hash(bytes);
    * ```
-   *
-   *
    */
   hash,
   /**
