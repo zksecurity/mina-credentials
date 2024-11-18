@@ -163,7 +163,7 @@ function compression512([...H]: UInt64[], W: UInt64[]) {
   let h = H[7]!;
 
   // main loop
-  for (let t = 0; t < 64; t++) {
+  for (let i = 0; i < 80; i++) {
     let S0 = sigma64(a, [28, 34, 39]);
     let S1 = sigma64(e, [14, 18, 41]);
 
@@ -171,8 +171,8 @@ function compression512([...H]: UInt64[], W: UInt64[]) {
     const unreducedT1 = h.value
       .add(S1.value)
       .add(Ch64(e, f, g).value)
-      .add(constants[512].K[t]!)
-      .add(W[t]!.value)
+      .add(constants[512].K[i]!)
+      .add(W[i]!.value)
       .seal();
 
     // T2 is also unreduced
@@ -486,9 +486,9 @@ function Maj64(x: UInt64, y: UInt64, z: UInt64) {
 // TODO optimized version
 function sigma64(u: UInt64, bits: TupleN<number, 3>, firstShifted = false) {
   let [r0, r1, r2] = bits;
-  let rot0 = firstShifted ? u.rightShift(r0) : u.rotate(r0);
-  let rot1 = u.rotate(r1);
-  let rot2 = u.rotate(r2);
+  let rot0 = firstShifted ? u.rightShift(r0) : u.rotate(r0, 'right');
+  let rot1 = u.rotate(r1, 'right');
+  let rot2 = u.rotate(r2, 'right');
   return rot0.xor(rot1).xor(rot2);
 }
 

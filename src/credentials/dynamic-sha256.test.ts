@@ -31,7 +31,24 @@ await test('sha256 outside circuit', () => {
 
   nodeAssert.deepStrictEqual(
     SHA2.hash(256, staticBytes).toBytes(),
-    expectedHash256.toBytes()
+    expectedHash256.toBytes(),
+    'SHA-256'
+  );
+});
+
+await test('sha384 outside circuit', () => {
+  nodeAssert.deepStrictEqual(
+    SHA2.hash(384, staticBytes).toBytes(),
+    expectedHash384.toBytes(),
+    'SHA-384'
+  );
+});
+
+await test('sha512 outside circuit', () => {
+  nodeAssert.deepStrictEqual(
+    SHA2.hash(512, staticBytes).toBytes(),
+    expectedHash512.toBytes(),
+    'SHA-512'
   );
 });
 
@@ -46,36 +63,50 @@ async function circuit() {
   });
 }
 
-async function circuitStatic() {
+async function circuitStatic(len: 256 | 384 | 512) {
   let bytesVar = Provable.witness(StaticBytes, () => staticBytes);
-  let hash = SHA2.hash(256, bytesVar);
+  let hash = SHA2.hash(len, bytesVar);
 
-  zip(hash.bytes, expectedHash256.bytes).forEach(([a, b], i) => {
-    a.assertEquals(b, `hash[${i}]`);
-  });
+  zip(hash.bytes, (await sha2(len, longString())).bytes).forEach(
+    ([a, b], i) => {
+      a.assertEquals(b, `hash[${i}]`);
+    }
+  );
 }
 
 await test('sha256 inside circuit', async () => {
   await Provable.runAndCheck(circuit);
-  await Provable.runAndCheck(circuitStatic);
+  await Provable.runAndCheck(() => circuitStatic(256));
+});
+
+await test('sha384 inside circuit', async () => {
+  await Provable.runAndCheck(() => circuitStatic(384));
+});
+
+await test('sha512 inside circuit', async () => {
+  await Provable.runAndCheck(() => circuitStatic(512));
 });
 
 // constraints
 
-let constraints = await Provable.constraintSystem(circuit);
-console.log('dynamic', constraints.summary());
+await test('constraints dynamic vs static', async () => {
+  let constraints = await Provable.constraintSystem(circuit);
+  console.log('dynamic', constraints.summary());
 
-let constraintStatic = await Provable.constraintSystem(circuitStatic);
-console.log('static', constraintStatic.summary());
+  let constraintStatic = await Provable.constraintSystem(() =>
+    circuitStatic(256)
+  );
+  console.log('static', constraintStatic.summary());
 
-let ratio = constraints.rows / constraintStatic.rows;
-console.log(`static # of bytes: ${staticBytes.length}`);
-console.log(`max dynamic # of bytes: ${bytes.maxLength}`);
-console.log(`static # of blocks: ${expectedPadding.length}`);
-console.log(`max dynamic # of blocks: ${actualPadding.maxLength}`);
-console.log(
-  `constraint overhead for dynamic: ${((ratio - 1) * 100).toFixed(2)}%`
-);
+  let ratio = constraints.rows / constraintStatic.rows;
+  console.log(`static # of bytes: ${staticBytes.length}`);
+  console.log(`max dynamic # of bytes: ${bytes.maxLength}`);
+  console.log(`static # of blocks: ${expectedPadding.length}`);
+  console.log(`max dynamic # of blocks: ${actualPadding.maxLength}`);
+  console.log(
+    `constraint overhead for dynamic: ${((ratio - 1) * 100).toFixed(2)}%`
+  );
+});
 
 // reference implementations in Web Crypto API
 
