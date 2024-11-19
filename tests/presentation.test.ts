@@ -12,6 +12,7 @@ import {
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
 import { Operation } from '../src/operation.ts';
+import { PresentationRequestSchema } from '../src/validation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
@@ -27,7 +28,7 @@ test('program with simple spec and signature credential', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      ouputClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
 
@@ -36,6 +37,15 @@ test('program with simple spec and signature credential', async (t) => {
     targetAge: Field(18),
   });
   let json = PresentationRequest.toJSON(requestInitial);
+
+  let serialized = JSON.parse(json);
+
+  const result = PresentationRequestSchema.safeParse(serialized);
+  assert(
+    result.success,
+    'No-context presentation request should be valid: ' +
+      (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+  );
 
   // wallet: deserialize and compile request
   let deserialized = PresentationRequest.fromJSON('no-context', json);
@@ -124,7 +134,7 @@ test('program with owner and issuer operations', async (t) => {
         Operation.property(signedData, 'dummy'),
         expectedDummy
       ),
-      ouputClaim: Operation.record({
+      outputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         dummy: Operation.property(signedData, 'dummy'),
@@ -173,7 +183,7 @@ test('presentation with context binding', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      ouputClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
   const data = { age: Field(18), name: Bytes32.fromString('Alice') };
@@ -257,7 +267,7 @@ test('serialize presentation', async (t) => {
         Operation.equals(Operation.property(signedData, 'age'), targetAge),
         Operation.equals(Operation.property(signedData, 'name'), targetName)
       ),
-      ouputClaim: Operation.property(signedData, 'age'),
+      outputClaim: Operation.property(signedData, 'age'),
     })
   );
   const data = { age: Field(18), name: Bytes32.fromString('Alice') };

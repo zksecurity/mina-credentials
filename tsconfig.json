@@ -19,8 +19,8 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "sourceMap": true,
-    "emitDeclarationOnly": true, // TODO, remove when TS update lands
     "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "allowSyntheticDefaultImports": true
   }
 }

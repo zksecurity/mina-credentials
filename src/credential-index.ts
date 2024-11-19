@@ -52,7 +52,10 @@ const Credential = {
   toJSON(credential: StoredCredential) {
     let json = {
       version: credential.version,
-      witness: serializeNestedProvableValue(credential.witness),
+      witness:
+        credential.witness === undefined
+          ? { type: 'unsigned' }
+          : serializeNestedProvableValue(credential.witness),
       metadata: credential.metadata,
       credential: serializeNestedProvableValue(credential.credential),
     };
