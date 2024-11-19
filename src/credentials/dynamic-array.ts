@@ -366,6 +366,40 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Returns a dynamic number of full chunks and a last, possibly smaller chunk.
+   *
+   * If the array is evenly divided into chunks, the final chunk will be all dummies.
+   */
+  chunk(
+    chunkSize: number
+  ): [DynamicArray<StaticArray<T, V>, V[]>, DynamicArray<T, V>] {
+    let type = ProvableType.get(this.innerType);
+
+    let maxChunks = Math.floor(this.maxLength / chunkSize);
+    let Chunk = StaticArray(type, chunkSize);
+    let DynamicChunk = DynamicArray(type, { maxLength: chunkSize });
+    let Chunks = DynamicArray(Chunk, { maxLength: maxChunks });
+
+    let NULL = ProvableType.synthesize(type);
+    let padded = pad(this.array, maxChunks * chunkSize, NULL);
+    let chunked = chunk(padded, chunkSize).map(Chunk.from);
+
+    // nChunks = floor(length / chunkSize)
+    let { quotient: nChunks, rest: lastChunkLength } = UInt32.Unsafe.fromField(
+      this.length
+    ).divMod(chunkSize);
+    let chunks = new Chunks(chunked, nChunks.value);
+
+    // last chunk is the chunk at `nChunks`!
+    let lastChunkPadded = chunks.getOrUnconstrained(nChunks.value);
+    let lastChunk = new DynamicChunk(
+      lastChunkPadded.array,
+      lastChunkLength.value
+    );
+    return [chunks, lastChunk];
+  }
+
+  /**
    * Assert that the array is exactly equal, in its representation in field elements, to another array.
    *
    * Warning: Also checks equality of the padding and maxLength, which don't contribute to the "meaningful" part of the array.
