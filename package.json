@@ -20,6 +20,9 @@
   "exports": {
     ".": {
       "import": "./build/src/index.js"
+    },
+    "./dynamic": {
+      "import": "./build/src/dynamic.js"
     }
   },
   "scripts": {
