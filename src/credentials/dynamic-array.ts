@@ -383,16 +383,20 @@ class DynamicArrayBase<T = any, V = any> {
    * Concatenate two arrays.
    *
    * The resulting (max)length is the sum of the two individual (max)lengths.
+   *
+   * **Warning**: This method takes effort proportional to (M + N)*N where M, N are the two maxlengths.
+   * It's only recommended to use if at least one of the arrays is small.
    */
   concat(other: DynamicArray<T, V>): DynamicArray<T, V> {
+    // witness combined array
+    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
     let CombinedArray = DynamicArray(this.innerType, {
       maxLength: this.maxLength + other.maxLength,
     });
-    // witness combined array
-    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
     let combinedArray = Provable.witness(CombinedArray, () =>
       this.toValue().concat(other.toValue())
     );
+
     // length has to be the sum of the lengths
     this.length.add(other.length).assertEquals(combinedArray.length);
 
@@ -410,6 +414,48 @@ class DynamicArrayBase<T = any, V = any> {
     });
 
     // we don't care what else is in the combined array!
+    return combinedArray;
+  }
+
+  /**
+   * Concatenate two arrays. Alternative to `concat()` that proves correctness of the concatenated array
+   * by Poseidon-hashing it element by element. In contrast to `concat()`, the effort is linear in N + M,
+   * but with a larger constant.
+   *
+   * The resulting (max)length is the sum of the two individual (max)lengths.
+   */
+  concatByHashing(other: DynamicArray<T, V>): DynamicArray<T, V> {
+    // witness combined array
+    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
+    let type = ProvableType.get(this.innerType);
+    let CombinedArray = DynamicArray(type, {
+      maxLength: this.maxLength + other.maxLength,
+    });
+    let combinedArray = Provable.witness(CombinedArray, () =>
+      this.toValue().concat(other.toValue())
+    );
+
+    // hash the combined array, element by element
+    let hash = Field(0);
+    combinedArray.forEach((t, isDummy) => {
+      let newHash = Poseidon.hash([hash, packToField(t, type)]);
+      hash = Provable.if(isDummy, hash, newHash);
+    });
+
+    // hash the first array and then the second array, element by element
+    let hash1 = Field(0);
+    this.forEach((t, isDummy) => {
+      let newHash = Poseidon.hash([hash1, packToField(t, type)]);
+      hash1 = Provable.if(isDummy, hash1, newHash);
+    });
+    other.forEach((t, isDummy) => {
+      let newHash = Poseidon.hash([hash1, packToField(t, type)]);
+      hash1 = Provable.if(isDummy, hash1, newHash);
+    });
+
+    // the two hashes must be equal
+    hash.assertEquals(hash1);
+
     return combinedArray;
   }
 
