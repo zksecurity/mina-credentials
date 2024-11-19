@@ -380,6 +380,40 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Concatenate two arrays.
+   *
+   * The resulting (max)length is the sum of the two individual (max)lengths.
+   */
+  concat(other: DynamicArray<T, V>): DynamicArray<T, V> {
+    let CombinedArray = DynamicArray(this.innerType, {
+      maxLength: this.maxLength + other.maxLength,
+    });
+    // witness combined array
+    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
+    let combinedArray = Provable.witness(CombinedArray, () =>
+      this.toValue().concat(other.toValue())
+    );
+    // length has to be the sum of the lengths
+    this.length.add(other.length).assertEquals(combinedArray.length);
+
+    // combined array has to contain the first array, starting from the beginning
+    this.forEach((t, isDummy, i) => {
+      let s = combinedArray.array[i]!;
+      Provable.assertEqualIf(isDummy.not(), this.innerType, t, s);
+    });
+
+    // combined array has to contain the second array, starting from the end of the first array
+    other.forEach((t, isDummy, i) => {
+      let j = this.length.add(i); // this is guaranteed to be within bounds, if isDummy is false
+      let s = combinedArray.getOrUnconstrained(j);
+      Provable.assertEqualIf(isDummy.not(), other.innerType, t, s);
+    });
+
+    // we don't care what else is in the combined array!
+    return combinedArray;
+  }
+
+  /**
    * Push a value, without changing the maxLength.
    *
    * Proves that the new length is still within the maxLength, fails otherwise.
