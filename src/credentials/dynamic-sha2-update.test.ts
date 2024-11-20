@@ -18,8 +18,8 @@ const Bytes32 = Bytes(32);
 const BLOCKS_PER_ITERATION = 7;
 
 class State extends Sha2IterationState(256) {}
-const Iteration = Sha2Iteration(256, BLOCKS_PER_ITERATION);
-const FinalIteration = Sha2FinalIteration(256, BLOCKS_PER_ITERATION);
+class Iteration extends Sha2Iteration(256, BLOCKS_PER_ITERATION) {}
+class FinalIteration extends Sha2FinalIteration(256, BLOCKS_PER_ITERATION) {}
 
 let sha2Update = ZkProgram({
   name: 'sha2-update',
@@ -28,8 +28,8 @@ let sha2Update = ZkProgram({
   methods: {
     initial: {
       privateInputs: [Iteration],
-      async method(iteration: Sha2Iteration) {
-        let state = Sha2IterationState.initial(256);
+      async method(iteration: Iteration) {
+        let state = State.initial();
         let publicOutput = DynamicSHA2.update(state, iteration);
         return { publicOutput };
       },
@@ -37,10 +37,7 @@ let sha2Update = ZkProgram({
 
     recursive: {
       privateInputs: [SelfProof, Iteration],
-      async method(
-        proof: SelfProof<undefined, State>,
-        iteration: Sha2Iteration
-      ) {
+      async method(proof: SelfProof<undefined, State>, iteration: Iteration) {
         proof.verify();
         let state = proof.publicOutput;
         let publicOutput = DynamicSHA2.update(state, iteration);
@@ -62,7 +59,7 @@ let sha2Finalize = ZkProgram({
       async method(
         string: DynamicString,
         proof: UpdateProof,
-        iteration: Sha2FinalIteration
+        iteration: FinalIteration
       ) {
         proof.verify();
         let state = proof.publicOutput;

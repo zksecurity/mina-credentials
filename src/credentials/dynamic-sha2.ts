@@ -264,15 +264,16 @@ type Sha2IterationState<L extends Length = Length> = L extends 224 | 256
   ? { len: L; state: State32; commitment: Field }
   : { len: L; state: State64; commitment: Field };
 
-type Sha2Iteration =
-  | { type: 256; blocks: StaticArray<Block32> }
-  | { type: 512; blocks: StaticArray<Block64> };
+type Sha2Iteration<L extends Length = Length> = L extends 224 | 256
+  ? { type: 256; blocks: StaticArray<Block32> }
+  : { type: 512; blocks: StaticArray<Block64> };
 
-type Sha2FinalIteration =
-  | { type: 256; blocks: DynamicArray<Block32> }
-  | { type: 512; blocks: DynamicArray<Block64> };
+type Sha2FinalIteration<L extends Length = Length> = L extends 224 | 256
+  ? { type: 256; blocks: DynamicArray<Block32> }
+  : { type: 512; blocks: DynamicArray<Block64> };
 
 function initialState<L extends Length>(len: L): Sha2IterationState<L>;
+
 function initialState(len: Length): Sha2IterationState {
   if (len === 224 || len === 256) {
     return {
@@ -288,6 +289,16 @@ function initialState(len: Length): Sha2IterationState {
     };
   }
 }
+
+function split<L extends Length>(
+  len: L,
+  blocksPerIteration: number,
+  bytes: DynamicArray<UInt8>
+): {
+  initial: Sha2IterationState<L>;
+  iterations: Sha2Iteration<L>[];
+  final: Sha2FinalIteration<L>;
+};
 
 function split<L extends Length>(
   len: L,
@@ -395,31 +406,35 @@ function finalize(
 
 // provable types for update API
 
-function Sha2IterationState<L extends Length>(
-  len: L
-): Struct<Sha2IterationState<L>> & ProvablePure<Sha2IterationState<L>> {
-  return Struct({
-    len: ProvableType.constant(len),
-    state: State(len),
-    commitment: Field,
+function Sha2IterationState<L extends Length>(len: L) {
+  const S: Struct<Sha2IterationState<L>> & ProvablePure<Sha2IterationState<L>> =
+    Struct({
+      len: ProvableType.constant(len),
+      state: State(len),
+      commitment: Field,
+    });
+  return Object.assign(S, {
+    initial() {
+      return initialState(len);
+    },
   });
 }
 Sha2IterationState.initial = initialState;
 
-function Sha2Iteration(
-  len: Length,
+function Sha2Iteration<L extends Length>(
+  len: L,
   blocksPerIteration: number
-): Struct<Sha2Iteration> {
+): Struct<Sha2Iteration<L>> {
   return Struct({
     type: ProvableType.constant(len === 224 || len === 256 ? 256 : 512),
     blocks: StaticArray(Block(len), blocksPerIteration),
   });
 }
 
-function Sha2FinalIteration(
-  len: Length,
+function Sha2FinalIteration<L extends Length>(
+  len: L,
   blocksPerIteration: number
-): Struct<Sha2FinalIteration> {
+): Struct<Sha2FinalIteration<L>> {
   return Struct({
     type: ProvableType.constant(len),
     blocks: DynamicArray(Block(len), { maxLength: blocksPerIteration }),
