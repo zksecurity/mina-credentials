@@ -1,9 +1,22 @@
-import { Bool, Field, type ProvableHashable, UInt8 } from 'o1js';
-import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
+import {
+  Bool,
+  Field,
+  Poseidon,
+  Provable,
+  type ProvableHashable,
+  UInt32,
+  UInt8,
+} from 'o1js';
+import {
+  DynamicArray,
+  DynamicArrayBase,
+  provableDynamicArray,
+} from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert, pad } from '../util.ts';
 import { BaseType } from './dynamic-base-types.ts';
 import { DynamicSHA2 } from './dynamic-sha2.ts';
+import { packBytes } from './gadgets.ts';
 
 export { DynamicString };
 
@@ -95,6 +108,94 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
    */
   toString() {
     return this.toValue() as any as string;
+  }
+
+  /**
+   * Concatenate two strings.
+   *
+   * The resulting (max)length is the sum of the two individual (max)lengths.
+   *
+   * Note: This overrides the naive `concat()` implementation in `DynamicArray`.
+   * It's much more efficient than the base method and than both `concatTransposed()` and `concatByHashing()`.
+   */
+  concat(other: DynamicString): DynamicString {
+    const CHARS_PER_BLOCK = 8; // hand-fitted to optimize constraints for (100, 100) and (100, 20) concat
+
+    // divide both strings into smaller blocks of chars
+    let [aBlocks, aTrailingBlock] = this.chunk(CHARS_PER_BLOCK);
+    let [bBlocks, bTrailingBlock] = other.chunk(CHARS_PER_BLOCK);
+
+    // we hash each complete block of the first string
+    let aHash = aBlocks.reduce(Field, Field(0), (hash, block) => {
+      return Poseidon.hash([hash, packBytes(block.array)]);
+    });
+
+    // the trailing a block is combined with each of the b blocks, to form
+    // one new complete block (which is hashed), and one new trailing block
+    let DynamicBlock = DynamicArray(UInt8, { maxLength: CHARS_PER_BLOCK });
+    let trailingLength = aTrailingBlock.length;
+
+    let { hash, trailing } = bBlocks.reduce(
+      { hash: Field, trailing: DynamicBlock },
+      { hash: aHash, trailing: aTrailingBlock },
+      (acc, bBlock) => {
+        let combined = acc.trailing.concatTransposed(bBlock);
+        let completeHalf = combined.array.slice(0, CHARS_PER_BLOCK);
+        let trailingHalf = combined.array.slice(CHARS_PER_BLOCK);
+
+        let hash = Poseidon.hash([acc.hash, packBytes(completeHalf)]);
+        let trailing = new DynamicBlock(trailingHalf, trailingLength);
+        return { hash, trailing };
+      }
+    );
+
+    // the trailing block of the second string is combined with the final trailing block
+    let combined = trailing.concatTransposed(bTrailingBlock);
+    let firstHalf = combined.array.slice(0, CHARS_PER_BLOCK);
+    let secondHalf = combined.array.slice(CHARS_PER_BLOCK);
+
+    // we hash the first half if is the combined length is greater than zero,
+    // and also the second half if the combined length is greater than the block size
+    hash = Provable.if(
+      combined.length.equals(0),
+      hash,
+      Poseidon.hash([hash, packBytes(firstHalf)])
+    );
+    hash = Provable.if(
+      UInt32.Unsafe.fromField(combined.length).lessThanOrEqual(
+        UInt32.from(CHARS_PER_BLOCK)
+      ),
+      hash,
+      Poseidon.hash([hash, packBytes(secondHalf)])
+    );
+
+    // the `hash` we have computed is a uniquely identifying fingerprint of the concatenated strings
+    // therefore, we can simply witness the combined string and check that the hash matches
+
+    // witness combined string
+    let Combined = DynamicString({
+      maxLength: this.maxLength + other.maxLength,
+    });
+    let ab = Provable.witness(
+      Combined,
+      () => this.toString() + other.toString()
+    );
+    // chunk combined string into blocks of CHARS_PER_BLOCK, and hash them in the same way
+    let [abBlocks, abTrailing] = ab.chunk(CHARS_PER_BLOCK);
+    let abHash = abBlocks.reduce(Field, Field(0), (hash, block) =>
+      Poseidon.hash([hash, packBytes(block.array)])
+    );
+    abHash = Provable.if(
+      abTrailing.length.equals(0),
+      abHash,
+      Poseidon.hash([abHash, packBytes(abTrailing.array)])
+    );
+    // assert that the hashes match
+    hash.assertEquals(abHash, 'failed to concatenate strings');
+    // assert that the lengths match (implicitly proven by the hash as well)
+    ab.length.assertEquals(this.length.add(other.length));
+
+    return ab;
   }
 
   growMaxLengthTo(maxLength: number): DynamicStringBase {

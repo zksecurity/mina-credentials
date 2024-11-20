@@ -8,6 +8,7 @@ import {
   type InferValue,
   Gadgets,
   type ProvableHashable,
+  type From,
 } from 'o1js';
 import { assert, assertHasProperty, chunk, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
@@ -40,7 +41,7 @@ function StaticArray<
   /**
    * Create a new StaticArray from a raw array of values.
    */
-  from(v: (T | V)[] | StaticArrayBase<T, V>): StaticArrayBase<T, V>;
+  from(v: (T | From<A>)[] | StaticArrayBase<T, V>): StaticArrayBase<T, V>;
 } {
   let innerType: Provable<T, V> = ProvableType.get(type);
 
@@ -96,6 +97,12 @@ class StaticArrayBase<T = any, V = any> {
   // derived prop
   get length(): number {
     return (this.constructor as typeof StaticArrayBase).length;
+  }
+  /**
+   * The `length` of the array. For compatibility with `DynamicArray`, we also provide is under `maxLength`.
+   */
+  get maxLength() {
+    return this.length;
   }
 
   constructor(array: T[]) {

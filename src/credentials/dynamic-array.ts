@@ -37,6 +37,7 @@ import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 import { StaticArray } from './static-array.ts';
 import { bitSize, packToField } from './dynamic-hash.ts';
 import { BaseType } from './dynamic-base-types.ts';
+import { type NestedProvableFor, NestedProvable } from '../nested.ts';
 
 export { DynamicArray };
 
@@ -62,7 +63,7 @@ type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
 type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
   Omit<DynamicArrayClass<T, V>, 'provable'> & {
     provable: ProvableHashableWide<DynamicArrayBase<T, V>, V[], (T | V)[]> &
-      ProvablePure<DynamicArrayBase<T, V>, V[]>;
+      Omit<ProvablePure<DynamicArrayBase<T, V>, V[]>, 'fromValue'>;
   };
 
 /**
@@ -285,13 +286,14 @@ class DynamicArrayBase<T = any, V = any> {
    * The callback will be passed the current state, an element, and a boolean `isDummy` indicating whether the value is part of the actual array.
    */
   reduce<S>(
-    stateType: ProvableType<S>,
+    stateType: NestedProvableFor<S>,
     state: S,
     f: (state: S, t: T, isDummy: Bool) => S
   ): S {
+    let type = NestedProvable.get(stateType);
     this.forEach((t, isDummy) => {
       let newState = f(state, t, isDummy);
-      state = Provable.if(isDummy, stateType, state, newState);
+      state = Provable.if(isDummy, type, state, newState);
     });
     return state;
   }
@@ -369,6 +371,9 @@ class DynamicArrayBase<T = any, V = any> {
    * Returns a dynamic number of full chunks and a final, smaller chunk.
    *
    * If the array is evenly divided into chunks, the final chunk has length 0.
+   *
+   * Note: This method uses very few constraints, it's mostly rearranging the array contents
+   * doing a small amount of math on the lengths, and a single `get()` operation on the chunked array.
    */
   chunk(
     chunkSize: number
@@ -376,22 +381,29 @@ class DynamicArrayBase<T = any, V = any> {
     let type = ProvableType.get(this.innerType);
 
     let maxChunks = Math.floor(this.maxLength / chunkSize);
+    let maxChunksCeil = Math.ceil(this.maxLength / chunkSize);
     let Chunk = StaticArray(type, chunkSize);
     let DynamicChunk = DynamicArray(type, { maxLength: chunkSize });
     let Chunks = DynamicArray(Chunk, { maxLength: maxChunks });
 
     let NULL = ProvableType.synthesize(type);
-    let padded = pad(this.array, maxChunks * chunkSize, NULL);
-    let chunked = chunk(padded, chunkSize).map(Chunk.from);
+    let padded = pad(this.array, maxChunksCeil * chunkSize, NULL);
+    let completeChunks = padded.slice(0, maxChunks * chunkSize);
+    let chunked = chunk(completeChunks, chunkSize).map(Chunk.from);
 
     // nChunks = floor(length / chunkSize)
-    let { quotient: nChunks, rest: lastChunkLength } = UInt32.Unsafe.fromField(
-      this.length
-    ).divMod(chunkSize);
+    let length = UInt32.Unsafe.fromField(this.length);
+    let { quotient: nChunks, rest: lastChunkLength } = length.divMod(chunkSize);
     let chunks = new Chunks(chunked, nChunks.value);
 
-    // last chunk is the chunk at `nChunks`!
-    let lastChunkPadded = chunks.getOrUnconstrained(nChunks.value);
+    // last chunk is the chunk at `nChunks`, of the fully padded array
+    let lastChunkPadded = StaticArray(Chunk, maxChunksCeil)
+      .from(chunk(padded, chunkSize))
+      // this `get()` can only be out of bounds if maxChunksCeil = ceil(maxLength / chunkSize) <= nChunks = floor(length / chunkSize)
+      // which implies length == maxLength == maxChunksCeil * chunkSize
+      // which implies lastChunkLength == 0; in which case we don't care about the actual values in this chunk
+      .getOrUnconstrained(nChunks.value);
+
     let lastChunk = new DynamicChunk(
       lastChunkPadded.array,
       lastChunkLength.value
@@ -461,7 +473,9 @@ class DynamicArrayBase<T = any, V = any> {
    * Note: This is better than `concat()` if the arrays are about equal or the first array is smaller.
    * It's worse is the first array is much larger than the second.
    */
-  concatTransposed(other: DynamicArray<T, V>): DynamicArray<T, V> {
+  concatTransposed(
+    other: DynamicArray<T, V> | StaticArray<T, V>
+  ): DynamicArray<T, V> {
     // construct 2D array of all possible combinations depending on a's length
     // [b0, b1, b2, ... ],
     // [a0, b0, b1, ... ],
@@ -527,6 +541,8 @@ class DynamicArrayBase<T = any, V = any> {
 
     // the two hashes must be equal
     hash.assertEquals(hash1);
+    // lengths must be equal as well (this was implicitly proved by the hash as well)
+    combinedArray.length.assertEquals(this.length.add(other.length));
 
     return combinedArray;
   }
