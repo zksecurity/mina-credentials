@@ -40,8 +40,55 @@ const DynamicSHA2 = {
    */
   hash: sha2,
 
+  /**
+   * `DynamicSHA2.split()` is the first part of a more flexible API which allows to split proving a SHA2 hash over multiple proofs.
+   *
+   * Input arguments:
+   * - `len`: the output length in bits (224, 256, 384, or 512)
+   * - `blocksPerIteration`: how many SHA2 blocks (64-128 bytes) to process in each proof/iteration. Reasonable values are 2-8.
+   * - `bytes`: the input bytes to hash
+   *
+   * `split()` is called **outside provable code** and prepares the inputs to the different proofs:
+   * - `initial`: the initial "state" of the iteration (which is independent of the string to be hashed, and also returned by `Sha2IterationState.initial()`)
+   * - `iterations`: a sequence of chunks (several blocks each) of the input string, to be passed to `update()`
+   * - `final`: the last chunk of the input string, to be passed to `finalize()`
+   *
+   * Gist of how to use `split()`, `update()`, and `finalize()`:
+   * ```ts
+   * // outside the circuit:
+   * const BLOCKS_PER_ITERATION = 6;
+   * let { initial, iterations, final } = DynamicSHA2.split(256, BLOCKS_PER_ITERATION, bytes);
+   *
+   * // inside "update" circuit, for every iteration:
+   * state = DynamicSHA2.update(initial, iterations[0]);
+   * // OR
+   * state = DynamicSHA2.update(state, iterations[i]);
+   *
+   * // inside "finalize" circuit:
+   * let hash = DynamicSHA2.finalize(state, final, bytes);
+   * ```
+   */
   split,
+
+  /**
+   * `update()` is the second part of the API for splitting a SHA2 hash proof.
+   *
+   * It takes the current `Sha2IterationState` and a `Sha2Iteration` (a chunk of blocks to be hashed) and returns the updated state.
+   *
+   * See `split()` for additional details.
+   */
   update,
+
+  /**
+   * `finalize()` is the last part of the API for splitting a SHA2 hash proof.
+   *
+   * It takes the current `Sha2IterationState`, a `Sha2FinalIteration`, and the original input bytes, and returns the hash.
+   * Since the `Sha2IterationState` contains a commitment to the previous blocks that were hashed, calling `finalize()` is able
+   * to prove that the same input bytes were hashed across multiple iterations. Thus, after calling it you are able to use
+   * the same input bytes in further statements.
+   *
+   * See `split()` for additional details.
+   */
   finalize,
 
   padding256,

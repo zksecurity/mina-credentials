@@ -15,6 +15,9 @@ import { mapObject } from '../util.ts';
 const String = DynamicString({ maxLength: 850 });
 const Bytes32 = Bytes(32);
 
+/**
+ * How many SHA2 blocks to process in each proof.
+ */
 const BLOCKS_PER_ITERATION = 7;
 
 class State extends Sha2IterationState(256) {}
