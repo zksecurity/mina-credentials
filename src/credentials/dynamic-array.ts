@@ -366,9 +366,9 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
-   * Returns a dynamic number of full chunks and a last, possibly smaller chunk.
+   * Returns a dynamic number of full chunks and a final, smaller chunk.
    *
-   * If the array is evenly divided into chunks, the final chunk will be all dummies.
+   * If the array is evenly divided into chunks, the final chunk has length 0.
    */
   chunk(
     chunkSize: number
@@ -423,12 +423,13 @@ class DynamicArrayBase<T = any, V = any> {
    */
   concat(other: DynamicArray<T, V>): DynamicArray<T, V> {
     // witness combined array
-    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
     let CombinedArray = DynamicArray(this.innerType, {
       maxLength: this.maxLength + other.maxLength,
     });
     let combinedArray = Provable.witness(CombinedArray, () =>
-      this.toValue().concat(other.toValue())
+      this.array
+        .slice(0, Number(this.length))
+        .concat(other.array.slice(0, Number(other.length)))
     );
 
     // length has to be the sum of the lengths
@@ -452,7 +453,42 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
-   * Concatenate two arrays. Alternative to `concat()` that proves correctness of the concatenated array
+   * Concatenate two arrays.
+   *
+   * Alternative to `concat()` that takes effort proportional to (M + N)*M where M, N are the two maxlengths,
+   * and also has a better constant.
+   *
+   * Note: This is better than `concat()` if the arrays are about equal or the first array is smaller.
+   * It's worse is the first array is much larger than the second.
+   */
+  concatTransposed(other: DynamicArray<T, V>): DynamicArray<T, V> {
+    // construct 2D array of all possible combinations depending on a's length
+    // [b0, b1, b2, ... ],
+    // [a0, b0, b1, ... ],
+    // [a0, a1, b0, ... ], etc
+    let a = this.array;
+    let b = other.array;
+    let NULL = ProvableType.synthesize(this.innerType);
+    let Column = StaticArray(this.innerType, this.maxLength + 1);
+
+    let maxLength = this.maxLength + other.maxLength;
+    let array2D = Array.from({ length: this.maxLength + 1 }, (_, i) =>
+      pad(a.slice(0, i).concat(b), maxLength, NULL)
+    );
+    let arrayTransposed = Array.from({ length: maxLength }, (_, j) =>
+      Column.from(array2D.map((row) => row[j]!))
+    );
+    let array = arrayTransposed.map((a) => a.getOrUnconstrained(this.length));
+    let length = this.length.add(other.length).seal();
+
+    let CombinedArray = DynamicArray(this.innerType, { maxLength });
+    return new CombinedArray(array, length);
+  }
+
+  /**
+   * Concatenate two arrays.
+   *
+   * Alternative to `concat()` that proves correctness of the concatenated array
    * by Poseidon-hashing it element by element. In contrast to `concat()`, the effort is linear in N + M,
    * but with a larger constant.
    *
@@ -466,7 +502,9 @@ class DynamicArrayBase<T = any, V = any> {
       maxLength: this.maxLength + other.maxLength,
     });
     let combinedArray = Provable.witness(CombinedArray, () =>
-      this.toValue().concat(other.toValue())
+      this.array
+        .slice(0, Number(this.length))
+        .concat(other.array.slice(0, Number(other.length)))
     );
 
     // hash the combined array, element by element
