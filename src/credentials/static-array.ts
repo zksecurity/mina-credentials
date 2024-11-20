@@ -9,15 +9,38 @@ import {
   Gadgets,
   type ProvableHashable,
   type From,
+  type ProvablePure,
+  type IsPure,
 } from 'o1js';
 import { assert, assertHasProperty, chunk, zip } from '../util.ts';
-import { ProvableType } from '../o1js-missing.ts';
+import { type ProvableHashableWide, ProvableType } from '../o1js-missing.ts';
 import { assertLessThan16, lessThan16 } from './gadgets.ts';
 import { TypeBuilder } from '../provable-type-builder.ts';
 
 export { StaticArray };
 
 type StaticArray<T = any, V = any> = StaticArrayBase<T, V>;
+
+type StaticArrayClass<A, T, V> = typeof StaticArrayBase<T, V> & {
+  provable: ProvableHashableWide<StaticArrayBase<T, V>, V[], (T | From<A>)[]>;
+
+  /**
+   * Create a new DynamicArray from an array of values.
+   *
+   * Note: Both the actual length and the values beyond the original ones will be constant.
+   */
+  from(v: (T | From<A>)[] | StaticArrayBase<T, V>): StaticArrayBase<T, V>;
+};
+
+type StaticArrayClassPure<A, T, V> = typeof StaticArrayBase<T, V> &
+  Omit<StaticArrayClass<A, T, V>, 'provable'> & {
+    provable: ProvableHashableWide<
+      StaticArrayBase<T, V>,
+      V[],
+      (T | From<A>)[]
+    > &
+      Omit<ProvablePure<StaticArrayBase<T, V>, V[]>, 'fromValue'>;
+  };
 
 /**
  * Array with a fixed number of elements and several helper methods.
@@ -35,14 +58,15 @@ function StaticArray<
 >(
   type: A,
   length: number
-): typeof StaticArrayBase<T, V> & {
-  provable: ProvableArray<T, V>;
+): IsPure<A, Field> extends true
+  ? StaticArrayClassPure<A, T, V>
+  : StaticArrayClass<A, T, V>;
 
-  /**
-   * Create a new StaticArray from a raw array of values.
-   */
-  from(v: (T | From<A>)[] | StaticArrayBase<T, V>): StaticArrayBase<T, V>;
-} {
+function StaticArray<
+  A extends ProvableType,
+  T extends InferProvable<A> = InferProvable<A>,
+  V extends InferValue<A> = InferValue<A>
+>(type: A, length: number): StaticArrayClass<A, T, V> {
   let innerType: Provable<T, V> = ProvableType.get(type);
 
   // assert length bounds
