@@ -35,6 +35,8 @@ export {
   hashRecord,
   bitSize,
   packedFieldSize,
+  provableTypeOf,
+  innerArrayType,
 };
 
 // compatible hashing

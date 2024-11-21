@@ -17,6 +17,7 @@ import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
 import {
   type ProvableHashablePure,
   type ProvableHashableType,
+  type ProvableHashableWide,
   ProvableType,
 } from '../o1js-missing.ts';
 import {
@@ -39,12 +40,16 @@ import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicArray };
 
-export { DynamicArrayBase, provable as provableDynamicArray };
+export {
+  DynamicArrayBase,
+  provable as provableDynamicArray,
+  type DynamicArrayClass,
+};
 
 type DynamicArray<T = any, V = any> = DynamicArrayBase<T, V>;
 
 type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
-  provable: ProvableHashable<DynamicArrayBase<T, V>, V[]>;
+  provable: ProvableHashableWide<DynamicArrayBase<T, V>, V[], (T | V)[]>;
 
   /**
    * Create a new DynamicArray from an array of values.
@@ -56,7 +61,7 @@ type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
 
 type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
   Omit<DynamicArrayClass<T, V>, 'provable'> & {
-    provable: ProvableHashable<DynamicArrayBase<T, V>, V[]> &
+    provable: ProvableHashableWide<DynamicArrayBase<T, V>, V[], (T | V)[]> &
       ProvablePure<DynamicArrayBase<T, V>, V[]>;
   };
 

@@ -35,9 +35,19 @@ import {
 import { hashString, packToField } from './dynamic-hash.ts';
 import { BaseType } from './dynamic-base-types.ts';
 
-export { DynamicRecord, GenericRecord, type UnknownRecord, extractProperty };
+export {
+  DynamicRecord,
+  GenericRecord,
+  type UnknownRecord,
+  type DynamicRecordClass,
+  extractProperty,
+};
 
 type DynamicRecord<TKnown = any> = DynamicRecordBase<TKnown>;
+
+type DynamicRecordClass<AKnown extends Record<string, any>> = ReturnType<
+  typeof DynamicRecord<AKnown>
+>;
 
 function DynamicRecord<
   AKnown extends Record<string, ProvableHashableType>,
