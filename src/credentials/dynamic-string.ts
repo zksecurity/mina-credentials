@@ -1,7 +1,8 @@
-import { Bool, Field, Provable, UInt8 } from 'o1js';
+import { Bool, Field, type ProvableHashable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
-import { assert } from '../util.ts';
+import { assert, pad } from '../util.ts';
+import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicString };
 
@@ -33,7 +34,7 @@ function DynamicString({ maxLength }: { maxLength: number }) {
     /**
      * Create DynamicBytes from a string.
      */
-    static from(s: string) {
+    static from(s: string | DynamicStringBase) {
       return provableString.fromValue(s);
     }
   }
@@ -47,22 +48,29 @@ function DynamicString({ maxLength }: { maxLength: number }) {
       there(s) {
         return dec.decode(Uint8Array.from(s, ({ value }) => Number(value)));
       },
-      back(s) {
+      backAndDistinguish(s) {
+        // gracefully handle different maxLength
+        if (s instanceof DynamicStringBase) {
+          if (s.maxLength === maxLength) return s;
+          if (s.maxLength < maxLength) return s.growMaxLengthTo(maxLength);
+          // shrinking max length will only work outside circuit
+          s = s.toString();
+        }
         return [...enc.encode(s)].map((t) => ({ value: BigInt(t) }));
       },
-      distinguish: (s) => s instanceof DynamicStringBase,
     })
     .build();
 
   return DynamicString;
 }
+BaseType.DynamicString = DynamicString;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
 class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   get innerType() {
-    return UInt8 as any as Provable<UInt8, { value: bigint }>;
+    return UInt8 as any as ProvableHashable<UInt8, { value: bigint }>;
   }
 
   /**
@@ -70,6 +78,15 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
    */
   toString() {
     return this.toValue() as any as string;
+  }
+
+  growMaxLengthTo(maxLength: number): DynamicStringBase {
+    assert(
+      maxLength >= this.maxLength,
+      'new maxLength must be greater or equal'
+    );
+    let array = pad(this.array, maxLength, UInt8.from(0));
+    return new (DynamicString({ maxLength }))(array, this.length);
   }
 }
 

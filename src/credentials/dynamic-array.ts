@@ -11,10 +11,20 @@ import {
   type From,
   type ProvablePure,
   type IsPure,
+  Poseidon,
 } from 'o1js';
-import { assert, pad, zip } from '../util.ts';
-import { ProvableType } from '../o1js-missing.ts';
-import { assertInRange16, assertLessThan16, lessThan16 } from './gadgets.ts';
+import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
+import {
+  type ProvableHashablePure,
+  type ProvableHashableType,
+  ProvableType,
+} from '../o1js-missing.ts';
+import {
+  assertInRange16,
+  assertLessThan16,
+  lessThan16,
+  pack,
+} from './gadgets.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import {
   deserializeProvable,
@@ -23,6 +33,9 @@ import {
   serializeProvableType,
 } from '../serialize-provable.ts';
 import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
+import { StaticArray } from './static-array.ts';
+import { bitSize, packToField } from './dynamic-hash.ts';
+import { BaseType } from './dynamic-base-types.ts';
 
 export { DynamicArray };
 
@@ -65,7 +78,7 @@ type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
  * Instead, our methods ensure integrity of array operations _within_ the actual length.
  */
 function DynamicArray<
-  A extends ProvableType,
+  A extends ProvableHashableType,
   T extends InferProvable<A> = InferProvable<A>,
   V extends InferValue<A> = InferValue<A>
 >(
@@ -76,7 +89,7 @@ function DynamicArray<
   : DynamicArrayClass<T, V>;
 
 function DynamicArray<
-  A extends ProvableType,
+  A extends ProvableHashableType,
   T extends InferProvable<A> = InferProvable<A>,
   V extends InferValue<A> = InferValue<A>
 >(
@@ -113,6 +126,7 @@ function DynamicArray<
 
   return DynamicArray_;
 }
+BaseType.DynamicArray = DynamicArray;
 
 class DynamicArrayBase<T = any, V = any> {
   /**
@@ -126,7 +140,7 @@ class DynamicArrayBase<T = any, V = any> {
   length: Field;
 
   // props to override
-  get innerType(): ProvableType<T, V> {
+  get innerType(): ProvableHashableType<T, V> {
     throw Error('Inner type must be defined in a subclass.');
   }
   static get maxLength(): number {
@@ -233,7 +247,7 @@ class DynamicArrayBase<T = any, V = any> {
    *
    * **Warning**: The callback will be passed unconstrained dummy values.
    */
-  map<S extends ProvableType>(
+  map<S extends ProvableHashableType>(
     type: S,
     f: (t: T, i: number) => From<S>
   ): DynamicArray<InferProvable<S>, InferValue<S>> {
@@ -275,6 +289,89 @@ class DynamicArrayBase<T = any, V = any> {
       state = Provable.if(isDummy, stateType, state, newState);
     });
     return state;
+  }
+
+  /**
+   * Dynamic array hash that only depends on the actual values (not the padding).
+   *
+   * Avoids hash collisions by encoding the number of actual elements at the beginning of the hash input.
+   */
+  hash() {
+    let type = ProvableType.get(this.innerType);
+
+    // pack all elements into a single field element
+    let fields = this.array.map((x) => packToField(x, type));
+    let NULL = packToField(ProvableType.synthesize(type), type);
+
+    // assert that all padding elements are 0. this allows us to pack values into blocks
+    zip(fields, this._dummyMask()).forEach(([x, isPadding]) => {
+      Provable.assertEqualIf(isPadding, Field, x, NULL);
+    });
+
+    // create blocks of 2 field elements each
+    // TODO abstract this into a `chunk()` method that returns a DynamicArray<StaticArray<T>>
+    let elementSize = bitSize(type);
+    if (elementSize === 0) elementSize = 1; // edge case for empty types like `Undefined`
+    let elementsPerHalfBlock = Math.floor(254 / elementSize);
+    if (elementsPerHalfBlock === 0) elementsPerHalfBlock = 1; // larger types are compressed
+
+    let elementsPerBlock = 2 * elementsPerHalfBlock;
+
+    // we pack the length at the beginning of the first block
+    // for efficiency (to avoid unpacking the length), we first put zeros at the beginning
+    // and later just add the length to the first block
+    let elementsPerUint32 = Math.max(Math.floor(32 / elementSize), 1);
+    let array = fill(elementsPerUint32, Field(0)).concat(fields);
+
+    let maxBlocks = Math.ceil(
+      (elementsPerUint32 + this.maxLength) / elementsPerBlock
+    );
+    let padded = pad(array, maxBlocks * elementsPerBlock, NULL);
+    let chunked = chunk(padded, elementsPerBlock);
+    let blocks = chunked.map((block): [Field, Field] => {
+      let firstHalf = block.slice(0, elementsPerHalfBlock);
+      let secondHalf = block.slice(elementsPerHalfBlock);
+      return [pack(firstHalf, elementSize), pack(secondHalf, elementSize)];
+    });
+
+    // add length to the first block
+    let firstBlock = blocks[0]!;
+    firstBlock[0] = firstBlock[0].add(this.length).seal();
+
+    let Fieldx2 = StaticArray(Field, 2);
+    let Blocks = DynamicArray(Fieldx2, { maxLength: maxBlocks });
+
+    // nBlocks = ceil(length / elementsPerBlock) = floor((length + elementsPerBlock - 1) / elementsPerBlock)
+    let nBlocks = UInt32.Unsafe.fromField(
+      this.length.add(elementsPerUint32 + elementsPerBlock - 1)
+    ).div(elementsPerBlock).value;
+    let dynBlocks = new Blocks(blocks.map(Fieldx2.from), nBlocks);
+
+    // now hash the 2-field elements blocks, one permutation at a time
+    // note: there's a padding element included at the end in the case of uneven number of blocks
+    // however, this doesn't cause hash collisions because we encoded the length at the beginning
+    let state = Poseidon.initialState();
+    dynBlocks.forEach((block, isPadding) => {
+      let newState = Poseidon.update(state, block.array);
+      state[0] = Provable.if(isPadding, state[0], newState[0]);
+      state[1] = Provable.if(isPadding, state[1], newState[1]);
+      state[2] = Provable.if(isPadding, state[2], newState[2]);
+    });
+    return state[0];
+  }
+
+  /**
+   * Assert that the array is exactly equal, in its representation in field elements, to another array.
+   *
+   * Warning: Also checks equality of the padding and maxLength, which don't contribute to the "meaningful" part of the array.
+   * Therefore, this method is mainly intended for testing.
+   */
+  assertEqualsStrict(other: DynamicArray<T, V>) {
+    assert(this.maxLength === other.maxLength, 'max length mismatch');
+    this.length.assertEquals(other.length, 'length mismatch');
+    zip(this.array, other.array).forEach(([a, b]) => {
+      Provable.assertEqual(this.innerType, a, b);
+    });
   }
 
   /**
@@ -376,9 +473,8 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   toValue() {
-    return (
-      this.constructor as any as { provable: Provable<any, V[]> }
-    ).provable.toValue(this);
+    assertHasProperty(this.constructor, 'provable', 'Need subclass');
+    return (this.constructor.provable as Provable<this, V[]>).toValue(this);
   }
 }
 
@@ -388,21 +484,21 @@ class DynamicArrayBase<T = any, V = any> {
 DynamicArray.Base = DynamicArrayBase;
 
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
-  type: ProvablePure<T, V>,
+  type: ProvableHashablePure<T, V>,
   Class: Class
 ): TypeBuilderPure<InstanceType<Class>, V[]>;
 
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
-  type: Provable<T, V>,
+  type: ProvableHashable<T, V>,
   Class: Class
 ): TypeBuilder<InstanceType<Class>, V[]>;
 
 function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
-  type: Provable<T, V>,
+  type: ProvableHashable<T, V>,
   Class: Class
 ) {
   let maxLength = Class.maxLength;
-  let NULL = type.toValue(ProvableType.synthesize(type));
+  let NULL = ProvableType.synthesize(type);
 
   return (
     TypeBuilder.shape({
@@ -421,11 +517,22 @@ function provable<T, V, Class extends typeof DynamicArrayBase<T, V>>(
         there({ array, length }) {
           return array.slice(0, Number(length));
         },
-        back(array) {
-          let padded = pad(array, maxLength, NULL);
-          return { array: padded, length: BigInt(array.length) };
+        backAndDistinguish(array) {
+          // gracefully handle different maxLength
+          if (array instanceof DynamicArrayBase) {
+            if (array.maxLength === maxLength) return array;
+            array = array.toValue();
+          }
+          // fully convert back so that we can pad with NULL
+          let converted = array.map((x) => type.fromValue(x));
+          let padded = pad(converted, maxLength, NULL);
+          return new Class(padded, Field(array.length));
         },
-        distinguish: (s) => s instanceof DynamicArrayBase,
+      })
+
+      // custom hash input
+      .hashInput((array) => {
+        return { fields: [array.hash()] };
       })
   );
 }
@@ -442,7 +549,9 @@ ProvableFactory.register(DynamicArray, {
 
   typeFromJSON(json) {
     let innerType = deserializeProvableType(json.innerType);
-    return DynamicArray(innerType, { maxLength: json.maxLength });
+    return DynamicArray(innerType as ProvableHashableType, {
+      maxLength: json.maxLength,
+    });
   },
 
   valueToJSON(_, { array, length }) {

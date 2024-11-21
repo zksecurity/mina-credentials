@@ -2,8 +2,18 @@
  * Allows us to represent nested Provable types, to save us from always having to
  * wrap types in `Struct` and similar.
  */
-import { type InferProvable, Provable, type ProvablePure, Struct } from 'o1js';
-import { array, type ProvablePureType, ProvableType } from './o1js-missing.ts';
+import {
+  type InferProvable,
+  Provable,
+  type ProvableHashable,
+  Struct,
+} from 'o1js';
+import {
+  array,
+  type ProvableHashablePure,
+  type ProvablePureType,
+  ProvableType,
+} from './o1js-missing.ts';
 import { assertIsObject } from './util.ts';
 
 export { NestedProvable };
@@ -15,18 +25,16 @@ export type {
   InferNestedProvable,
 };
 
-// TODO!! NestedProvable should include Hashable type as well
-
 const NestedProvable = {
   get: (<T>(type: NestedProvableFor<T>): Provable<T> => {
     return ProvableType.isProvableType(type)
       ? ProvableType.get(type)
       : Struct(type);
   }) as {
-    <T>(type: NestedProvablePureFor<T>): ProvablePure<T>;
-    <T>(type: NestedProvableFor<T>): Provable<T>;
-    (type: NestedProvablePure): ProvablePure<any>;
-    (type: NestedProvable): Provable<any>;
+    <T>(type: NestedProvablePureFor<T>): ProvableHashablePure<T>;
+    <T>(type: NestedProvableFor<T>): ProvableHashable<T>;
+    (type: NestedProvablePure): ProvableHashablePure;
+    (type: NestedProvable): ProvableHashable<any>;
   },
 
   fromValue<T>(value: T): NestedProvableFor<T> {
@@ -50,6 +58,8 @@ const NestedProvable = {
     }
   },
 };
+
+// TODO!! NestedProvable should accurately requre hashable type
 
 type NestedProvable = ProvableType | { [key: string]: NestedProvable };
 type NestedProvablePure =

@@ -1,6 +1,8 @@
 export {
   assert,
   assertDefined,
+  defined,
+  Required,
   assertHasProperty,
   hasProperty,
   assertIsObject,
@@ -8,11 +10,13 @@ export {
   zip,
   chunk,
   pad,
+  fill,
   mapObject,
   mapEntries,
   zipObjects,
   assertExtendsShape,
   isSubclass,
+  stringLength,
 };
 
 function assert(
@@ -32,6 +36,26 @@ function assertDefined<T>(
   if (input === undefined) {
     throw Error(message ?? 'Input is undefined');
   }
+}
+
+function defined<T>(input: T | undefined, message?: string): T {
+  assertDefined(input, message);
+  return input;
+}
+
+function Required<T extends {}>(
+  t: T
+): {
+  [P in keyof T]-?: T[P];
+} {
+  return new Proxy(t, {
+    get(target, key) {
+      return defined(
+        (target as any)[key],
+        `Property "${String(key)}" is undefined`
+      );
+    },
+  }) as Required<T>;
 }
 
 function assertIsObject(
@@ -95,6 +119,12 @@ function pad<T>(array: T[], size: number, value: T | (() => T)): T[] {
   return array.concat(Array.from({ length: size - array.length }, cb));
 }
 
+function fill<T>(size: number, value: T | (() => T)): T[] {
+  let cb: () => T =
+    typeof value === 'function' ? (value as () => T) : () => value;
+  return Array.from({ length: size }, cb);
+}
+
 function mapObject<
   T extends Record<string, any>,
   S extends Record<keyof T, any>
@@ -143,4 +173,10 @@ function isSubclass<B extends Constructor<any>>(
   if (typeof constructor !== 'function') return false;
   if (!hasProperty(constructor, 'prototype')) return false;
   return constructor.prototype instanceof base;
+}
+
+let enc = new TextEncoder();
+
+function stringLength(str: string): number {
+  return enc.encode(str).length;
 }

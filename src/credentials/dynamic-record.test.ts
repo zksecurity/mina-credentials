@@ -3,63 +3,67 @@ import {
   Field,
   type From,
   type InferProvable,
-  Poseidon,
   Provable,
   ProvableType,
   Struct,
   UInt64,
 } from 'o1js';
-import {
-  DynamicRecord,
-  packToField,
-  packStringToField,
-  hashRecord,
-} from './dynamic-record.ts';
+import { DynamicRecord } from './dynamic-record.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { NestedProvable } from '../nested.ts';
-import { mapEntries, mapObject, zipObjects } from '../util.ts';
+import { mapObject, zipObjects } from '../util.ts';
 import { test } from 'node:test';
 import assert from 'assert';
 import { hashCredential } from '../credential.ts';
 import { owner } from '../../tests/test-utils.ts';
+import { hashDynamic, hashRecord } from './dynamic-hash.ts';
+import { array } from '../o1js-missing.ts';
+import { DynamicArray } from './dynamic-array.ts';
 
-const String = DynamicString({ maxLength: 10 });
+const String5 = DynamicString({ maxLength: 5 });
+const String10 = DynamicString({ maxLength: 10 });
+const String20 = DynamicString({ maxLength: 20 });
 
 // original schema, data and hash from known layout
 
 const OriginalSchema = Schema({
   first: Field,
   second: Bool,
-  third: String,
+  third: String10,
   fourth: UInt64,
-  fifth: { field: Field, string: String },
+  fifth: { field: Field, string: String10 },
+  sixth: array(Field, 3),
 });
 
-let input = {
+let original = OriginalSchema.from({
   first: 1,
   second: true,
   third: 'something',
   fourth: 123n,
   fifth: { field: 2, string: '...' },
-};
-
-let original = OriginalSchema.from(input);
-const expectedHash = OriginalSchema.hash(original);
+  sixth: [1n, 2n, 3n],
+});
+const expectedHash = hashRecord(original);
 
 const OriginalWrappedInStruct = Struct(OriginalSchema.schema);
-let originalStruct = OriginalWrappedInStruct.fromValue(input);
+let originalStruct = OriginalWrappedInStruct.fromValue(original);
 
 // subset schema and circuit that doesn't know the full original layout
 
 const Subschema = DynamicRecord(
   {
-    // not necessarily in order
-    third: DynamicString({ maxLength: 10 }),
+    // different max length of string/array properties
+    third: String20,
+    // not necessarily in original order
+    first: Field,
+    // subset in nested schema
     fifth: DynamicRecord(
-      { field: Field, string: DynamicString({ maxLength: 5 }) },
+      {
+        // different max length here as well
+        string: String5,
+      },
       { maxEntries: 5 }
     ),
-    first: Field,
   },
   { maxEntries: 10 }
 );
@@ -72,44 +76,59 @@ async function circuit() {
   let record = Provable.witness(Subschema, () => original);
 
   await test('DynamicRecord.get()', () => {
+    // static field
     record.get('first').assertEquals(1, 'first');
-    Provable.assertEqual(String, record.get('third'), String.from('something'));
 
-    // TODO fix hashing so that this works
-    // const Fifth = DynamicRecord(
-    //   { field: Field, string: DynamicString({ maxLength: 5 }) },
-    //   { maxEntries: 5 }
-    // );
-    // Provable.assertEqual(
-    //   Fifth,
-    //   record.get('fifth'),
-    //   Fifth.from({ field: 2, string: '...' })
-    // );
+    // dynamic string with different max length
+    record.get('third').assertEqualsStrict(String20.from('something'));
+
+    // nested subschema
+    let fifthString = record.get('fifth').get('string');
+    fifthString.assertEqualsStrict(String5.from('...'));
   });
 
   await test('DynamicRecord.getAny()', () => {
+    // we can get the other fields as well, if we know their type
     record.getAny(Bool, 'second').assertEquals(true, 'second');
     record.getAny(UInt64, 'fourth').assertEquals(UInt64.from(123n));
 
-    // TODO fix hashing so that this no longer works
-    // records should be hashed in dynamic record form
-    const Fifth = Struct({ field: Field, string: String });
+    // `packToField()` collisions mean that we can also reinterpret fields into types with equivalent packing
+    // (if the new type's `fromValue()` allows the original value)
+    record.getAny(Bool, 'first').assertEquals(true, 'first');
+    record.getAny(UInt64, 'first').assertEquals(UInt64.one);
+
+    // we can get a nested record as struct (and nested strings can have different length)
+    // this works because structs are hashed in dynamic record style
+    const FifthStruct = Struct({ field: Field, string: String20 });
+    let fifth = record.getAny(FifthStruct, 'fifth');
     Provable.assertEqual(
-      Fifth,
-      record.getAny(Fifth, 'fifth'),
-      Fifth.fromValue({ field: 2, string: '...' })
+      FifthStruct,
+      fifth,
+      FifthStruct.fromValue(original.fifth)
     );
 
+    // can get an array as dynamic array, as long as the maxLength is >= the actual length
+    const SixthDynamic = DynamicArray(Field, { maxLength: 7 });
+    let sixth = record.getAny(SixthDynamic, 'sixth');
+    sixth.assertEqualsStrict(SixthDynamic.from(original.sixth));
+
+    const SixthDynamicShort = DynamicArray(Field, { maxLength: 2 });
+    assert.throws(
+      () => record.getAny(SixthDynamicShort, 'sixth'),
+      /larger than target size/
+    );
+
+    // can't get a missing key
     assert.throws(() => record.getAny(Bool, 'missing'), /Key not found/);
   });
 
   await test('DynamicRecord.hash()', () =>
     record.hash().assertEquals(expectedHash, 'hash'));
 
-  await test('hashRecord()', () => {
-    hashRecord(original).assertEquals(expectedHash);
-    hashRecord(originalStruct).assertEquals(expectedHash);
-    hashRecord(record).assertEquals(expectedHash);
+  await test('hashDynamic()', () => {
+    hashDynamic(original).assertEquals(expectedHash);
+    hashDynamic(originalStruct).assertEquals(expectedHash);
+    hashDynamic(record).assertEquals(expectedHash);
   });
 
   await test('hashCredential()', () => {
@@ -125,11 +144,7 @@ async function circuit() {
 
     originalStructHash.assertEquals(originalHash, 'hashCredential() (struct)');
 
-    let subschemaHash = hashCredential(Subschema, {
-      owner,
-      data: record,
-    }).hash;
-
+    let subschemaHash = hashCredential(Subschema, { owner, data: record }).hash;
     subschemaHash.assertEquals(
       originalHash,
       'hashCredential() (dynamic record)'
@@ -156,18 +171,6 @@ function Schema<A extends Record<string, NestedProvable>>(schema: A) {
         ([type, value]) => ProvableType.get(type).fromValue(value)
       );
       return actual;
-    },
-
-    hash(value: { [K in keyof A]: From<A[K]> }) {
-      let normalized = this.from(value);
-      let entryHashes = mapEntries(
-        zipObjects(shape, normalized),
-        (key, [type, value]) => [
-          packStringToField(key),
-          packToField(type, value),
-        ]
-      );
-      return Poseidon.hash(entryHashes.flat());
     },
   };
 }

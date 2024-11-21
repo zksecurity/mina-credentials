@@ -13,11 +13,9 @@ import {
   type InferNestedProvable,
   NestedProvable,
   type NestedProvableFor,
-  type NestedProvablePure,
-  type NestedProvablePureFor,
 } from './nested.ts';
 import { zip } from './util.ts';
-import { hashRecord } from './credentials/dynamic-record.ts';
+import { hashDynamic } from './credentials/dynamic-hash.ts';
 
 export {
   type Credential,
@@ -262,7 +260,7 @@ function withOwner<DataType extends NestedProvable>(data: DataType) {
 function HashableCredential<Data>(
   dataType: NestedProvableFor<Data>
 ): ProvableHashable<Credential<Data>> {
-  return NestedProvable.get(withOwner(dataType)) as any;
+  return NestedProvable.get(withOwner(dataType));
 }
 
 function HashedCredential<Data>(
@@ -273,6 +271,6 @@ function HashedCredential<Data>(
 
 function credentialHash({ owner, data }: Credential<unknown>) {
   let ownerHash = Poseidon.hash(owner.toFields());
-  let dataHash = hashRecord(data);
+  let dataHash = hashDynamic(data);
   return Poseidon.hash([ownerHash, dataHash]);
 }
