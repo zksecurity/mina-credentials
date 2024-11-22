@@ -7,10 +7,10 @@ import {
 } from '../src/validation.ts';
 import { Bytes, Field, PublicKey, Signature } from 'o1js';
 import { owner, issuerKey } from './test-utils.ts';
-import { Spec, Claim, Operation, Constant } from '../src/program-spec.ts';
+import { Spec, Claim } from '../src/program-spec.ts';
 import { createProgram } from '../src/program.ts';
 import { createUnsigned } from '../src/credential.ts';
-import { PresentationRequest } from '../src/index.ts';
+import { Operation, PresentationRequest } from '../src/index.ts';
 
 const Bytes32 = Bytes(32);
 

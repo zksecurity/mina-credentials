@@ -1,4 +1,5 @@
-import { Claim, Constant, type Input, Node, Spec } from './program-spec.ts';
+import { Claim, Constant, type Input, Spec } from './program-spec.ts';
+import { Node } from './operation.ts';
 import { validateSpecHash, type SerializedContext } from './serialize.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
