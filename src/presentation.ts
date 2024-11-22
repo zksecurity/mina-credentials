@@ -5,6 +5,7 @@ import {
   PrivateKey,
   Provable,
   PublicKey,
+  Signature,
   Struct,
   VerificationKey,
   verify,
@@ -12,11 +13,12 @@ import {
 import { Spec, type Input, type Claims } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
+  hashCredential,
   signCredentials,
   type CredentialSpec,
   type StoredCredential,
 } from './credential.ts';
-import { assert, isSubclass } from './util.ts';
+import { assert, isSubclass, zip } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
 import {
@@ -223,6 +225,19 @@ const Presentation = {
   create: createPresentation,
 
   /**
+   * Prepare a presentation, given the request, context, and credentials
+   *
+   * This way creating the presentation doesn't require the private key of the owner but
+   * instead lets the wallet to handle the signing process
+   */
+  prepare: preparePresentation,
+
+  /**
+   * Finalize presentation given request, signature, and prepared data from preparePresentation
+   */
+  finalize: finalizePresentation,
+
+  /**
    * Verify a presentation against a request and context.
    *
    * Returns the verified output claim of the proof, to be consumed by application-specific logic.
@@ -240,18 +255,24 @@ const Presentation = {
   fromJSON,
 };
 
-async function createPresentation<R extends PresentationRequest>(
-  ownerKey: PrivateKey,
-  {
-    request,
-    context: walletContext,
-    credentials,
-  }: {
-    request: R;
-    context: WalletContext<R>;
-    credentials: (StoredCredential & { key?: string })[];
-  }
-): Promise<Presentation<Output<R>, Inputs<R>>> {
+async function preparePresentation<R extends PresentationRequest>({
+  request,
+  context: walletContext,
+  credentials,
+}: {
+  request: R;
+  context: WalletContext<R>;
+  credentials: (StoredCredential & { key?: string })[];
+}): Promise<{
+  context: Field;
+  messageFields: string[];
+  credentialsUsed: Record<string, StoredCredential>;
+  clientNonce: Field;
+  compiledRequest: {
+    program: Program<Output<R>, Inputs<R>>;
+    verificationKey: VerificationKey;
+  };
+}> {
   // compile the program
   let { program, verificationKey } = await Presentation.compile(request);
 
@@ -286,18 +307,48 @@ async function createPresentation<R extends PresentationRequest>(
     }
     return credentialAndType;
   });
-  let ownerSignature = signCredentials(
-    ownerKey,
-    context,
-    ...credentialsAndTypes
+
+  // prepare fields to sign
+  let credHashes = credentialsAndTypes.map(({ credentialType, credential }) =>
+    hashCredential(credential)
+  );
+  let issuers = credentialsAndTypes.map(({ credentialType, witness }) =>
+    credentialType.issuer(witness)
   );
 
-  // create the presentation proof
-  let proof = await program.run({
+  // data that is going to be signed by the wallet
+  const fieldsToSign = [
     context,
+    ...zip(
+      credHashes.map((c) => c.hash),
+      issuers
+    ).flat(),
+  ];
+  return {
+    context,
+    messageFields: fieldsToSign.map((f) => f.toString()),
+    credentialsUsed,
+    clientNonce,
+    compiledRequest: { program, verificationKey },
+  };
+}
+
+async function finalizePresentation<R extends PresentationRequest>(
+  request: R,
+  ownerSignature: Signature,
+  preparedData: {
+    clientNonce: Field;
+    context: Field;
+    credentialsUsed: Record<string, StoredCredential>;
+    compiledRequest: { program: Program<Output<R>, Inputs<R>> };
+  }
+): Promise<Presentation<Output<R>, Inputs<R>>> {
+  // create the presentation proof
+  let proof = await preparedData.compiledRequest.program.run({
+    context: preparedData.context,
     claims: request.claims as any,
     ownerSignature,
-    credentials: credentialsUsed as any,
+    credentials: preparedData.credentialsUsed as any,
   });
   let { proof: proofBase64, maxProofsVerified } = proof.toJSON();
 
@@ -305,9 +356,25 @@ async function createPresentation<R extends PresentationRequest>(
     version: 'v0',
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
-    clientNonce,
+    clientNonce: preparedData.clientNonce,
     proof: { maxProofsVerified, proof: proofBase64 },
   };
+}
+
+async function createPresentation<R extends PresentationRequest>(
+  ownerKey: PrivateKey,
+  params: {
+    request: R;
+    context: WalletContext<R>;
+    credentials: (StoredCredential & { key?: string })[];
+  }
+): Promise<Presentation<Output<R>, Inputs<R>>> {
+  const prepared = await preparePresentation(params);
+  const ownerSignature = Signature.create(
+    ownerKey,
+    prepared.messageFields.map(Field.from)
+  );
+  return finalizePresentation(params.request, ownerSignature, prepared);
 }
 
 async function verifyPresentation<R extends PresentationRequest>(
