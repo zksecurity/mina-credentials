@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Operation, Spec, Node, Claim, Constant } from '../src/program-spec.ts';
+import { Spec, Claim, Constant } from '../src/program-spec.ts';
+import { Operation, Node } from '../src/operation.ts';
 import {
   serializeNode,
   serializeInput,

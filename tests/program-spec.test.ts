@@ -1,10 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Bool, Bytes, Field, Poseidon, UInt32, UInt64, UInt8 } from 'o1js';
+import { Bool, Bytes, Field, UInt32, UInt64, UInt8 } from 'o1js';
 import {
   Spec,
-  Operation,
-  Node,
   type UserInputs,
   splitUserInputs,
   recombineDataInputs,
@@ -15,6 +13,8 @@ import {
 import { issuerKey, owner } from './test-utils.ts';
 import { type CredentialOutputs } from '../src/credential.ts';
 import { Credential } from '../src/credential-index.ts';
+import { hashDynamic, Operation } from '../src/index.ts';
+import { Node } from '../src/operation.ts';
 
 function cred<D>(data: D): Credential<D> {
   return { owner, data };
@@ -224,7 +224,7 @@ test(' Spec and Node operations', async (t) => {
     );
 
     const inputValue = Field(123456);
-    const expectedHashValue = Poseidon.hash([inputValue]);
+    const expectedHashValue = hashDynamic(inputValue);
 
     const root: DataInputs<typeof spec.inputs> = {
       data: cred({ value: inputValue }),

@@ -9,7 +9,7 @@ import {
   Gadgets,
   type ProvableHashable,
 } from 'o1js';
-import { assert, chunk, zip } from '../util.ts';
+import { assert, assertHasProperty, chunk, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertLessThan16, lessThan16 } from './gadgets.ts';
 import { TypeBuilder } from '../provable-type-builder.ts';
@@ -124,6 +124,8 @@ class StaticArrayBase<T = any, V = any> {
 
   /**
    * Gets value at index i, and proves that the index is in the array.
+   *
+   * Handles constant indices without creating constraints.
    *
    * Cost: TN + 1.5
    */
@@ -276,9 +278,8 @@ class StaticArrayBase<T = any, V = any> {
   }
 
   toValue() {
-    return (
-      this.constructor as any as { provable: Provable<any, V[]> }
-    ).provable.toValue(this);
+    assertHasProperty(this.constructor, 'provable', 'Need subclass');
+    return (this.constructor.provable as Provable<this, V[]>).toValue(this);
   }
 }
 

@@ -1,4 +1,4 @@
-import { Bool, Bytes, Field, Provable, UInt8 } from 'o1js';
+import { Bool, Bytes, Field, type ProvableHashable, UInt8 } from 'o1js';
 import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
 import { assert, chunk } from '../util.ts';
@@ -80,7 +80,7 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
 
 class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {
   get innerType() {
-    return UInt8 as any as Provable<UInt8, { value: bigint }>;
+    return UInt8 as any as ProvableHashable<UInt8, { value: bigint }>;
   }
 
   /**
