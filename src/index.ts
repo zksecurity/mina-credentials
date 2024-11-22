@@ -13,5 +13,7 @@ export { hashPacked } from './o1js-missing.ts';
 export {
   hashDynamic,
   hashDynamicWithPrefix,
+  log,
+  toValue,
 } from './credentials/dynamic-hash.ts';
 export { Schema } from './credentials/schema.ts';

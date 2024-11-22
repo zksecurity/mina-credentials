@@ -37,6 +37,7 @@ import { TypeBuilder, TypeBuilderPure } from '../provable-type-builder.ts';
 import { StaticArray } from './static-array.ts';
 import { bitSize, packToField } from './dynamic-hash.ts';
 import { BaseType } from './dynamic-base-types.ts';
+import { type NestedProvableFor, NestedProvable } from '../nested.ts';
 
 export { DynamicArray };
 
@@ -62,7 +63,7 @@ type DynamicArrayClass<T, V> = typeof DynamicArrayBase<T, V> & {
 type DynamicArrayClassPure<T, V> = typeof DynamicArrayBase<T, V> &
   Omit<DynamicArrayClass<T, V>, 'provable'> & {
     provable: ProvableHashableWide<DynamicArrayBase<T, V>, V[], (T | V)[]> &
-      ProvablePure<DynamicArrayBase<T, V>, V[]>;
+      Omit<ProvablePure<DynamicArrayBase<T, V>, V[]>, 'fromValue'>;
   };
 
 /**
@@ -285,13 +286,14 @@ class DynamicArrayBase<T = any, V = any> {
    * The callback will be passed the current state, an element, and a boolean `isDummy` indicating whether the value is part of the actual array.
    */
   reduce<S>(
-    stateType: ProvableType<S>,
+    stateType: NestedProvableFor<S>,
     state: S,
     f: (state: S, t: T, isDummy: Bool) => S
   ): S {
+    let type = NestedProvable.get(stateType);
     this.forEach((t, isDummy) => {
       let newState = f(state, t, isDummy);
-      state = Provable.if(isDummy, stateType, state, newState);
+      state = Provable.if(isDummy, type, state, newState);
     });
     return state;
   }
@@ -366,6 +368,50 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Returns a dynamic number of full chunks and a final, smaller chunk.
+   *
+   * If the array is evenly divided into chunks, the final chunk has length 0.
+   *
+   * Note: This method uses very few constraints, it's mostly rearranging the array contents
+   * doing a small amount of math on the lengths, and a single `get()` operation on the chunked array.
+   */
+  chunk(
+    chunkSize: number
+  ): [DynamicArray<StaticArray<T, V>, V[]>, DynamicArray<T, V>] {
+    let type = ProvableType.get(this.innerType);
+
+    let maxChunks = Math.floor(this.maxLength / chunkSize);
+    let maxChunksCeil = Math.ceil(this.maxLength / chunkSize);
+    let Chunk = StaticArray(type, chunkSize);
+    let DynamicChunk = DynamicArray(type, { maxLength: chunkSize });
+    let Chunks = DynamicArray(Chunk, { maxLength: maxChunks });
+
+    let NULL = ProvableType.synthesize(type);
+    let padded = pad(this.array, maxChunksCeil * chunkSize, NULL);
+    let completeChunks = padded.slice(0, maxChunks * chunkSize);
+    let chunked = chunk(completeChunks, chunkSize).map(Chunk.from);
+
+    // nChunks = floor(length / chunkSize)
+    let length = UInt32.Unsafe.fromField(this.length);
+    let { quotient: nChunks, rest: lastChunkLength } = length.divMod(chunkSize);
+    let chunks = new Chunks(chunked, nChunks.value);
+
+    // last chunk is the chunk at `nChunks`, of the fully padded array
+    let lastChunkPadded = StaticArray(Chunk, maxChunksCeil)
+      .from(chunk(padded, chunkSize))
+      // this `get()` can only be out of bounds if maxChunksCeil = ceil(maxLength / chunkSize) <= nChunks = floor(length / chunkSize)
+      // which implies length == maxLength == maxChunksCeil * chunkSize
+      // which implies lastChunkLength == 0; in which case we don't care about the actual values in this chunk
+      .getOrUnconstrained(nChunks.value);
+
+    let lastChunk = new DynamicChunk(
+      lastChunkPadded.array,
+      lastChunkLength.value
+    );
+    return [chunks, lastChunk];
+  }
+
+  /**
    * Assert that the array is exactly equal, in its representation in field elements, to another array.
    *
    * Warning: Also checks equality of the padding and maxLength, which don't contribute to the "meaningful" part of the array.
@@ -377,6 +423,128 @@ class DynamicArrayBase<T = any, V = any> {
     zip(this.array, other.array).forEach(([a, b]) => {
       Provable.assertEqual(this.innerType, a, b);
     });
+  }
+
+  /**
+   * Concatenate two arrays.
+   *
+   * The resulting (max)length is the sum of the two individual (max)lengths.
+   *
+   * **Warning**: This method takes effort proportional to (M + N)*N where M, N are the two maxlengths.
+   * It's only recommended to use if at least one of the arrays is small.
+   */
+  concat(other: DynamicArray<T, V>): DynamicArray<T, V> {
+    // witness combined array
+    let CombinedArray = DynamicArray(this.innerType, {
+      maxLength: this.maxLength + other.maxLength,
+    });
+    let combinedArray = Provable.witness(CombinedArray, () =>
+      this.array
+        .slice(0, Number(this.length))
+        .concat(other.array.slice(0, Number(other.length)))
+    );
+
+    // length has to be the sum of the lengths
+    this.length.add(other.length).assertEquals(combinedArray.length);
+
+    // combined array has to contain the first array, starting from the beginning
+    this.forEach((t, isDummy, i) => {
+      let s = combinedArray.array[i]!;
+      Provable.assertEqualIf(isDummy.not(), this.innerType, t, s);
+    });
+
+    // combined array has to contain the second array, starting from the end of the first array
+    other.forEach((t, isDummy, i) => {
+      let j = this.length.add(i); // this is guaranteed to be within bounds, if isDummy is false
+      let s = combinedArray.getOrUnconstrained(j);
+      Provable.assertEqualIf(isDummy.not(), other.innerType, t, s);
+    });
+
+    // we don't care what else is in the combined array!
+    return combinedArray;
+  }
+
+  /**
+   * Concatenate two arrays.
+   *
+   * Alternative to `concat()` that takes effort proportional to (M + N)*M where M, N are the two maxlengths,
+   * and also has a better constant.
+   *
+   * Note: This is better than `concat()` if the arrays are about equal or the first array is smaller.
+   * It's worse is the first array is much larger than the second.
+   */
+  concatTransposed(
+    other: DynamicArray<T, V> | StaticArray<T, V>
+  ): DynamicArray<T, V> {
+    // construct 2D array of all possible combinations depending on a's length
+    // [b0, b1, b2, ... ],
+    // [a0, b0, b1, ... ],
+    // [a0, a1, b0, ... ], etc
+    let a = this.array;
+    let b = other.array;
+    let NULL = ProvableType.synthesize(this.innerType);
+    let Column = StaticArray(this.innerType, this.maxLength + 1);
+
+    let maxLength = this.maxLength + other.maxLength;
+    let array2D = Array.from({ length: this.maxLength + 1 }, (_, i) =>
+      pad(a.slice(0, i).concat(b), maxLength, NULL)
+    );
+    let arrayTransposed = Array.from({ length: maxLength }, (_, j) =>
+      Column.from(array2D.map((row) => row[j]!))
+    );
+    let array = arrayTransposed.map((a) => a.getOrUnconstrained(this.length));
+    let length = this.length.add(other.length).seal();
+
+    let CombinedArray = DynamicArray(this.innerType, { maxLength });
+    return new CombinedArray(array, length);
+  }
+
+  /**
+   * Concatenate two arrays.
+   *
+   * Alternative to `concat()` that proves correctness of the concatenated array
+   * by Poseidon-hashing it element by element. In contrast to `concat()`, the effort is linear in N + M,
+   * but with a larger constant.
+   *
+   * The resulting (max)length is the sum of the two individual (max)lengths.
+   */
+  concatByHashing(other: DynamicArray<T, V>): DynamicArray<T, V> {
+    // witness combined array
+    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
+    let type = ProvableType.get(this.innerType);
+    let CombinedArray = DynamicArray(type, {
+      maxLength: this.maxLength + other.maxLength,
+    });
+    let combinedArray = Provable.witness(CombinedArray, () =>
+      this.array
+        .slice(0, Number(this.length))
+        .concat(other.array.slice(0, Number(other.length)))
+    );
+
+    // hash the combined array, element by element
+    let hash = Field(0);
+    combinedArray.forEach((t, isDummy) => {
+      let newHash = Poseidon.hash([hash, packToField(t, type)]);
+      hash = Provable.if(isDummy, hash, newHash);
+    });
+
+    // hash the first array and then the second array, element by element
+    let hash1 = Field(0);
+    this.forEach((t, isDummy) => {
+      let newHash = Poseidon.hash([hash1, packToField(t, type)]);
+      hash1 = Provable.if(isDummy, hash1, newHash);
+    });
+    other.forEach((t, isDummy) => {
+      let newHash = Poseidon.hash([hash1, packToField(t, type)]);
+      hash1 = Provable.if(isDummy, hash1, newHash);
+    });
+
+    // the two hashes must be equal
+    hash.assertEquals(hash1);
+    // lengths must be equal as well (this was implicitly proved by the hash as well)
+    combinedArray.length.assertEquals(this.length.add(other.length));
+
+    return combinedArray;
   }
 
   /**
