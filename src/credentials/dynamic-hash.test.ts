@@ -5,6 +5,8 @@ import {
   hashArray,
   hashDynamic,
   hashRecord,
+  hashSafe,
+  hashSafeWithPrefix,
   hashString,
   packToField,
 } from './dynamic-hash.ts';
@@ -110,13 +112,16 @@ async function main() {
     packToField(-1n).assertEquals(Field(-1n), 'pack bigint');
     packToField(true).assertEquals(Field(1), 'pack boolean');
     packToField(123).assertEquals(Field(123), 'pack number');
-    packToField(undefined).assertEquals(Poseidon.hash([]), 'pack undefined');
+    packToField(undefined).assertEquals(hashSafe([]), 'pack undefined');
 
     // hash is plain poseidon hash
-    hashDynamic(-1n).assertEquals(Poseidon.hash([Field(-1n)]), 'hash bigint');
-    hashDynamic(true).assertEquals(Poseidon.hash([Field(1)]), 'hash boolean');
-    hashDynamic(123).assertEquals(Poseidon.hash([Field(123)]), 'hash number');
-    hashDynamic(undefined).assertEquals(Poseidon.hash([]), 'pack undefined');
+    hashDynamic(-1n).assertEquals(hashSafe([Field(-1n)]), 'hash bigint');
+    hashDynamic(true).assertEquals(hashSafe([Field(1)]), 'hash boolean');
+    hashDynamic(123).assertEquals(hashSafe([Field(123)]), 'hash number');
+    hashDynamic(undefined).assertEquals(hashSafe([]), 'pack undefined');
+
+    // hash of several plain values is poseidon hash
+    hashDynamic(6n, 7, true).assertEquals(hashSafe([6, 7, 1].map(Field)));
   });
 
   // records of plain values
@@ -149,6 +154,30 @@ async function main() {
 
 await test('outside circuit', () => main());
 await test('inside circuit', () => Provable.runAndCheck(main));
+
+// hashSafe
+
+await test('collisions', async () => {
+  await test('Poseidon collisions', () => {
+    Poseidon.hash([]).assertEquals(Poseidon.hash([Field(0)]));
+    Poseidon.hash([]).assertEquals(Poseidon.hash([Field(0), Field(0)]));
+    Poseidon.hash([1, 2, 3].map(Field)).assertEquals(
+      Poseidon.hash([1, 2, 3, 0].map(Field))
+    );
+  });
+
+  await test('No hashSafe collisions', () => {
+    hashSafe([]).assertNotEquals(hashSafe([0]));
+    hashSafe([]).assertNotEquals(hashSafe([0, 0]));
+    hashSafe([1, 2, 3]).assertNotEquals(hashSafe([1, 2, 3, 0]));
+  });
+
+  await test('hashSafe with prefix', () => {
+    hashSafeWithPrefix('blub', [1, 2, 3]).assertNotEquals(
+      hashSafeWithPrefix('blob', [1, 2, 3])
+    );
+  });
+});
 
 // comparison of constraint efficiency of different approaches
 

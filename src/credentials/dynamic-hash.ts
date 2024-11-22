@@ -12,7 +12,6 @@ import {
   Undefined,
 } from 'o1js';
 import {
-  hashPacked,
   type ProvableHashableType,
   ProvableType,
   toFieldsPacked,
@@ -29,6 +28,7 @@ import { BaseType } from './dynamic-base-types.ts';
 
 export {
   hashDynamic,
+  hashDynamicWithPrefix,
   hashArray,
   hashString,
   packToField,
@@ -37,6 +37,8 @@ export {
   packedFieldSize,
   provableTypeOf,
   innerArrayType,
+  hashSafe,
+  hashSafeWithPrefix,
 };
 
 // compatible hashing
@@ -65,8 +67,25 @@ type HashableValue =
  * hashDynamic("\x01") === hashDynamic([UInt8.from(1)]);
  * ```
  */
-function hashDynamic(value: HashableValue | unknown) {
-  return packToField(value, undefined, { mustHash: true });
+function hashDynamic(...values: (HashableValue | unknown)[]) {
+  // for one input, this is just packToField in hashing mode
+  if (values.length === 1) {
+    return packToField(values[0], undefined, { mustHash: true });
+  }
+  // for multiple inputs, first pack each of them and then hash
+  return hashSafe(values.map((x) => packToField(x)));
+}
+
+function hashDynamicWithPrefix(
+  prefix: string | undefined,
+  ...values: (HashableValue | unknown)[]
+) {
+  if (prefix === undefined) return hashDynamic(...values);
+  // TODO it would be nice to avoid double hashing here,
+  // i.e. have it work exactly like `hashDynamic()` just with a prefix.
+  // but that would mean we have to thread the prefix through all our hashing algorithms
+  let fields = values.map((value) => packToField(value));
+  return hashSafeWithPrefix(prefix, fields);
 }
 
 /**
@@ -97,8 +116,7 @@ function packToField<T>(
   if (typeof value === 'boolean') return packToField(Bool(value), Bool, config);
   if (typeof value === 'bigint')
     return packToField(Field(value), Field, config);
-  if (value === undefined || value === null)
-    return hashPacked(Undefined, undefined);
+  if (value === undefined || value === null) return hashSafe([]);
 
   // dynamic array types
   if (Array.isArray(value)) {
@@ -122,7 +140,7 @@ function packToField<T>(
     // other provable types use directly
     let fields = toFieldsPacked(type, value);
     if (fields.length === 1 && !config?.mustHash) return fields[0]!;
-    return Poseidon.hash(fields);
+    return hashSafe(fields);
   }
 
   // at this point, the only valid types are records
@@ -171,6 +189,35 @@ function hashString(string: string) {
   let B = Bytes(4 + length);
   let fields = toFieldsPacked(B, B.from(bytes));
   return Poseidon.hash(fields);
+}
+
+/**
+ * Variant of `Poseidon.hash()` which avoids the length collisions
+ * of the original that is due to zero-padding up to multiples of 2, i.e.
+ * ```ts
+ * Poseidon.hash([1,0]) === Poseidon.hash([1])
+ * Poseidon.hash([0,0]) === Poseidon.hash([0]) === Poseidon.hash([])
+ * ```
+ * These collisions are circumvented by using three different hash prefixes
+ * for the 'even', 'odd' and 'zero' cases.
+ */
+function hashSafe(fields: (Field | number | bigint)[]) {
+  let n = fields.length;
+  let prefix = n === 0 ? 'zero' : n % 2 === 0 ? 'even' : 'odd_';
+  return Poseidon.hashWithPrefix(prefix, fields.map(Field));
+}
+
+function hashSafeWithPrefix(
+  prefix: string | undefined,
+  fields: (Field | number | bigint)[]
+) {
+  let n = fields.length;
+  let prefix2 = n === 0 ? 'zero' : n % 2 === 0 ? 'even' : 'odd_';
+  // TODO expose `prefixToFields()` to that we can implement this with two separate permutations
+  return Poseidon.hashWithPrefix(
+    `${prefix2}${prefix ?? ''}`,
+    fields.map(Field)
+  );
 }
 
 /**

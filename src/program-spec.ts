@@ -6,14 +6,13 @@ import {
   Field,
   Provable,
   type ProvablePure,
-  Poseidon,
   Signature,
   PublicKey,
   type InferProvable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
-import { assertPure, ProvableType, toFieldsPacked } from './o1js-missing.ts';
-import { assert, assertHasProperty, zip } from './util.ts';
+import { assertPure, ProvableType } from './o1js-missing.ts';
+import { assert, assertHasProperty } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
@@ -34,6 +33,7 @@ import {
   DynamicRecord,
   extractProperty,
 } from './credentials/dynamic-record.ts';
+import { hashDynamicWithPrefix } from './credentials/dynamic-hash.ts';
 
 export type {
   PublicInputs,
@@ -284,17 +284,7 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     }
     case 'hash': {
       let inputs = node.inputs.map((i) => evalNode(root, i));
-      let types = inputs.map((i) =>
-        NestedProvable.get(NestedProvable.fromValue(i))
-      );
-      let fields = zip(types, inputs).flatMap(([type, value]) =>
-        toFieldsPacked(type, value)
-      );
-      let hash =
-        node.prefix === undefined
-          ? Poseidon.hash(fields)
-          : Poseidon.hashWithPrefix(node.prefix, fields);
-      return hash as Data;
+      return hashDynamicWithPrefix(node.prefix, ...inputs) as Data;
     }
     case 'ifThenElse': {
       let condition = evalNode(root, node.condition);
