@@ -310,7 +310,7 @@ async function preparePresentation<R extends PresentationRequest>({
 
   // prepare fields to sign
   let credHashes = credentialsAndTypes.map(({ credentialType, credential }) =>
-    hashCredential(credentialType.data, credential)
+    hashCredential(credential)
   );
   let issuers = credentialsAndTypes.map(({ credentialType, witness }) =>
     credentialType.issuer(witness)
