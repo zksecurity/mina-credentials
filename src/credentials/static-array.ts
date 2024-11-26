@@ -259,6 +259,13 @@ class StaticArrayBase<T = any, V = any> {
     );
   }
 
+  slice(start: number, end: number) {
+    assert(start >= 0, 'start must be >= 0');
+    assert(end <= this.length, 'end must be <= length');
+    const Array = StaticArray(this.innerType, end - start);
+    return new Array(this.array.slice(start, end));
+  }
+
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
   _indexMasks: Map<Field, Bool[]> = new Map();
   _indicesInRange: Set<Field> = new Set();

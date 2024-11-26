@@ -8,6 +8,7 @@ export { StaticArray } from './credentials/static-array.ts';
 export { DynamicBytes } from './credentials/dynamic-bytes.ts';
 export { DynamicString } from './credentials/dynamic-string.ts';
 export { DynamicRecord } from './credentials/dynamic-record.ts';
+export { DynamicSHA2 } from './credentials/dynamic-sha2.ts';
 export { hashPacked } from './o1js-missing.ts';
 export {
   hashDynamic,
