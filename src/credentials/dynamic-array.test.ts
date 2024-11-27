@@ -1,6 +1,9 @@
 import { Provable, UInt8 } from 'o1js';
 import { DynamicArray, DynamicString } from '../dynamic.ts';
 import { log } from './dynamic-hash.ts';
+import assert from 'assert';
+
+// concatenation of two strings
 
 let String1 = DynamicString({ maxLength: 100 });
 let String2 = DynamicString({ maxLength: 100 });
@@ -71,6 +74,37 @@ console.log(
     log(s12);
   })
 );
+
+// substring check
+
+{
+  const String = DynamicString({ maxLength: 100 });
+  const SmallString = DynamicString({ maxLength: 10 });
+
+  function main() {
+    let string = Provable.witness(String, () => 'hello world');
+    let contained = Provable.witness(SmallString, () => 'lo wo');
+
+    let i = string.assertContains(contained);
+    i.assertEquals(3);
+
+    if (Provable.inProver()) {
+      let notContained = Provable.witness(SmallString, () => 'worldo');
+      assert.throws(() => string.assertContains(notContained));
+    }
+  }
+
+  // can run normally
+  main();
+
+  // can run while checking constraints
+  console.log(
+    `substring check (${SmallString.maxLength} in ${String.maxLength})`,
+    await runAndConstraints(main)
+  );
+}
+
+// helper
 
 async function runAndConstraints(fn: () => Promise<void> | void) {
   await Provable.runAndCheck(fn);
