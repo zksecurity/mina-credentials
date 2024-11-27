@@ -6,6 +6,7 @@ import {
   Bytes,
   Field,
   Poseidon,
+  Provable,
   Struct,
   UInt64,
   UInt8,
@@ -21,6 +22,7 @@ import {
   hasProperty,
   isSubclass,
   mapEntries,
+  mapObject,
   stringLength,
 } from '../util.ts';
 import type { UnknownRecord } from './dynamic-record.ts';
@@ -39,6 +41,8 @@ export {
   innerArrayType,
   hashSafe,
   hashSafeWithPrefix,
+  toValue,
+  log,
 };
 
 // compatible hashing
@@ -329,6 +333,30 @@ function provableTypeEquals(
 }
 
 // helpers
+
+function toValue(value: unknown): any {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'bigint') return value;
+  if (value === undefined || value === null) return value;
+  if (Array.isArray(value)) value.map(toValue);
+
+  let type = provableTypeOfConstructor(value);
+
+  // unknown object
+  if (type === undefined) return mapObject(value, toValue);
+
+  // other types use directly
+  return ProvableType.get(type).toValue(value);
+}
+
+function log(...values: any[]) {
+  Provable.asProver(() => {
+    let mapped = values.map(toValue);
+    console.log(...mapped);
+  });
+}
 
 function isStruct(type: ProvableType): type is Struct<any> {
   return (
