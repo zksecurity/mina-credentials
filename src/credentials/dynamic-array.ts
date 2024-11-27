@@ -426,6 +426,23 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Assert that this array is equal to another.
+   *
+   * Note: This only requires the length and the actual elements to be equal, not the padding or the maxLength.
+   * To check for exact equality, use `assertEqualsStrict()`.
+   */
+  assertEquals(other: DynamicArray<T, V> | StaticArray<T, V> | (T | V)[]) {
+    this.length.assertEquals(other.length, 'length mismatch');
+    let otherArray = Array.isArray(other) ? other : other.array;
+    let type = ProvableType.get(this.innerType);
+    let NULL = ProvableType.synthesize(type);
+    this.forEach((t, isDummy, i) => {
+      let s = type.fromValue(otherArray[i] ?? NULL);
+      Provable.assertEqualIf(isDummy.not(), type, t, s);
+    });
+  }
+
+  /**
    * Concatenate two arrays.
    *
    * The resulting (max)length is the sum of the two individual (max)lengths.
