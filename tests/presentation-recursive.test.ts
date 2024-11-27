@@ -33,9 +33,7 @@ let provedData = await Recursive.create({
   ownerSignature: Signature.empty(), // no credential => no signature verification
 });
 let credentialJson = Credential.toJSON(provedData);
-console.dir(JSON.parse(credentialJson), { depth: null });
-let storedCredential = Credential.fromJSON(credentialJson);
-console.dir(storedCredential, { depth: 5 });
+let storedCredential = await Credential.fromJSON(credentialJson);
 await Credential.validate(storedCredential);
 
 // define presentation spec

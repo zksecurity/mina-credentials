@@ -17,6 +17,7 @@ import {
   VerificationKey,
   Struct,
   type ProvablePure,
+  type JsonProof,
 } from 'o1js';
 import { assert, assertHasMethod, defined } from './util.ts';
 import { ProvableFactory, type SerializedFactory } from './provable-factory.ts';
@@ -262,7 +263,7 @@ function deserializeProvable(json: SerializedValue): any {
     return ProvableFactory.valueFromJSON(json);
 
   let { _type, value } = json;
-  switch (_type) {
+  switch (json._type) {
     case 'Field':
       return Field.fromJSON(value);
     case 'Bool':
@@ -285,9 +286,7 @@ function deserializeProvable(json: SerializedValue): any {
       let BytesN = deserializeProvableType(json) as typeof Bytes.Base;
       return BytesN.fromHex(value);
     case 'Proof':
-      let Proof = deserializeProvableType(json) as typeof DynamicProof;
-      // TODO this is a promise, so fails
-      return Proof.fromJSON(value);
+      return proofFromJSONSync(json);
     case 'Array':
       return (value as any[]).map((v) => deserializeProvable(v));
     case 'Struct':
@@ -298,9 +297,32 @@ function deserializeProvable(json: SerializedValue): any {
     case 'String':
       return value;
     default:
-      _type satisfies never;
+      json satisfies never;
       throw Error(`Unsupported provable type: ${_type}`);
   }
+}
+
+// this only works if `await initializeBindings()` from o1js has been called before
+// but this implicit dependency seems better than making every `fromJSON` method async
+function proofFromJSONSync(json: {
+  _type: 'Proof';
+  proof: Record<string, any>;
+  value: JsonProof;
+}) {
+  let Proof = deserializeProvableType(json) as typeof DynamicProof;
+  let {
+    maxProofsVerified,
+    proof: proofString,
+    publicInput,
+    publicOutput,
+  } = json.value;
+  let proof = Proof._proofFromBase64(proofString, maxProofsVerified);
+  let fields = publicInput.map(Field).concat(publicOutput.map(Field));
+  return Proof.provable.fromFields(fields, [
+    [],
+    [],
+    [proof, maxProofsVerified],
+  ]);
 }
 
 function deserializeProvablePureType(type: {
