@@ -1,6 +1,5 @@
 import { Provable, UInt8 } from 'o1js';
 import { DynamicArray, DynamicString } from '../dynamic.ts';
-import { log } from './dynamic-hash.ts';
 import assert from 'assert';
 
 // concatenation of two strings
@@ -13,20 +12,23 @@ let StringLike2 = DynamicArray(UInt8, { maxLength: String2.maxLength });
 let String12 = DynamicString({
   maxLength: String1.maxLength + String2.maxLength,
 });
+let string1 = 'blub';
+let string2 = 'blob';
+let string12 = String12.from('blubblob');
 
 console.log(
   'baseline',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
   })
 );
 
 console.log(
   'baseline + chunk',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
     s1.chunk(8);
   })
 );
@@ -34,44 +36,43 @@ console.log(
 console.log(
   'concat naive',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(StringLike1, () => String1.from('blub').array);
-    let s2 = Provable.witness(StringLike2, () => String2.from('blob').array);
-
+    let s1 = Provable.witness(StringLike1, () => String1.from(string1));
+    let s2 = Provable.witness(StringLike2, () => String2.from(string2));
     let s12 = s1.concat(s2);
-    log(new String12(s12.array, s12.length));
+    s12.assertEquals(string12);
   })
 );
 
 console.log(
   'concat transposed',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
 
     let s12 = s1.concatTransposed(s2);
-    log(new String12(s12.array, s12.length));
+    new String12(s12.array, s12.length).assertEquals(string12);
   })
 );
 
 console.log(
   'concat with hashing',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
 
     let s12 = s1.concatByHashing(s2);
-    log(new String12(s12.array, s12.length));
+    new String12(s12.array, s12.length).assertEquals(string12);
   })
 );
 
 console.log(
   'concat string',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
 
     let s12 = s1.concat(s2);
-    log(s12);
+    s12.assertEquals(string12);
   })
 );
 
