@@ -3,7 +3,6 @@ import {
   Signature,
   Undefined,
   Field,
-  type ProvableHashable,
   Hashed,
   PrivateKey,
   Group,
@@ -24,7 +23,9 @@ export {
   type CredentialType,
   type CredentialInputs,
   type CredentialOutputs,
+  credentialHash,
   hashCredential,
+  hashCredentialInCircuit,
   verifyCredentials,
   signCredentials,
   type StoredCredential,
@@ -33,7 +34,6 @@ export {
   Unsigned,
   unsafeMissingOwner,
   createUnsigned,
-  HashableCredential,
 };
 
 /**
@@ -277,10 +277,4 @@ function credentialHash({ owner, data }: Credential<unknown>) {
 
 function withOwner<DataType extends NestedProvable>(data: DataType) {
   return { owner: PublicKey, data };
-}
-
-function HashableCredential<Data>(
-  dataType: NestedProvableFor<Data>
-): ProvableHashable<Credential<Data>> {
-  return NestedProvable.get(withOwner(dataType));
 }
