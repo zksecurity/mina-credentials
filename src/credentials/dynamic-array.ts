@@ -653,7 +653,7 @@ class DynamicArrayBase<T = any, V = any> {
   /**
    * Assert that this array contains the given subarray, and returns the index where it starts.
    */
-  assertContains(subarray: DynamicArray<T, V>) {
+  assertContains(subarray: DynamicArray<T, V> | StaticArray<T, V>) {
     let type = this.innerType;
     assert(subarray.maxLength <= this.maxLength, 'subarray must be smaller');
 
@@ -687,11 +687,19 @@ class DynamicArrayBase<T = any, V = any> {
     // assert that subarray is contained at i
     // cost: M*(N*T + O(1))
     let j = 0;
-    subarray.forEach((si, isDummy) => {
-      let ai = this.getOrUnconstrained(i.add(j));
-      Provable.assertEqualIf(isDummy.not(), type, si, ai);
-      j++;
-    });
+    if (subarray instanceof DynamicArrayBase) {
+      subarray.forEach((si, isDummy) => {
+        let ai = this.getOrUnconstrained(i.add(j));
+        Provable.assertEqualIf(isDummy.not(), type, si, ai);
+        j++;
+      });
+    } else {
+      subarray.forEach((si) => {
+        let ai = this.getOrUnconstrained(i.add(j));
+        Provable.assertEqual(type, si, ai);
+        j++;
+      });
+    }
 
     return i;
   }
