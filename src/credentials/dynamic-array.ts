@@ -426,6 +426,23 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Assert that this array is equal to another.
+   *
+   * Note: This only requires the length and the actual elements to be equal, not the padding or the maxLength.
+   * To check for exact equality, use `assertEqualsStrict()`.
+   */
+  assertEquals(other: DynamicArray<T, V> | StaticArray<T, V> | (T | V)[]) {
+    this.length.assertEquals(other.length, 'length mismatch');
+    let otherArray = Array.isArray(other) ? other : other.array;
+    let type = ProvableType.get(this.innerType);
+    let NULL = ProvableType.synthesize(type);
+    this.forEach((t, isDummy, i) => {
+      let s = type.fromValue(otherArray[i] ?? NULL);
+      Provable.assertEqualIf(isDummy.not(), type, t, s);
+    });
+  }
+
+  /**
    * Concatenate two arrays.
    *
    * The resulting (max)length is the sum of the two individual (max)lengths.
@@ -647,6 +664,60 @@ class DynamicArrayBase<T = any, V = any> {
   toValue() {
     assertHasProperty(this.constructor, 'provable', 'Need subclass');
     return (this.constructor.provable as Provable<this, V[]>).toValue(this);
+  }
+
+  /**
+   * Assert that this array contains the given subarray, and returns the index where it starts.
+   */
+  assertContains(subarray: DynamicArray<T, V> | StaticArray<T, V>) {
+    let type = this.innerType;
+    assert(subarray.maxLength <= this.maxLength, 'subarray must be smaller');
+
+    // idea: witness an index i and show that the subarray is contained at i
+    let i = Provable.witness(Field, () => {
+      let length = Number(this.length);
+      let sublength = Number(subarray.length);
+      if (sublength === 0) return 0n;
+      for (let i = 0; i < length; i++) {
+        // check if subarray is contained at i
+        let isContained = true;
+        for (let j = 0; j < sublength; j++) {
+          if (i + j >= length) return -1n;
+          isContained &&= Provable.equal(
+            type,
+            this.array[i + j]!,
+            subarray.array[j]!
+          ).toBoolean();
+        }
+        if (isContained) return BigInt(i);
+      }
+      return -1n;
+    });
+
+    // i + subarray.length - 1 < this.length
+    Gadgets.rangeCheck16(i);
+    this.assertIndexInRange(
+      UInt32.Unsafe.fromField(i.add(subarray.length).sub(1))
+    );
+
+    // assert that subarray is contained at i
+    // cost: M*(N*T + O(1))
+    let j = 0;
+    if (subarray instanceof DynamicArrayBase) {
+      subarray.forEach((si, isDummy) => {
+        let ai = this.getOrUnconstrained(i.add(j));
+        Provable.assertEqualIf(isDummy.not(), type, si, ai);
+        j++;
+      });
+    } else {
+      subarray.forEach((si) => {
+        let ai = this.getOrUnconstrained(i.add(j));
+        Provable.assertEqual(type, si, ai);
+        j++;
+      });
+    }
+
+    return i;
   }
 }
 
