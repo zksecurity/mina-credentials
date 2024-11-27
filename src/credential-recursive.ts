@@ -1,5 +1,4 @@
 import {
-  Provable,
   VerificationKey,
   type ProvablePure,
   DynamicProof,
@@ -25,8 +24,9 @@ import {
   type CredentialSpec,
   type Credential,
   type StoredCredential,
-  HashableCredential,
   defineCredential,
+  credentialHash,
+  hashCredentialInCircuit,
 } from './credential.ts';
 import { assert } from './util.ts';
 
@@ -54,8 +54,7 @@ function Recursive<
   dataType: DataType
 ): CredentialSpec<'recursive', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
-  let data: NestedProvablePureFor<Data> = dataType as any;
-  const credentialType = HashableCredential(data);
+  const data: NestedProvablePureFor<Data> = dataType as any;
 
   return {
     type: 'credential',
@@ -70,14 +69,18 @@ function Recursive<
     // verify the proof, check that its public output is exactly the credential
     verify({ vk, proof }, credHash) {
       proof.verify(vk);
-      let credential = credHash.unhash();
-      Provable.assertEqual(credentialType, proof.publicOutput, credential);
+      hashCredentialInCircuit(data, proof.publicOutput).hash.assertEquals(
+        credHash.hash,
+        'Invalid proof output'
+      );
     },
     async verifyOutsideCircuit({ vk, proof }, credHash) {
       let ok = await verify(proof, vk);
       assert(ok, 'Invalid proof');
-      let credential = credHash.unhash();
-      Provable.assertEqual(credentialType, proof.publicOutput, credential);
+      hashCredentialInCircuit(data, proof.publicOutput).hash.assertEquals(
+        credHash.hash,
+        'Invalid proof output'
+      );
     },
 
     // issuer == hash of vk and public input
@@ -96,7 +99,7 @@ function Recursive<
 const GenericRecursive = defineCredential({
   credentialType: 'recursive',
   witness: {
-    type: ProvableType.constant('recursive' as const),
+    type: ProvableType.constant('recursive'),
     vk: VerificationKey,
     proof: DynamicProof,
   },
@@ -104,21 +107,17 @@ const GenericRecursive = defineCredential({
   // verify the proof, check that its public output is exactly the credential
   verify({ vk, proof }, credHash) {
     proof.verify(vk);
-    let credential = credHash.unhash();
-    Provable.assertEqual(
-      (proof.constructor as typeof DynamicProof).publicOutputType,
-      proof.publicOutput,
-      credential
+    credentialHash(proof.publicOutput).assertEquals(
+      credHash.hash,
+      'Invalid proof output'
     );
   },
   async verifyOutsideCircuit({ vk, proof }, credHash) {
     let ok = await verify(proof, vk);
     assert(ok, 'Invalid proof');
-    let credential = credHash.unhash();
-    Provable.assertEqual(
-      (proof.constructor as typeof DynamicProof).publicOutputType,
-      proof.publicOutput,
-      credential
+    credentialHash(proof.publicOutput).assertEquals(
+      credHash.hash,
+      'Invalid proof output'
     );
   },
 

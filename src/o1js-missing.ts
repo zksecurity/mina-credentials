@@ -78,7 +78,7 @@ const ProvableType = {
     );
   },
 
-  constant<T>(value: T): ProvablePure<T, T> & { serialize(): any } {
+  constant<const T>(value: T): ProvablePure<T, T> & { serialize(): any } {
     return {
       serialize() {
         return { type: 'Constant', value };
