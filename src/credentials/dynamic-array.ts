@@ -510,7 +510,6 @@ class DynamicArrayBase<T = any, V = any> {
    */
   concatByHashing(other: DynamicArray<T, V>): DynamicArray<T, V> {
     // witness combined array
-    // TODO: this uses more constraints than necessary, we could save element-wise checks with a constructive approach
     let type = ProvableType.get(this.innerType);
     let CombinedArray = DynamicArray(type, {
       maxLength: this.maxLength + other.maxLength,
