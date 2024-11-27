@@ -15,28 +15,40 @@ import {
   FeatureFlags,
   Bytes,
 } from 'o1js';
-import { Spec, Node, Operation, Constant, Claim } from '../src/program-spec.ts';
+import { Spec, Constant, Claim } from '../src/program-spec.ts';
+import { Node, Operation } from '../src/operation.ts';
 import {
-  serializeProvable,
   serializeNode,
   serializeInput,
   serializeSpec,
-} from '../src/serialize-spec.ts';
+} from '../src/serialize.ts';
 import {
   deserializeSpec,
   deserializeInputs,
   deserializeInput,
   deserializeNode,
-  deserializeProvableType,
-  deserializeProvable,
-} from '../src/deserialize-spec.ts';
+} from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
+import {
+  HttpsRequest,
+  PresentationRequest,
+  type WalletDerivedContext,
+  ZkAppRequest,
+} from '../src/presentation.ts';
+import { zkAppAddress } from './test-utils.ts';
+import { computeContext, generateContext } from '../src/context.ts';
+import {
+  deserializeProvable,
+  deserializeProvableType,
+  serializeProvable,
+} from '../src/serialize-provable.ts';
+import { PresentationRequestSchema } from '../src/validation.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
     await t.test('Field', () => {
-      const deserialized = deserializeProvable('Field', '42');
+      const deserialized = deserializeProvable({ _type: 'Field', value: '42' });
       assert(deserialized instanceof Field, 'Should be instance of Field');
       assert.strictEqual(
         deserialized.toString(),
@@ -46,11 +58,17 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('Bool', () => {
-      const deserializedTrue = deserializeProvable('Bool', 'true');
+      const deserializedTrue = deserializeProvable({
+        _type: 'Bool',
+        value: 'true',
+      });
       assert(deserializedTrue instanceof Bool, 'Should be instance of Bool');
       assert.strictEqual(deserializedTrue.toBoolean(), true, 'Should be true');
 
-      const deserializedFalse = deserializeProvable('Bool', 'false');
+      const deserializedFalse = deserializeProvable({
+        _type: 'Bool',
+        value: 'false',
+      });
       assert(deserializedFalse instanceof Bool, 'Should be instance of Bool');
       assert.strictEqual(
         deserializedFalse.toBoolean(),
@@ -60,7 +78,10 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('UInt8', () => {
-      const deserialized = deserializeProvable('UInt8', '255');
+      const deserialized = deserializeProvable({
+        _type: 'UInt8',
+        value: '255',
+      });
       assert(deserialized instanceof UInt8, 'Should be instance of UInt8');
       assert.strictEqual(
         deserialized.toString(),
@@ -70,7 +91,10 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('UInt32', () => {
-      const deserialized = deserializeProvable('UInt32', '4294967295');
+      const deserialized = deserializeProvable({
+        _type: 'UInt32',
+        value: '4294967295',
+      });
       assert(deserialized instanceof UInt32, 'Should be instance of UInt32');
       assert.strictEqual(
         deserialized.toString(),
@@ -80,10 +104,10 @@ test('Deserialize Spec', async (t) => {
     });
 
     await t.test('UInt64', () => {
-      const deserialized = deserializeProvable(
-        'UInt64',
-        '18446744073709551615'
-      );
+      const deserialized = deserializeProvable({
+        _type: 'UInt64',
+        value: '18446744073709551615',
+      });
       assert(deserialized instanceof UInt64, 'Should be instance of UInt64');
       assert.strictEqual(
         deserialized.toString(),
@@ -95,7 +119,10 @@ test('Deserialize Spec', async (t) => {
     await t.test('PublicKey', () => {
       const publicKeyBase58 =
         'B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg';
-      const deserialized = deserializeProvable('PublicKey', publicKeyBase58);
+      const deserialized = deserializeProvable({
+        _type: 'PublicKey',
+        value: publicKeyBase58,
+      });
       assert(
         deserialized instanceof PublicKey,
         'Should be instance of PublicKey'
@@ -118,10 +145,7 @@ test('Deserialize Spec', async (t) => {
       const serializedSignature = serializeProvable(signature);
 
       // Deserialize the signature
-      const deserialized = deserializeProvable(
-        serializedSignature._type,
-        serializedSignature.value
-      );
+      const deserialized = deserializeProvable(serializedSignature);
 
       assert(
         deserialized instanceof Signature,
@@ -143,7 +167,7 @@ test('Deserialize Spec', async (t) => {
 
     await t.test('Invalid type', () => {
       assert.throws(
-        () => deserializeProvable('InvalidType' as any, '42'),
+        () => deserializeProvable({ _type: 'InvalidType' as any, value: '42' }),
         { message: 'Unsupported provable type: InvalidType' },
         'Should throw for invalid type'
       );
@@ -568,7 +592,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ age, isAdmin, maxAge }) => ({
           assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-          data: age,
+          outputClaim: age,
         })
       );
 
@@ -606,7 +630,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'field'),
             zeroField
           ),
-          data: signedData,
+          outputClaim: signedData,
         })
       );
 
@@ -652,7 +676,7 @@ test('deserializeSpec', async (t) => {
             Operation.lessThan(field1, field2),
             Operation.lessThanEq(field2, threshold)
           ),
-          data: Operation.equals(field1, field2),
+          outputClaim: Operation.equals(field1, field2),
         })
       );
 
@@ -684,7 +708,7 @@ test('deserializeSpec', async (t) => {
             Operation.property(signedData, 'age'),
             targetAge
           ),
-          data: Operation.record({
+          outputClaim: Operation.record({
             owner: Operation.owner,
             issuer: Operation.issuer(signedData),
             age: Operation.property(signedData, 'age'),
@@ -717,7 +741,7 @@ test('deserializeSpec', async (t) => {
         },
         ({ provedData, zeroField }) => ({
           assert: Operation.equals(provedData, zeroField),
-          data: provedData,
+          outputClaim: provedData,
         })
       );
 
@@ -755,4 +779,148 @@ test('deserializeSpec', async (t) => {
       );
     }
   );
+});
+
+test('deserializePresentationRequest with context', async (t) => {
+  const Bytes32 = Bytes(32);
+  const InputData = { age: Field, name: Bytes32 };
+
+  const spec = Spec(
+    {
+      signedData: Credential.Simple(InputData),
+      targetAge: Claim(Field),
+      targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
+    },
+    ({ signedData, targetAge, targetName }) => ({
+      assert: Operation.and(
+        Operation.equals(Operation.property(signedData, 'age'), targetAge),
+        Operation.equals(Operation.property(signedData, 'name'), targetName)
+      ),
+      outputClaim: Operation.property(signedData, 'age'),
+    })
+  );
+
+  await t.test('should deserialize zk-app context correctly', () => {
+    const originalRequest = ZkAppRequest({
+      spec,
+      claims: { targetAge: Field(18) },
+      inputContext: {
+        type: 'zk-app',
+        action: Field(123), // Mock method ID + args hash
+        serverNonce: Field(789),
+      },
+    });
+
+    const serialized = PresentationRequest.toJSON(originalRequest);
+
+    const parsed = JSON.parse(serialized);
+
+    const result = PresentationRequestSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'ZkApp presentation request should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
+    const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
+      'zk-app',
+      serialized
+    );
+
+    assert.strictEqual(deserialized.type, 'zk-app');
+    assert.strictEqual(deserialized.claims.targetAge.toString(), '18');
+
+    const reserialized = PresentationRequest.toJSON(deserialized);
+    assert.deepStrictEqual(reserialized, serialized);
+
+    const context = deserialized.inputContext;
+    assert(context, 'Context should exist');
+    assert.deepStrictEqual(context.action, Field(123));
+    assert.deepStrictEqual(context.serverNonce, Field(789));
+
+    let derivedContext: WalletDerivedContext = {
+      clientNonce: Field(999),
+      vkHash: Field(123),
+      claims: Field(456),
+    };
+
+    const originalContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: zkAppAddress,
+        ...derivedContext,
+      })
+    );
+    const deserializedContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: zkAppAddress,
+        ...derivedContext,
+      })
+    );
+    assert.deepStrictEqual(deserializedContext, originalContext);
+  });
+
+  await t.test('should deserialize https context correctly', async () => {
+    const serverUrl = 'test.com';
+
+    const originalRequest = HttpsRequest({
+      spec,
+      claims: { targetAge: Field(18) },
+      inputContext: {
+        type: 'https',
+        action: 'POST /api/verify',
+        serverNonce: Field(789),
+      },
+    });
+
+    const serialized = PresentationRequest.toJSON(originalRequest);
+
+    const parsed = JSON.parse(serialized);
+
+    const result = PresentationRequestSchema.safeParse(parsed);
+    assert(
+      result.success,
+      'HTTPS presentation request should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
+    const deserialized = PresentationRequest.fromJSON<typeof originalRequest>(
+      'https',
+      serialized
+    );
+
+    assert.strictEqual(deserialized.type, 'https');
+    assert.strictEqual(deserialized.claims.targetAge.toString(), '18');
+
+    const reserialized = PresentationRequest.toJSON(deserialized);
+    assert.deepStrictEqual(reserialized, serialized);
+
+    const context = deserialized.inputContext;
+    assert(context, 'Context should exist');
+    assert.strictEqual(context.action, 'POST /api/verify');
+    assert.deepStrictEqual(context.serverNonce, Field(789));
+
+    let derivedContext: WalletDerivedContext = {
+      clientNonce: Field(999),
+      vkHash: Field(123),
+      claims: Field(456),
+    };
+
+    const originalContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: serverUrl,
+        ...derivedContext,
+      })
+    );
+    const deserializedContext = generateContext(
+      computeContext({
+        ...originalRequest.inputContext,
+        verifierIdentity: serverUrl,
+        ...derivedContext,
+      })
+    );
+    assert.deepStrictEqual(deserializedContext, originalContext);
+  });
 });

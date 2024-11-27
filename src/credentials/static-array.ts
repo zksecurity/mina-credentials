@@ -4,15 +4,15 @@ import {
   type InferProvable,
   Option,
   Provable,
-  provable as struct,
   UInt32,
   type InferValue,
   Gadgets,
   type ProvableHashable,
 } from 'o1js';
-import { assert, chunk, zip } from '../util.ts';
+import { assert, assertHasProperty, chunk, zip } from '../util.ts';
 import { ProvableType } from '../o1js-missing.ts';
 import { assertLessThan16, lessThan16 } from './gadgets.ts';
+import { TypeBuilder } from '../provable-type-builder.ts';
 
 export { StaticArray };
 
@@ -48,6 +48,20 @@ function StaticArray<
   assert(length >= 0, 'length must be >= 0');
   assert(length < 2 ** 16, 'length must be < 2^16');
 
+  const provableArray = TypeBuilder.shape({
+    array: Provable.Array(innerType, length),
+  })
+    .forConstructor<StaticArrayBase<T, V>>(
+      ({ array }) => new StaticArray_(array)
+    )
+    // convert to/from plain array
+    .mapValue<V[]>({
+      there: ({ array }) => array,
+      back: (array) => ({ array }),
+      distinguish: (s) => s instanceof StaticArrayBase,
+    })
+    .build();
+
   class StaticArray_ extends StaticArrayBase<T, V> {
     get innerType() {
       return innerType;
@@ -55,16 +69,13 @@ function StaticArray<
     static get length() {
       return length;
     }
-    static get provable() {
-      return provableArray;
-    }
 
     static from(input: (T | V)[] | StaticArrayBase<T, V>) {
       return provableArray.fromValue(input);
     }
-  }
-  const provableArray = provable<T, V>(innerType, StaticArray_);
 
+    static provable = provableArray;
+  }
   return StaticArray_;
 }
 
@@ -113,6 +124,8 @@ class StaticArrayBase<T = any, V = any> {
 
   /**
    * Gets value at index i, and proves that the index is in the array.
+   *
+   * Handles constant indices without creating constraints.
    *
    * Cost: TN + 1.5
    */
@@ -246,6 +259,13 @@ class StaticArrayBase<T = any, V = any> {
     );
   }
 
+  slice(start: number, end: number) {
+    assert(start >= 0, 'start must be >= 0');
+    assert(end <= this.length, 'end must be <= length');
+    const Array = StaticArray(this.innerType, end - start);
+    return new Array(this.array.slice(start, end));
+  }
+
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index
   _indexMasks: Map<Field, Bool[]> = new Map();
   _indicesInRange: Set<Field> = new Set();
@@ -265,9 +285,8 @@ class StaticArrayBase<T = any, V = any> {
   }
 
   toValue() {
-    return (
-      this.constructor as any as { provable: Provable<any, V[]> }
-    ).provable.toValue(this);
+    assertHasProperty(this.constructor, 'provable', 'Need subclass');
+    return (this.constructor.provable as Provable<this, V[]>).toValue(this);
   }
 }
 
@@ -279,42 +298,3 @@ StaticArray.Base = StaticArrayBase;
 type ProvableArray<T, V> = ProvableHashable<StaticArrayBase<T, V>, V[]> & {
   fromValue(array: (V | T)[] | StaticArrayBase<T>): StaticArrayBase<T, V>;
 };
-
-function provable<T, V>(
-  type: Provable<T, V> & { empty?: () => T },
-  Class: typeof StaticArrayBase<T, V>
-): ProvableArray<T, V> {
-  let maxLength = Class.length;
-  let PlainArray = struct({ array: Provable.Array(type, maxLength) });
-
-  return {
-    ...PlainArray,
-
-    // make fromFields return a class instance
-    fromFields(fields, aux) {
-      let raw = PlainArray.fromFields(fields, aux);
-      return new Class(raw.array);
-    },
-
-    // convert to/from plain array
-    toValue(value) {
-      return PlainArray.toValue(value).array;
-    },
-    fromValue(array) {
-      if (array instanceof StaticArrayBase) return array;
-      let raw = array.map((t) => type.fromValue(t));
-      return new Class(raw);
-    },
-
-    empty() {
-      let raw = PlainArray.empty();
-      return new Class(raw.array);
-    },
-
-    toCanonical(value) {
-      if (PlainArray.toCanonical === undefined) return value;
-      let { array } = PlainArray.toCanonical(value);
-      return new Class(array);
-    },
-  };
-}

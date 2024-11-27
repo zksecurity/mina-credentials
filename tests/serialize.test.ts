@@ -1,18 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Operation, Spec, Node, Claim, Constant } from '../src/program-spec.ts';
+import { Spec, Claim, Constant } from '../src/program-spec.ts';
+import { Operation, Node } from '../src/operation.ts';
 import {
-  serializeProvableType,
-  serializeNestedProvable,
   serializeNode,
   serializeInput,
   convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
-} from '../src/serialize-spec.ts';
+  serializeInputContext,
+} from '../src/serialize.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
-import { deserializeSpec } from '../src/deserialize-spec.ts';
+import {
+  deserializeInputContext,
+  deserializeSpec,
+} from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
+import {
+  serializeNestedProvable,
+  serializeProvableType,
+} from '../src/serialize-provable.ts';
+import { ContextSchema, InputSchema, NodeSchema } from '../src/validation.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
@@ -117,6 +125,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize root Node', () => {
@@ -133,6 +149,14 @@ test('Serialize Nodes', async (t) => {
     const expected = { type: 'root' };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize property Node', () => {
@@ -153,6 +177,14 @@ test('Serialize Nodes', async (t) => {
     const expected = { type: 'property', key: 'age', inner: { type: 'root' } };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize equals Node', () => {
@@ -170,6 +202,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize lessThan Node', () => {
@@ -187,6 +227,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize lessThanEq Node', () => {
@@ -204,6 +252,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize and Node', () => {
@@ -216,11 +272,21 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'and',
-      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+      inputs: [
+        { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+      ],
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize or Node', () => {
@@ -238,6 +304,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize add Node', () => {
@@ -255,6 +329,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize sub Node', () => {
@@ -272,6 +354,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize mul Node', () => {
@@ -289,6 +379,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize div Node', () => {
@@ -306,6 +404,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize not Node', () => {
@@ -322,6 +428,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize hash Node', () => {
@@ -334,10 +448,19 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'hash',
-      inner: { type: 'constant', data: { _type: 'Field', value: '123' } },
+      inputs: [{ type: 'constant', data: { _type: 'Field', value: '123' } }],
+      prefix: null,
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize ifThenElse Node', () => {
@@ -357,6 +480,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize record Node', () => {
@@ -376,6 +507,14 @@ test('Serialize Nodes', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize nested Nodes', () => {
@@ -394,20 +533,78 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'and',
-      left: {
-        type: 'lessThan',
-        left: { type: 'constant', data: { _type: 'Field', value: '5' } },
-        right: { type: 'constant', data: { _type: 'Field', value: '10' } },
-      },
-      right: {
-        type: 'equals',
-        left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-        right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-      },
+      inputs: [
+        {
+          type: 'lessThan',
+          left: { type: 'constant', data: { _type: 'Field', value: '5' } },
+          right: { type: 'constant', data: { _type: 'Field', value: '10' } },
+        },
+        {
+          type: 'equals',
+          left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+          right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        },
+      ],
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
+
+  await t.test('should serialize equalsOneOf Node with array options', () => {
+    const options: Node<Field>[] = [
+      { type: 'constant', data: Field(10) },
+      { type: 'constant', data: Field(20) },
+      { type: 'constant', data: Field(30) },
+    ];
+
+    const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
+      { type: 'constant', data: Field(20) },
+      options
+    );
+
+    const serialized = serializeNode(equalsOneOfNode);
+
+    const result = NodeSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Node should be valid with array options: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+  });
+
+  await t.test(
+    'should serialize equalsOneOf Node with single node options',
+    () => {
+      const optionsNode: Node<Field[]> = {
+        type: 'constant',
+        data: [Field(10), Field(20), Field(30)],
+      };
+
+      const equalsOneOfNode: Node<Bool> = Operation.equalsOneOf(
+        { type: 'constant', data: Field(20) },
+        optionsNode
+      );
+
+      const serialized = serializeNode(equalsOneOfNode);
+
+      const result = NodeSchema.safeParse(serialized);
+
+      assert(
+        result.success,
+        'Node should be valid with single node options: ' +
+          (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+      );
+    }
+  );
 });
 
 test('serializeInput', async (t) => {
@@ -423,6 +620,14 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Constant input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize public input', () => {
@@ -431,11 +636,19 @@ test('serializeInput', async (t) => {
     const serialized = serializeInput(input);
 
     const expected = {
-      type: 'public',
+      type: 'claim',
       data: { _type: 'Field' },
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Claim input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize private input', () => {
@@ -445,11 +658,21 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: { _type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
+
+    console.log('serialized:', serialized.witness);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Private input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
   await t.test('should serialize credential input', () => {
@@ -460,7 +683,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'signature-native',
+      credentialType: 'simple',
       witness: {
         type: { type: 'Constant', value: 'simple' },
         issuer: { _type: 'PublicKey' },
@@ -473,9 +696,17 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Credential input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
 
-  await t.test('should serialize nested input', () => {
+  await t.test('should serialize unsigned nested input', () => {
     const NestedInputData = {
       personal: {
         age: Field,
@@ -489,7 +720,7 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      id: 'none',
+      credentialType: 'unsigned',
       witness: { _type: 'Undefined' },
       data: {
         personal: {
@@ -501,7 +732,38 @@ test('serializeInput', async (t) => {
     };
 
     assert.deepStrictEqual(serialized, expected);
+
+    const result = InputSchema.safeParse(serialized);
+
+    assert(
+      result.success,
+      'Nested input should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
   });
+
+  await t.test(
+    'should serialize simple credential input with nested structure',
+    () => {
+      const input = Credential.Simple({
+        personal: {
+          age: Field,
+          score: UInt64,
+        },
+        verified: Bool,
+      });
+
+      const serialized = serializeInput(input);
+
+      const result = InputSchema.safeParse(serialized);
+
+      assert(
+        result.success,
+        'Nested structure input should be valid: ' +
+          (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+      );
+    }
+  );
 
   await t.test('should throw error for unsupported input type', () => {
     const invalidInput = { type: 'invalid' } as any;
@@ -522,7 +784,7 @@ test('convertSpecToSerializable', async (t) => {
       },
       ({ age, isAdmin, maxAge }) => ({
         assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),
-        data: age,
+        outputClaim: age,
       })
     );
 
@@ -532,40 +794,42 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         age: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
-        isAdmin: { type: 'public', data: { _type: 'Bool' } },
+        isAdmin: { type: 'claim', data: { _type: 'Bool' } },
         maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
       logic: {
         assert: {
           type: 'and',
-          left: {
-            type: 'lessThan',
-            left: {
-              type: 'property',
-              key: 'data',
-              inner: {
+          inputs: [
+            {
+              type: 'lessThan',
+              left: {
                 type: 'property',
-                key: 'age',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'age',
+                  inner: { type: 'root' },
+                },
+              },
+              right: {
+                type: 'property',
+                key: 'maxAge',
                 inner: { type: 'root' },
               },
             },
-            right: {
+            {
               type: 'property',
-              key: 'maxAge',
+              key: 'isAdmin',
               inner: { type: 'root' },
             },
-          },
-          right: {
-            type: 'property',
-            key: 'isAdmin',
-            inner: { type: 'root' },
-          },
+          ],
         },
-        data: {
+        outputClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -591,7 +855,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.property(signedData, 'field'),
           zeroField
         ),
-        data: signedData,
+        outputClaim: signedData,
       })
     );
 
@@ -600,7 +864,7 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          id: 'signature-native',
+          credentialType: 'simple',
           witness: {
             type: { type: 'Constant', value: 'simple' },
             issuer: { _type: 'PublicKey' },
@@ -634,7 +898,7 @@ test('convertSpecToSerializable', async (t) => {
             inner: { type: 'root' },
           },
         },
-        data: {
+        outputClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -660,7 +924,7 @@ test('convertSpecToSerializable', async (t) => {
           Operation.lessThan(field1, field2),
           Operation.equals(field1, zeroField)
         ),
-        data: field2,
+        outputClaim: field2,
       })
     );
 
@@ -669,13 +933,13 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         field1: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
         field2: {
           type: 'credential',
-          id: 'none',
+          credentialType: 'unsigned',
           witness: { _type: 'Undefined' },
           data: { _type: 'Field' },
         },
@@ -684,46 +948,48 @@ test('convertSpecToSerializable', async (t) => {
       logic: {
         assert: {
           type: 'and',
-          left: {
-            type: 'lessThan',
-            left: {
-              type: 'property',
-              key: 'data',
-              inner: {
+          inputs: [
+            {
+              type: 'lessThan',
+              left: {
                 type: 'property',
-                key: 'field1',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'field1',
+                  inner: { type: 'root' },
+                },
+              },
+              right: {
+                type: 'property',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'field2',
+                  inner: { type: 'root' },
+                },
+              },
+            },
+            {
+              type: 'equals',
+              left: {
+                type: 'property',
+                key: 'data',
+                inner: {
+                  type: 'property',
+                  key: 'field1',
+                  inner: { type: 'root' },
+                },
+              },
+              right: {
+                type: 'property',
+                key: 'zeroField',
                 inner: { type: 'root' },
               },
             },
-            right: {
-              type: 'property',
-              key: 'data',
-              inner: {
-                type: 'property',
-                key: 'field2',
-                inner: { type: 'root' },
-              },
-            },
-          },
-          right: {
-            type: 'equals',
-            left: {
-              type: 'property',
-              key: 'data',
-              inner: {
-                type: 'property',
-                key: 'field1',
-                inner: { type: 'root' },
-              },
-            },
-            right: {
-              type: 'property',
-              key: 'zeroField',
-              inner: { type: 'root' },
-            },
-          },
+          ],
         },
-        data: {
+        outputClaim: {
           type: 'property',
           key: 'data',
           inner: {
@@ -747,7 +1013,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     },
     ({ age, isAdmin, ageLimit }) => ({
       assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
-      data: age,
+      outputClaim: age,
     })
   );
 
@@ -767,7 +1033,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
   await t.test('should detect tampering', async () => {
     const tampered = JSON.parse(serialized);
     const tamperedSpec = JSON.parse(tampered.spec);
-    tamperedSpec.inputs.age.type = 'public';
+    tamperedSpec.inputs.age.type = 'claim';
     tampered.spec = JSON.stringify(tamperedSpec);
     const tamperedString = JSON.stringify(tampered);
     assert(
@@ -781,7 +1047,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
     async () => {
       const tampered = JSON.parse(serialized);
       const tamperedSpec = JSON.parse(tampered.spec);
-      tamperedSpec.inputs.age.type = 'public';
+      tamperedSpec.inputs.age.type = 'claim';
       tampered.spec = JSON.stringify(tamperedSpec);
       const tamperedString = JSON.stringify(tampered);
 
@@ -814,7 +1080,7 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
         Operation.property(signedData, 'age'),
         targetAge
       ),
-      data: Operation.record({
+      outputClaim: Operation.record({
         owner: Operation.owner,
         issuer: Operation.issuer(signedData),
         age: Operation.property(signedData, 'age'),
@@ -826,12 +1092,72 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
   const parsed = JSON.parse(serialized);
   const serializedSpec = JSON.parse(parsed.spec);
 
-  assert.deepStrictEqual(serializedSpec.logic.data.data.owner, {
+  assert.deepStrictEqual(serializedSpec.logic.outputClaim.data.owner, {
     type: 'owner',
   });
 
-  assert.deepStrictEqual(serializedSpec.logic.data.data.issuer, {
+  assert.deepStrictEqual(serializedSpec.logic.outputClaim.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
+  });
+});
+
+test('serializeInputContext', async (t) => {
+  await t.test('should serialize zk-app context', () => {
+    const context = {
+      type: 'zk-app' as const,
+      action: Field(456),
+      serverNonce: Field(789),
+    };
+
+    const serialized = serializeInputContext(context);
+
+    assert.deepStrictEqual(serialized, {
+      type: 'zk-app',
+      action: { _type: 'Field', value: '456' },
+      serverNonce: { _type: 'Field', value: '789' },
+    });
+
+    const result = ContextSchema.safeParse(serialized);
+    assert(
+      result.success,
+      'Valid ZkApp context should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
+    const deserialized = deserializeInputContext(serialized);
+    assert.deepStrictEqual(deserialized, context);
+
+    const reserialized = serializeInputContext(deserialized);
+    assert.deepStrictEqual(serialized, reserialized);
+  });
+
+  await t.test('should serialize https context', () => {
+    const context = {
+      type: 'https' as const,
+      action: 'POST /api/verify',
+      serverNonce: Field(789),
+    };
+
+    const serialized = serializeInputContext(context);
+
+    assert.deepStrictEqual(serialized, {
+      type: 'https',
+      action: 'POST /api/verify',
+      serverNonce: { _type: 'Field', value: '789' },
+    });
+
+    const result = ContextSchema.safeParse(serialized);
+    assert(
+      result.success,
+      'Valid HTTPS context should be valid: ' +
+        (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
+    );
+
+    const deserialized = deserializeInputContext(serialized);
+    assert.deepStrictEqual(deserialized, context);
+
+    const reserialized = serializeInputContext(deserialized);
+    assert.deepStrictEqual(serialized, reserialized);
   });
 });

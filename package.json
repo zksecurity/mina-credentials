@@ -1,9 +1,13 @@
 {
   "name": "mina-credentials",
-  "version": "0.1.0",
-  "description": "",
-  "author": "",
+  "version": "0.2.0",
+  "description": "Private Credentials on Mina",
+  "author": "zksecurity <hello@zksecurity.xyz>",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zksecurity/mina-credentials"
+  },
   "keywords": [
     "mina-zkapp",
     "mina-zk-app",
@@ -13,21 +17,38 @@
   "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./build/src/index.js"
+    },
+    "./dynamic": {
+      "import": "./build/src/dynamic.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
     "format": "prettier --write --ignore-unknown **/*",
     "test": "node --test --experimental-strip-types --no-warnings {tests,src}/**/*.test.ts",
     "test-one": "node --enable-source-maps --test --experimental-strip-types --no-warnings",
+    "examples": "node --test --experimental-strip-types --no-warnings examples/*.eg.ts",
     "extension:dev": "vite build --config browser-extension/vite.config.js --watch",
-    "extension:build": "vite build --config browser-extension/vite.config.js"
+    "extension:build": "vite build --config browser-extension/vite.config.js",
+    "prepublishOnly": "rm -rf build && npm run build"
   },
+  "files": [
+    "build",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "devDependencies": {
     "@types/chrome": "^0.0.272",
     "@types/node": "^22.5.5",
     "prettier": "^2.3.2",
-    "typescript": "^5.6.3",
-    "vite": "^4.3.9"
+    "typescript": "^5.7.0-beta",
+    "vite": "^4.3.9",
+    "zod": "^3.23.8"
   },
   "peerDependencies": {
     "o1js": "^2.0.0"

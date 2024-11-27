@@ -25,33 +25,43 @@ type Metadata = undefined;
 
 type Signed<Data> = StoredCredential<Data, Witness, Metadata>;
 
-const Signed = defineCredential({
-  id: 'signature-native',
-  witness: {
-    type: ProvableType.constant('simple' as const),
-    issuer: PublicKey,
-    issuerSignature: Signature,
-  },
+const Signed = Object.assign(
+  defineCredential({
+    credentialType: 'simple',
+    witness: {
+      type: ProvableType.constant('simple' as const),
+      issuer: PublicKey,
+      issuerSignature: Signature,
+    },
 
-  // verify the signature
-  verify({ issuer, issuerSignature }, credHash) {
-    let ok = issuerSignature.verify(issuer, [credHash.hash]);
-    ok.assertTrue('Invalid signature');
-  },
+    // verify the signature
+    verify({ issuer, issuerSignature }, credHash) {
+      let ok = issuerSignature.verify(issuer, [credHash.hash]);
+      ok.assertTrue('Invalid signature');
+    },
+    async verifyOutsideCircuit({ issuer, issuerSignature }, credHash) {
+      let ok = issuerSignature.verify(issuer, [credHash.hash]);
+      ok.assertTrue('Invalid signature');
+    },
 
-  // issuer == issuer public key
-  issuer({ issuer }) {
-    return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
-  },
-});
+    // issuer == issuer public key
+    issuer({ issuer }) {
+      return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
+    },
+  }),
+  {
+    issuer(issuer: PublicKey) {
+      return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
+    },
+  }
+);
 
 function createSigned<Data>(
   issuerPrivateKey: PrivateKey,
   credential: Credential<Data>
 ): Signed<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
-  let dataType = NestedProvable.fromValue(credential.data);
-  let credHash = hashCredential(dataType, credential);
+  let credHash = hashCredential(credential);
   let issuerSignature = Signature.create(issuerPrivateKey, [credHash.hash]);
 
   return {

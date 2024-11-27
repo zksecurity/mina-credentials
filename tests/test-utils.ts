@@ -1,19 +1,32 @@
 import { Field, PrivateKey } from 'o1js';
 import {
   type Credential,
-  type CredentialType,
+  type CredentialSpec,
   signCredentials,
 } from '../src/credential.ts';
 
-export { createOwnerSignature, owner, ownerKey, issuer, issuerKey };
+export {
+  createOwnerSignature,
+  randomPublicKey,
+  owner,
+  ownerKey,
+  issuer,
+  issuerKey,
+  zkAppAddress,
+};
 
 const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
 const { publicKey: issuer, privateKey: issuerKey } = PrivateKey.randomKeypair();
+const zkAppAddress = randomPublicKey();
+
+function randomPublicKey() {
+  return PrivateKey.random().toPublicKey();
+}
 
 function createOwnerSignature<Witness, Data>(
   context: Field,
   ...credentials: [
-    CredentialType<any, Witness, Data>,
+    CredentialSpec<any, Witness, Data>,
     { credential: Credential<Data>; witness: Witness }
   ][]
 ) {

@@ -7,6 +7,7 @@ import {
   FeatureFlags,
   Proof,
   Poseidon,
+  verify,
 } from 'o1js';
 import {
   assertPure,
@@ -21,15 +22,17 @@ import {
 } from './nested.ts';
 import { prefixes } from './constants.ts';
 import {
-  type CredentialType,
+  type CredentialSpec,
   type Credential,
   type StoredCredential,
   HashableCredential,
+  defineCredential,
 } from './credential.ts';
+import { assert } from './util.ts';
 
-export { Recursive };
+export { Recursive, type Witness };
 
-type Witness<Data, Input> = {
+type Witness<Data = any, Input = any> = {
   type: 'recursive';
   vk: VerificationKey;
   proof: DynamicProof<Input, Credential<Data>>;
@@ -49,14 +52,14 @@ function Recursive<
 >(
   Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): CredentialType<'proof', Witness<Data, Input>, Data> {
+): CredentialSpec<'recursive', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
   let data: NestedProvablePureFor<Data> = dataType as any;
   const credentialType = HashableCredential(data);
 
   return {
     type: 'credential',
-    id: 'proof',
+    credentialType: 'recursive',
     witness: {
       type: ProvableType.constant('recursive' as const),
       vk: VerificationKey,
@@ -67,6 +70,12 @@ function Recursive<
     // verify the proof, check that its public output is exactly the credential
     verify({ vk, proof }, credHash) {
       proof.verify(vk);
+      let credential = credHash.unhash();
+      Provable.assertEqual(credentialType, proof.publicOutput, credential);
+    },
+    async verifyOutsideCircuit({ vk, proof }, credHash) {
+      let ok = await verify(proof, vk);
+      assert(ok, 'Invalid proof');
       let credential = credHash.unhash();
       Provable.assertEqual(credentialType, proof.publicOutput, credential);
     },
@@ -84,7 +93,51 @@ function Recursive<
   };
 }
 
+const GenericRecursive = defineCredential({
+  credentialType: 'recursive',
+  witness: {
+    type: ProvableType.constant('recursive' as const),
+    vk: VerificationKey,
+    proof: DynamicProof,
+  },
+
+  // verify the proof, check that its public output is exactly the credential
+  verify({ vk, proof }, credHash) {
+    proof.verify(vk);
+    let credential = credHash.unhash();
+    Provable.assertEqual(
+      (proof.constructor as typeof DynamicProof).publicOutputType,
+      proof.publicOutput,
+      credential
+    );
+  },
+  async verifyOutsideCircuit({ vk, proof }, credHash) {
+    let ok = await verify(proof, vk);
+    assert(ok, 'Invalid proof');
+    let credential = credHash.unhash();
+    Provable.assertEqual(
+      (proof.constructor as typeof DynamicProof).publicOutputType,
+      proof.publicOutput,
+      credential
+    );
+  },
+
+  // issuer == hash of vk and public input
+  issuer({ vk, proof }) {
+    let credIdent = Poseidon.hash(
+      (proof.constructor as typeof DynamicProof).publicInputType.toFields(
+        proof.publicInput
+      )
+    );
+    return Poseidon.hashWithPrefix(prefixes.issuerRecursive, [
+      vk.hash,
+      credIdent,
+    ]);
+  },
+});
+
 Recursive.fromProgram = RecursiveFromProgram;
+Recursive.Generic = GenericRecursive;
 
 async function RecursiveFromProgram<
   DataType extends ProvablePure<any>,

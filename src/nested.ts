@@ -2,8 +2,18 @@
  * Allows us to represent nested Provable types, to save us from always having to
  * wrap types in `Struct` and similar.
  */
-import { type InferProvable, Provable, type ProvablePure, Struct } from 'o1js';
-import { type ProvablePureType, ProvableType } from './o1js-missing.ts';
+import {
+  type InferProvable,
+  Provable,
+  type ProvableHashable,
+  Struct,
+} from 'o1js';
+import {
+  array,
+  type ProvableHashablePure,
+  type ProvablePureType,
+  ProvableType,
+} from './o1js-missing.ts';
 import { assertIsObject } from './util.ts';
 
 export { NestedProvable };
@@ -21,10 +31,10 @@ const NestedProvable = {
       ? ProvableType.get(type)
       : Struct(type);
   }) as {
-    <T>(type: NestedProvablePureFor<T>): ProvablePure<T>;
-    <T>(type: NestedProvableFor<T>): Provable<T>;
-    (type: NestedProvablePure): ProvablePure<any>;
-    (type: NestedProvable): Provable<any>;
+    <T>(type: NestedProvablePureFor<T>): ProvableHashablePure<T>;
+    <T>(type: NestedProvableFor<T>): ProvableHashable<T>;
+    (type: NestedProvablePure): ProvableHashablePure;
+    (type: NestedProvable): ProvableHashable<any>;
   },
 
   fromValue<T>(value: T): NestedProvableFor<T> {
@@ -34,6 +44,9 @@ const NestedProvable = {
     } catch {
       // case 2: value is a record of values from provable types
       if (typeof value === 'string') return String as any;
+
+      if (Array.isArray(value))
+        return array(NestedProvable.fromValue(value[0]), value.length) as any;
 
       assertIsObject(value);
       return Object.fromEntries(
@@ -45,6 +58,8 @@ const NestedProvable = {
     }
   },
 };
+
+// TODO!! NestedProvable should accurately requre hashable type
 
 type NestedProvable = ProvableType | { [key: string]: NestedProvable };
 type NestedProvablePure =
