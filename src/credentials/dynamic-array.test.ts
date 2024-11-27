@@ -1,6 +1,7 @@
 import { Provable, UInt8 } from 'o1js';
 import { DynamicArray, DynamicString } from '../dynamic.ts';
 import assert from 'assert';
+import { stringLength } from '../util.ts';
 
 // concatenation of two strings
 
@@ -94,14 +95,24 @@ console.log(
       assert.throws(() => string.assertContains(notContained));
     }
   }
+  function mainStatic() {
+    let string = Provable.witness(String, () => 'hello world');
+    let i = string.assertContains('lo wo');
+    i.assertEquals(3);
+  }
 
   // can run normally
   main();
+  mainStatic();
 
   // can run while checking constraints
   console.log(
     `substring check (${SmallString.maxLength} in ${String.maxLength})`,
     await runAndConstraints(main)
+  );
+  console.log(
+    `substring check static (5 in ${String.maxLength})`,
+    await runAndConstraints(mainStatic)
   );
 }
 
@@ -109,5 +120,5 @@ console.log(
 
 async function runAndConstraints(fn: () => Promise<void> | void) {
   await Provable.runAndCheck(fn);
-  return (await Provable.constraintSystem(fn)).summary();
+  return (await Provable.constraintSystem(fn)).rows;
 }

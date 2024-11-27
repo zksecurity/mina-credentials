@@ -220,6 +220,17 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
     super.assertEquals(other);
   }
 
+  assertContains(
+    substring: StaticArray<UInt8, UInt8V> | DynamicArray<UInt8, UInt8V> | string
+  ): Field {
+    if (typeof substring === 'string') {
+      substring = DynamicString({ maxLength: stringLength(substring) }).from(
+        substring
+      );
+    }
+    return super.assertContains(substring);
+  }
+
   growMaxLengthTo(maxLength: number): DynamicStringBase {
     assert(
       maxLength >= this.maxLength,
