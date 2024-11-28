@@ -1,6 +1,6 @@
 // copied from o1js: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
 import assert from 'node:assert';
-import { Bigint2048, rsaVerify65537 } from './rsa_.js';
+import { Bigint2048, rsaVerify65537 } from './rsa.js';
 import {
   sha256Bigint,
   generateRsaParams,

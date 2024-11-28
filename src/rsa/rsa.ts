@@ -4,6 +4,7 @@
  * This is copied and modified from an example in the o1js repo: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
  */
 import { Field, Gadgets, Provable, Struct, Unconstrained } from 'o1js';
+import { TypeBuilder } from '../provable-type-builder';
 
 export { Bigint2048, rsaVerify65537 };
 
@@ -14,10 +15,15 @@ const mask = (1n << 116n) - 1n;
  */
 const Field18 = Provable.Array(Field, 18);
 
-class Bigint2048 extends Struct({
-  fields: Field18,
-  value: Unconstrained.withEmpty(0n),
-}) {
+class Bigint2048 {
+  fields: Field[];
+  value: Unconstrained<bigint>;
+
+  constructor(props: { fields: Field[]; value: Unconstrained<bigint> }) {
+    this.fields = props.fields;
+    this.value = props.value;
+  }
+
   modMul(x: Bigint2048, y: Bigint2048) {
     return multiply(x, y, this);
   }
@@ -30,21 +36,36 @@ class Bigint2048 extends Struct({
     return this.value.get();
   }
 
-  static from(x: bigint) {
-    let fields = [];
-    let value = x;
-    for (let i = 0; i < 18; i++) {
-      fields.push(Field(x & mask));
-      x >>= 116n;
-    }
-    return new Bigint2048({ fields, value: Unconstrained.from(value) });
+  static from(x: bigint | Bigint2048) {
+    return Bigint2048.provable.fromValue(x);
   }
 
-  static check(x: { fields: Field[] }) {
-    for (let i = 0; i < 18; i++) {
-      rangeCheck116(x.fields[i]!);
-    }
-  }
+  static provable = TypeBuilder.shape({
+    fields: Field18,
+    value: Unconstrained.withEmpty(0n),
+  })
+    .forClass(Bigint2048)
+    .replaceCheck((x) => {
+      for (let i = 0; i < 18; i++) {
+        rangeCheck116(x.fields[i]!);
+      }
+    })
+    .mapValue({
+      there: (x) => x.value,
+      back: (x: bigint) => {
+        let fields = [];
+        let value = x;
+        for (let i = 0; i < 18; i++) {
+          fields.push(x & mask);
+          x >>= 116n;
+        }
+        return { fields, value };
+      },
+      distinguish(x) {
+        return typeof x !== 'bigint';
+      },
+    })
+    .build();
 }
 
 /**
@@ -68,7 +89,7 @@ function multiply(
       let p0 = p.toBigint();
       let q = xy / p0;
       let r = xy - q * p0;
-      return { q: Bigint2048.from(q), r: Bigint2048.from(r) };
+      return { q, r };
     }
   );
 
