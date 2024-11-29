@@ -4,6 +4,7 @@ export type {
   FilterTuple,
   ExcludeFromTuple,
   ExcludeFromRecord,
+  Constructor,
 };
 
 type Tuple<T = any> = [T, ...T[]] | [];
@@ -34,3 +35,5 @@ type FilterTuple<T extends readonly any[], E> = T extends [infer F, ...infer R]
 type ExcludeFromRecord<T, E> = {
   [P in keyof T as T[P] extends E ? never : P]: T[P];
 };
+
+type Constructor<T> = new (...args: any) => T;
