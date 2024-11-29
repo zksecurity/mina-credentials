@@ -43,7 +43,7 @@ let sha512Program = ZkProgram({
 
 await sha512Program.compile();
 
-let result = await sha512Program.run(String.from('Hello, world!'));
+let result = await sha512Program.run('Hello, world!');
 let provenHash: Bytes = result.proof.publicOutput;
 
 console.log(provenHash.toHex());
