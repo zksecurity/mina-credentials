@@ -19,6 +19,95 @@ const JsonSchema: z.ZodType<Json> = z.lazy(() =>
 
 const PublicKeySchema = z.string().length(55).startsWith('B62');
 
+interface SerializedValue {
+  _type: string;
+  value: Json;
+  properties?: Record<string, unknown>;
+}
+
+interface ProofType {
+  name: string;
+  publicInput: SerializedType;
+  publicOutput: SerializedType;
+  maxProofsVerified: number;
+  featureFlags: Record<string, unknown>;
+}
+
+interface DynamicString {
+  _type: 'DynamicString';
+  _isFactory: true;
+  maxLength: number;
+  value?: string;
+}
+
+interface DynamicArray {
+  _type: 'DynamicArray';
+  _isFactory: true;
+  maxLength: number;
+  innerType: SerializedType;
+  value?: SerializedValue[];
+}
+
+interface DynamicRecord {
+  _type: 'DynamicRecord';
+  _isFactory: true;
+  maxEntries: number;
+  knownShape: Record<string, SerializedType>;
+  value?: Record<string, SerializedValue>;
+}
+
+interface DynamicBytes {
+  _type: 'DynamicBytes';
+  _isFactory: true;
+  maxLength: number;
+  value?: string; // hex string
+}
+
+interface BasicType {
+  _type: string;
+}
+
+// TODO: type?
+interface ConstantType {
+  type: 'Constant';
+  value: string;
+}
+
+interface BytesType {
+  _type: 'Bytes';
+  size: number;
+}
+
+interface ProofTypeWrapper {
+  _type: 'Proof';
+  proof: ProofType;
+}
+
+interface ArrayType {
+  _type: 'Array';
+  innerType: SerializedType;
+  size: number;
+}
+
+interface StructType {
+  _type: 'Struct';
+  properties: { [key: string]: SerializedType };
+}
+
+type SerializedType =
+  | BasicType
+  | ConstantType
+  | BytesType
+  | ProofTypeWrapper
+  | ArrayType
+  | StructType
+  | DynamicString
+  | DynamicArray
+  | DynamicRecord
+  | DynamicBytes
+  | { [key: string]: SerializedType };
+
+// Base schemas for values
 const SerializedValueSchema = z
   .object({
     _type: z.string(),
@@ -34,7 +123,45 @@ const SerializedDataValueSchema = z.union([
   z.boolean(),
 ]);
 
-const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
+const FactorySchema = z
+  .object({
+    _isFactory: z.literal(true),
+  })
+  .strict();
+
+// Dynamic type schemas
+const DynamicTypeBaseSchema = z.object({
+  _type: z.string(),
+  _isFactory: z.literal(true),
+});
+
+const DynamicStringSchema = DynamicTypeBaseSchema.extend({
+  _type: z.literal('DynamicString'),
+  maxLength: z.number(),
+  value: z.string().optional(),
+}).strict();
+
+const DynamicArraySchema = DynamicTypeBaseSchema.extend({
+  _type: z.literal('DynamicArray'),
+  maxLength: z.number(),
+  innerType: z.lazy(() => SerializedTypeSchema),
+  value: z.array(SerializedValueSchema).optional(),
+}).strict();
+
+const DynamicRecordSchema = DynamicTypeBaseSchema.extend({
+  _type: z.literal('DynamicRecord'),
+  maxEntries: z.number(),
+  knownShape: z.record(z.lazy(() => SerializedTypeSchema)),
+  value: z.record(SerializedValueSchema).optional(),
+}).strict();
+
+const DynamicBytesSchema = DynamicTypeBaseSchema.extend({
+  _type: z.literal('DynamicBytes'),
+  maxLength: z.number(),
+  value: z.string().optional(), // hex string
+}).strict();
+
+const ProofTypeSchema: z.ZodType<ProofType> = z.lazy(() =>
   z
     .object({
       name: z.string(),
@@ -46,7 +173,7 @@ const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
     .strict()
 );
 
-const SerializedTypeSchema: z.ZodType<any> = z.lazy(() =>
+const SerializedTypeSchema: z.ZodType<SerializedType> = z.lazy(() =>
   z.union([
     // Basic type
     z
@@ -83,12 +210,18 @@ const SerializedTypeSchema: z.ZodType<any> = z.lazy(() =>
         size: z.number(),
       })
       .strict(),
+    // Struct type
     z
       .object({
         _type: z.literal('Struct'),
         properties: z.record(SerializedTypeSchema),
       })
       .strict(),
+    // Dynamic types
+    DynamicStringSchema,
+    DynamicArraySchema,
+    DynamicRecordSchema,
+    DynamicBytesSchema,
     // Allow records of nested types for Struct
     z.record(SerializedTypeSchema),
   ])
@@ -347,7 +480,15 @@ const PresentationRequestSchema = z
           .strict(),
       })
       .strict(),
-    claims: z.record(SerializedValueSchema),
+    claims: z.record(
+      z.union([
+        SerializedValueSchema,
+        DynamicStringSchema,
+        DynamicArraySchema,
+        DynamicRecordSchema,
+        DynamicBytesSchema,
+      ])
+    ),
     inputContext: z.union([ContextSchema, z.null()]),
   })
   .strict();
@@ -432,6 +573,3 @@ const StoredCredentialSchema = z
     credential: z.union([SimpleCredentialSchema, StructCredentialSchema]),
   })
   .strict();
-
-// we could infer the type of StoredCredential from the validation
-// type StoredCredential = z.infer<typeof StoredCredentialSchema>;
