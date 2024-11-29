@@ -3,10 +3,6 @@ export { sha256Bigint, generateRsaParams, rsaSign, randomPrime };
 
 /**
  * Generates an RSA signature for the given message using the private key and modulus.
- * @param message - The message to be signed.
- * @param privateKey - The private exponent used for signing.
- * @param modulus - The modulus used for signing.
- * @returns The RSA signature of the message.
  */
 function rsaSign(message: bigint, privateKey: bigint, modulus: bigint): bigint {
   // Calculate the signature using modular exponentiation
@@ -15,8 +11,6 @@ function rsaSign(message: bigint, privateKey: bigint, modulus: bigint): bigint {
 
 /**
  * Generates a SHA-256 digest of the input message and returns the hash as a native bigint.
- * @param  message - The input message to be hashed.
- * @returns The SHA-256 hash of the input message as a native bigint.
  */
 async function sha256Bigint(message: string) {
   let messageBytes = new TextEncoder().encode(message);
