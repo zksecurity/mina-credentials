@@ -27,6 +27,13 @@ const SerializedValueSchema = z
   })
   .strict();
 
+const SerializedDataValueSchema = z.union([
+  SerializedValueSchema,
+  z.string(),
+  z.number(),
+  z.boolean(),
+]);
+
 const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
   z
     .object({
@@ -74,6 +81,12 @@ const SerializedTypeSchema: z.ZodType<any> = z.lazy(() =>
         _type: z.literal('Array'),
         innerType: SerializedTypeSchema,
         size: z.number(),
+      })
+      .strict(),
+    z
+      .object({
+        _type: z.literal('Struct'),
+        properties: z.record(SerializedTypeSchema),
       })
       .strict(),
     // Allow records of nested types for Struct
@@ -389,7 +402,7 @@ const WitnessSchema = z.discriminatedUnion('type', [
 const SimpleCredentialSchema = z
   .object({
     owner: SerializedPublicKeySchema,
-    data: z.record(SerializedValueSchema),
+    data: z.record(SerializedDataValueSchema),
   })
   .strict();
 
