@@ -1,12 +1,12 @@
 // copied from o1js: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
 import assert from 'node:assert';
-import { Bigint2048, rsaVerify65537 } from './rsa.js';
+import { Bigint2048, rsaVerify65537 } from './rsa.ts';
 import {
   sha256Bigint,
   generateRsaParams,
   rsaSign,
   randomPrime,
-} from './utils.js';
+} from './utils.ts';
 import { it, describe } from 'node:test';
 
 describe('RSA65537 verification tests', () => {

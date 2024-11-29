@@ -4,7 +4,7 @@
  * This is copied and modified from an example in the o1js repo: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
  */
 import { Field, Gadgets, Provable, Struct, Unconstrained } from 'o1js';
-import { TypeBuilder } from '../provable-type-builder';
+import { TypeBuilder } from '../provable-type-builder.ts';
 
 export { Bigint2048, rsaVerify65537 };
 
