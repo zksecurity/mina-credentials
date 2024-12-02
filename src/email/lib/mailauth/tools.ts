@@ -308,8 +308,7 @@ export const getPublicKey = async (
     //'v=DKIM1;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwe34ubzrMzM9sT0XVkcc3UXd7W+EHCyHoqn70l2AxXox52lAZzH/UnKwAoO+5qsuP7T9QOifIJ9ddNH9lEQ95Y/GdHBsPLGdgSJIs95mXNxscD6MSyejpenMGL9TPQAcxfqY5xPViZ+1wA1qcryjdZKRqf1f4fpMY+x3b8k7H5Qyf/Smz0sv4xFsx1r+THNIz0rzk2LO3GvE0f1ybp6P+5eAelYU4mGeZQqsKw/eB20I3jHWEyGrXuvzB67nt6ddI+N2eD5K38wg/aSytOsb5O+bUSEe7P0zx9ebRRVknCD6uuqG3gSmQmttlD5OrMWSXzrPIXe8eTBaaPd+e/jfxwIDAQAB'
     // v=DKIM1;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwe34ubzrMzM9sT0XVkcc3UXd7W+EHCyHoqn70l2AxXox52lAZzH/UnKwAoO+5qsuP7T9QOifIJ9ddNH9lEQ95Y/GdHBsPLGdgSJIs95mXNxscD6MSyejpenMGL9TPQAcxfqY5xPViZ+1wA1qcr""yjdZKRqf1f4fpMY+x3b8k7H5Qyf/Smz0sv4xFsx1r+THNIz0rzk2LO3GvE0f1ybp6P+5eAelYU4mGeZQqsKw/eB20I3jHWEyGrXuvzB67nt6ddI+N2eD5K38wg/aSytOsb5O+bUSEe7P0zx9ebRRVknCD6uuqG3gSmQmttlD5OrMWSXzrPIXe8eTBaaPd+e/jfxwIDAQAB
     if (!publicKeyValue) {
-      const err = new CustomError('Missing key value', 'EINVALIDVAL', rr);
-      throw err;
+      throw Error('Missing key value (EINVALIDVAL)', rr);
     }
 
     /*let validation = base64Schema.validate(publicKeyValue);
@@ -327,8 +326,7 @@ export const getPublicKey = async (
       (entry?.parsed?.v?.value || '').toString().toLowerCase().trim() !==
         'dkim1'
     ) {
-      const err = new CustomError('Unknown key version', 'EINVALIDVER', rr);
-      throw err;
+      throw Error('Unknown key version (EINVALIDVER)', rr);
     }
 
     let paddingNeeded =
@@ -362,11 +360,7 @@ export const getPublicKey = async (
       !['rsa', 'ed25519'].includes(keyType ?? '') ||
       (entry?.parsed?.k && entry?.parsed?.k?.value?.toLowerCase() !== keyType)
     ) {
-      throw new CustomError(
-        'Unknown key type (${keyType})',
-        'EINVALIDTYPE',
-        rr
-      );
+      throw Error(`Unknown key type (${keyType}) (EINVALIDTYPE)`, rr);
     }
 
     let modulusLength;
@@ -382,7 +376,7 @@ export const getPublicKey = async (
     }
 
     if (keyType === 'rsa' && modulusLength < 1024) {
-      throw new CustomError('RSA key too short', 'ESHORTKEY', rr);
+      throw Error('RSA key too short (ESHORTKEY)', rr);
     }
 
     return {
@@ -392,7 +386,7 @@ export const getPublicKey = async (
     };
   }
 
-  throw new CustomError('Missing key value', 'EINVALIDVAL', rr);
+  throw Error('Missing key value (EINVALIDVAL)', rr);
 };
 
 export const escapePropValue = (value: string) => {
@@ -524,15 +518,5 @@ export const validateAlgorithm = (algorithm: string, strict: boolean) => {
     throw err;
   }
 };
-
-export class CustomError extends Error {
-  code: string;
-  rr: string;
-  constructor(message: string, code: string, rr?: string) {
-    super(message);
-    this.code = code;
-    this.rr = rr ?? '';
-  }
-}
 
 export { parseDkimHeaders };

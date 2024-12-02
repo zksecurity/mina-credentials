@@ -1,5 +1,3 @@
-import { CustomError } from '../lib/mailauth/tools.ts';
-
 const ZKEMAIL_DNS_ARCHIVER_API = 'https://archive.prove.email/api/key';
 
 export async function resolveDNSFromZKEmailArchive(name: string, type: string) {
@@ -20,9 +18,8 @@ export async function resolveDNSFromZKEmailArchive(name: string, type: string) {
   const dkimRecord = data.find((record: any) => record.selector === selector);
 
   if (!dkimRecord) {
-    throw new CustomError(
-      `DKIM record not found for domain ${domain} and selector ${selector} in ZK Email Archive.`,
-      'ENODATA'
+    throw Error(
+      `DKIM record not found for domain ${domain} and selector ${selector} in ZK Email Archive. (ENODATA)`
     );
   }
 

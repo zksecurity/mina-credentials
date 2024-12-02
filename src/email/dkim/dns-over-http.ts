@@ -1,5 +1,3 @@
-import { CustomError } from '../lib/mailauth/tools.ts';
-
 // DoH servers list
 const DoHServer = {
   // Google Public DNS
@@ -114,7 +112,7 @@ export async function resolveDNSHTTP(name: string, type: string) {
   }
   const googleResult = await DoH.resolveDKIMPublicKey(name, DoHServer.Google);
   if (!googleResult) {
-    throw new CustomError('No DKIM record found in Google', 'ENODATA');
+    throw Error('No DKIM record found in Google (ENODATA)');
   }
 
   const regex = /p=([^;]*)/;
@@ -122,10 +120,7 @@ export async function resolveDNSHTTP(name: string, type: string) {
   if (match) {
     const valueAfterP = match[1]; // Extracting the value after p=
     if (valueAfterP === '') {
-      throw new CustomError(
-        'No DKIM record found in Google (empty p=)',
-        'ENODATA'
-      );
+      throw Error('No DKIM record found in Google (empty p=) (ENODATA)');
     }
   }
 
