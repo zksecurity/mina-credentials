@@ -1,8 +1,9 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
-import { assert, assertDefined } from '../util.ts';
+import { arrayEqual, assert, assertDefined } from '../util.ts';
 import parseDkimHeaders from './lib/mailauth/parse-dkim-headers.ts';
 import { TupleN } from 'o1js';
+import { fromBase64 } from './lib/base64.ts';
 
 let dec = new TextDecoder();
 let enc = new TextEncoder();
@@ -25,7 +26,7 @@ console.log({ header, body });
 let headers = parseHeaders(header);
 console.log(headers);
 
-// TODO: is it correct to only look for the first DKIM header?
+// TODO: is it correct to only look for the first DKIM signature?
 let dkimHeaderRaw = headers.find((h) => h.key === 'dkim-signature');
 assertDefined(dkimHeaderRaw, 'No DKIM signature found');
 
@@ -34,6 +35,15 @@ assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
 
 let dkimHeader = validateDkimHeader(dkimHeaderParsed);
 console.log(dkimHeader);
+
+// compute and compare sha256 body hash
+let { bodyHashSpec, bodyHash } = dkimHeader;
+assert(bodyHashSpec.hashAlgo !== 'sha1', 'sha1 is not supported');
+
+let canonicalBody = canonicalizeBody(body, bodyHashSpec.bodyCanon);
+let canonicalBodyBytes = enc.encode(canonicalBody);
+let actualBodyHash = await crypto.subtle.digest('SHA-256', canonicalBodyBytes);
+assert(arrayEqual(actualBodyHash, fromBase64(bodyHash)), 'Body hash mismatch');
 
 /**
  * Find end of the header and split the email into header and body
@@ -76,6 +86,7 @@ function parseHeaders(headerString: string) {
     .split(/\r?\n/)
     .map((row) => [row]);
 
+  // lines that start with any whitespace are collapsed with the previous line
   for (let i = rows.length - 1; i > 0; i--) {
     if (/^\s/.test(rows[i]![0]!)) {
       rows[i - 1] = rows[i - 1]!.concat(rows[i]!);
@@ -146,6 +157,71 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
     bodyHashSpec,
     bodyHash,
   };
+}
+
+function canonicalizeBody(s: string, canonType: 'simple' | 'relaxed') {
+  switch (canonType) {
+    case 'simple':
+      return canonicalizeBodySimple(s);
+    case 'relaxed':
+      return canonicalizeBodyRelaxed(s);
+  }
+}
+
+/**
+ * The "relaxed" body canonicalization algorithm MUST apply the
+ * following steps (a) and (b) in order:
+ *
+ * a. Reduce whitespace:
+ * - Ignore all whitespace at the end of lines.  Implementations
+ *   MUST NOT remove the CRLF at the end of the line.
+ * - Reduce all sequences of WSP within a line to a single SP character.
+ *
+ * b. Ignore all empty lines at the end of the message body.  "Empty
+ * line" is defined in Section 3.4.3.  If the body is non-empty but
+ * does not end with a CRLF, a CRLF is added.  (For email, this is
+ * only possible when using extensions to SMTP or non-SMTP transport
+ * mechanisms.)
+ */
+function canonicalizeBodyRelaxed(s: string) {
+  // NOTE: This section assumes that the message is already in "network
+  // normal" format (text is ASCII encoded, lines are separated with CRLF
+  // characters, etc.)
+  let lines = normalizeLineBreaks(s).split(/\r\n/);
+
+  // a. Reduce whitespace
+  lines = lines.map((line) => line.trimEnd().replace(/\s+/g, ' '));
+
+  // b. Ignore all empty lines at the end of the message body
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+
+  // Implementations MUST NOT remove the CRLF at the end of the line.
+  // If the body is non-empty but does not end with a CRLF, a CRLF is added.
+  return lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * The "simple" body canonicalization algorithm ignores all empty lines
+ * at the end of the message body.  An empty line is a line of zero
+ * length after removal of the line terminator.  If there is no body or
+ * no trailing CRLF on the message body, a CRLF is added.
+ */
+function canonicalizeBodySimple(s: string) {
+  // same as relaxed but without changing whitespace within lines
+  let lines = normalizeLineBreaks(s).split(/\r\n/);
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+  return lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * Sole \r and \n are normalized to \r\n
+ */
+function normalizeLineBreaks(s: string) {
+  return s.replace(/\r(?!\n)|(?<!\r)\n/g, '\r\n');
 }
 
 type ParsedDkimHeader = {
