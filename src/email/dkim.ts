@@ -8,7 +8,6 @@ import { arrayEqual, assert, assertDefined } from '../util.ts';
 import parseDkimHeaders from './lib/mailauth/parse-dkim-headers.ts';
 import { TupleN } from 'o1js';
 import { fromBase64 } from './lib/base64.ts';
-import { getPublicKey } from './lib/mailauth/tools.ts';
 import { resolveDNSHTTP } from './dkim/dns-over-http.ts';
 
 let dec = new TextDecoder();
@@ -64,32 +63,15 @@ let canonicalHeader = canonicalizeHeader(headersToSign, dkimHeader.headerCanon);
 console.log(canonicalHeader);
 
 // get public key from DNS
-let publicKeyObject: {
-  publicKey: ArrayBuffer;
-  rr: string;
-  modulusLength: number;
-} = await getPublicKey(
-  'DKIM',
+let [publicKeyResponse] = await resolveDNSHTTP(
   `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`,
-  1024,
-  resolveDNSHTTP
+  'TXT'
 );
-console.log(publicKeyObject);
-
-// convert PEM public key to CryptoKey
-let publicKeyString = dec.decode(new Uint8Array(publicKeyObject.publicKey));
-publicKeyString = publicKeyString.replace(/(-(.*)-)/g, '');
-publicKeyString = removeLineBreaks(publicKeyString);
-console.log({ publicKeyString });
-let publicKey = await crypto.subtle.importKey(
-  'spki',
-  fromBase64(publicKeyString),
-  { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-  false,
-  ['verify']
-);
+let { publicKey } = await extractDnsPublicKey(publicKeyResponse);
 
 // verify signature
+assert(dkimHeader.signAlgo === 'rsa', 'Only RSA signature is supported');
+
 let ok = await crypto.subtle.verify(
   'RSASSA-PKCS1-v1_5',
   publicKey,
@@ -367,6 +349,39 @@ function getHeadersToSign(
   assert(headerFields.includes('from'), 'Invalid header fields (missing from)');
 
   return headers;
+}
+
+async function extractDnsPublicKey(s: string) {
+  let rr = s.replaceAll(/\s+/g, '').replaceAll('"', '');
+
+  let entry = parseDkimHeaders(rr).parsed;
+  assertDefined(entry, 'Failed to parse public key response');
+
+  let publicKeyB64 = entry.p?.value;
+  let keyVersion = entry.v?.value;
+  let keyType = entry.k?.value;
+
+  assertNonemptyString(publicKeyB64, 'Invalid public key value');
+  assertNonemptyString(keyVersion, 'Invalid key version');
+  assertNonemptyString(keyType, 'Invalid key type');
+
+  assert(keyVersion.toLowerCase() === 'dkim1', 'Invalid key version');
+  assert(keyType.toLowerCase() === 'rsa', 'Key type must be RSA');
+
+  let publicKey = await crypto.subtle.importKey(
+    'spki',
+    fromBase64(publicKeyB64),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+  let modulusLength = (publicKey.algorithm as { modulusLength?: number })
+    .modulusLength;
+  assert(
+    modulusLength !== undefined && modulusLength >= 1024,
+    `Invalid public key length: ${modulusLength}`
+  );
+  return { publicKey, modulusLength };
 }
 
 function assertString(
