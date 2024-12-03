@@ -1,3 +1,7 @@
+/**
+ * Self-contained implementation of DKIM verification.
+ * Spec: https://datatracker.ietf.org/doc/html/rfc6376
+ */
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { arrayEqual, assert, assertDefined } from '../util.ts';
@@ -26,9 +30,12 @@ console.log({ header, body });
 let headers = parseHeaders(header);
 console.log(headers);
 
-// TODO: is it correct to only look for the first DKIM signature?
-let dkimHeaderRaw = headers.find((h) => h.key === 'dkim-signature');
+// TODO: is it correct to only allow one DKIM signature?
+let [dkimHeaderRaw, ...others] = headers.filter(
+  (h) => h.key === 'dkim-signature'
+);
 assertDefined(dkimHeaderRaw, 'No DKIM signature found');
+assert(others.length === 0, 'Expected at most one DKIM signature');
 
 let dkimHeaderParsed = parseDkimHeaders(dkimHeaderRaw.line).parsed;
 assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
@@ -48,6 +55,9 @@ assert(arrayEqual(actualBodyHash, fromBase64(bodyHash)), 'Body hash mismatch');
 
 let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
 console.log(headersToSign);
+
+let canonicalHeader = canonicalizeHeader(headersToSign, dkimHeader.headerCanon);
+console.log(canonicalHeader);
 
 /**
  * Find end of the header and split the email into header and body
@@ -149,17 +159,16 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
   let headerFields = signingHeaderFields
     .split(':')
     .map((f) => f.trim().toLowerCase());
-  assert(
-    !headerFields.includes('dkim-signature'),
-    'Invalid header fields (includes dkim-signature)'
-  );
-  assert(headerFields.includes('from'), 'Invalid header fields (missing from)');
 
   // validate signing domain and selector
   let signingDomain = dkimHeader.d?.value;
   let selector = dkimHeader.s?.value;
   assertNonemptyString(signingDomain, 'Invalid signing domain');
   assertNonemptyString(selector, 'Invalid selector');
+
+  // signature value
+  let signature = dkimHeader.b?.value;
+  assertString(signature, 'Invalid signature');
 
   return {
     signAlgo,
@@ -171,6 +180,7 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
     bodyHashSpec,
     bodyHash,
     headerFields,
+    signature,
   };
 }
 
@@ -182,13 +192,13 @@ type ParsedDkimHeader = {
   bh?: { value: unknown };
   l?: { value: unknown };
   h?: { value: unknown };
-  // b?: { value: unknown };
+  b?: { value: unknown };
   // v?: { value: unknown };
   // t?: { value: unknown };
 };
 
-function canonicalizeBody(s: string, canonType: 'simple' | 'relaxed') {
-  switch (canonType) {
+function canonicalizeBody(s: string, canonicalization: 'simple' | 'relaxed') {
+  switch (canonicalization) {
     case 'simple':
       return canonicalizeBodySimple(s);
     case 'relaxed':
@@ -245,6 +255,31 @@ function canonicalizeBodySimple(s: string) {
   return lines.join('\r\n') + '\r\n';
 }
 
+function canonicalizeHeader(
+  headers: string[],
+  canonicalization: 'simple' | 'relaxed'
+) {
+  // no changes at all for simple canonicalization
+  if (canonicalization === 'simple') return headers.join('\r\n');
+
+  // relaxed canonicalization
+  return headers.map(canonicalizeHeaderLineRelaxed).join('\r\n');
+}
+
+function canonicalizeHeaderLineRelaxed(line: string) {
+  // 3.4.2
+  return (
+    line
+      // unfold continuation lines
+      .replace(/\r?\n/g, '')
+      // keys to lowercase, trim around :
+      .replace(/^([^:]*):\s*/, (m, k) => k.toLowerCase().trim() + ':')
+      // single WSP
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
 /**
  * Sole \r and \n are normalized to \r\n
  */
@@ -259,21 +294,35 @@ function normalizeLineBreaks(s: string) {
  * See 5.4.2 for treatment of duplicate headers
  */
 function getHeadersToSign(
-  headers: { key: string; line: string }[],
+  inputHeaders: { key: string; line: string }[],
   headerFields: string[]
 ) {
   // we find each correct header field starting from the bottom of the header!
-  let unusedHeaders = [...headers];
-  let headersToSign: string[] = [];
+  let unusedHeaders = [...inputHeaders];
+  let headers: string[] = [];
 
   for (let field of headerFields) {
     let i = unusedHeaders.findLastIndex((h) => h.key === field);
     // non-existent headers have to be ignored i.e. treated as an empty string
     if (i === -1) continue;
-    headersToSign.push(unusedHeaders[i]!.line);
+    headers.push(unusedHeaders[i]!.line);
     unusedHeaders.splice(i, 1);
   }
-  return headersToSign;
+
+  // replace "b=<...>" with "b=" in the signature header
+  let sig = unusedHeaders.find((h) => h.key === 'dkim-signature');
+  assertDefined(sig, 'No DKIM signature header found');
+  let signatureHeader = sig.line.replace(/([;:\s]+b=)[^;]+/, (_, p1) => p1);
+
+  // signature header must not be included in the signed header fields so far
+  // it's appended at the end instead (without the actual signature)
+  assert(!headerFields.includes('dkim-signature'), 'Invalid header fields');
+  headers.push(signatureHeader);
+
+  // header fields must include "from"
+  assert(headerFields.includes('from'), 'Invalid header fields (missing from)');
+
+  return headers;
 }
 
 function assertString(
