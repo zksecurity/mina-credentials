@@ -1,10 +1,9 @@
 // NB! fails to properly parse nested comments (should be rare enough though)
+export { parseDkimHeaders };
 
-interface Part {
-  [key: string]: string;
-}
+type Part = { [key: string]: string };
 
-const valueParser = (str: string) => {
+function parseValue(str: string) {
   let line = str.replace(/\s+/g, ' ').trim();
 
   let parts: Part[] = [];
@@ -118,9 +117,9 @@ const valueParser = (str: string) => {
   };
 
   return parse();
-};
+}
 
-const headerParser = (buf: Buffer | string) => {
+function parseDkimHeaders(buf: Buffer | string) {
   let line = (buf || '').toString().trim();
   let splitterPos = line.indexOf(':');
   let headerKey: string;
@@ -288,7 +287,7 @@ const headerParser = (buf: Buffer | string) => {
         typeof part.value === 'string'
       ) {
         // parse value into subparts as well
-        entry = Object.assign(entry, valueParser(entry.value));
+        entry = Object.assign(entry, parseValue(entry.value));
       }
 
       if (part.comment) {
@@ -316,6 +315,4 @@ const headerParser = (buf: Buffer | string) => {
   };
 
   return { parsed: parse(), original: buf };
-};
-
-export default headerParser;
+}

@@ -3,9 +3,8 @@
  * Spec: https://datatracker.ietf.org/doc/html/rfc6376
  */
 import { readFile } from 'fs/promises';
-import path from 'path';
 import { arrayEqual, assert, assertDefined } from '../util.ts';
-import parseDkimHeaders from './parse-dkim-headers.ts';
+import { parseDkimHeaders } from './parse-dkim-headers.ts';
 import { TupleN } from 'o1js';
 import { fromBase64 } from './base64.ts';
 import { resolveDNSHTTP } from './dns-over-http.ts';
@@ -13,11 +12,7 @@ import { resolveDNSHTTP } from './dns-over-http.ts';
 let dec = new TextDecoder();
 let enc = new TextEncoder();
 
-let email = await readFile(
-  path.resolve(import.meta.dirname, './email-good.eml'),
-  'utf-8'
-);
-
+let email = await readFile(`${import.meta.dirname}/email-good.eml`, 'utf-8');
 console.log(email);
 
 let emailBytes = enc.encode(email);
@@ -63,7 +58,7 @@ let canonicalHeader = canonicalizeHeader(headersToSign, dkimHeader.headerCanon);
 console.log(canonicalHeader);
 
 // get public key from DNS
-let [publicKeyResponse] = await resolveDNSHTTP(
+let publicKeyResponse = await resolveDNSHTTP(
   `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`,
   'TXT'
 );
