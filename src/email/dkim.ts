@@ -57,8 +57,7 @@ async function verifyDkim(email: string) {
 
   // get public key from DNS
   let publicKeyResponse = await resolveDNSHTTP(
-    `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`,
-    'TXT'
+    `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`
   );
   let { publicKey } = await extractDnsPublicKey(publicKeyResponse);
 

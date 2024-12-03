@@ -12,10 +12,7 @@ const DoHServer = {
   Cloudflare: 'https://cloudflare-dns.com/dns-query',
 };
 
-async function resolveDNSHTTP(name: string, type: string) {
-  if (type !== 'TXT') {
-    throw new Error(`DNS over HTTP: Only type TXT is supported, got ${type}`);
-  }
+async function resolveDNSHTTP(name: string) {
   let googleResult = await resolveDKIMPublicKey(name, DoHServer.Google);
   if (googleResult === undefined) {
     throw Error('No DKIM record found in Google');
@@ -52,7 +49,7 @@ const DoHTypeTXT = 16;
  *
  * @param name DKIM record name (e.g. 20230601._domainkey.gmail.com)
  * @param dnsServerURL DNS over HTTPS API URL
- * @return DKIM public key or null if not found
+ * @return DKIM public key or undefined if not found
  */
 async function resolveDKIMPublicKey(
   name: string,
@@ -79,9 +76,9 @@ async function resolveDKIMPublicKey(
   if (!isDoHResponse(result)) return undefined;
   if (result.Status !== DoHStatusNoError) return undefined;
 
-  for (let ans of result.Answer) {
-    if (ans.type !== DoHTypeTXT) continue;
-    let dkimRecord = ans.data;
+  for (let answer of result.Answer) {
+    if (answer.type !== DoHTypeTXT) continue;
+    let dkimRecord = answer.data;
     /*
       Remove all double quotes
       Some DNS providers wrap TXT records in double quotes, 
