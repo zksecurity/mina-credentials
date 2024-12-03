@@ -15,6 +15,7 @@ import { SHA2 } from './sha2.ts';
 import { uint64FromBytesBE, uint64ToBytesBE } from './gadgets.ts';
 import { hashSafe } from './dynamic-hash.ts';
 import { ProvableType, toFieldsPacked } from '../o1js-missing.ts';
+import type { Constructor } from '../types.ts';
 
 export { DynamicSHA2, Sha2IterationState, Sha2Iteration, Sha2FinalIteration };
 
@@ -454,12 +455,15 @@ function finalize(
 // provable types for update API
 
 function Sha2IterationState<L extends Length>(len: L) {
-  const S: Struct<Sha2IterationState<L>> & ProvablePure<Sha2IterationState<L>> =
-    Struct({
-      len: ProvableType.constant(len),
-      state: State(len),
-      commitment: Field,
-    });
+  const S: Constructor<Sha2IterationState<L>> &
+    ProvablePure<
+      Sha2IterationState<L>,
+      { len: L; state: bigint[]; commitment: bigint }
+    > = Struct({
+    len: ProvableType.constant(len),
+    state: State(len),
+    commitment: Field,
+  });
   return Object.assign(S, {
     initial() {
       return initialState(len);
@@ -471,7 +475,8 @@ Sha2IterationState.initial = initialState;
 function Sha2Iteration<L extends Length>(
   len: L,
   blocksPerIteration: number
-): Struct<Sha2Iteration<L>> {
+): Constructor<Sha2Iteration<L>> &
+  Provable<Sha2Iteration<L>, { type: 256 | 512; blocks: bigint[][] }> {
   return Struct({
     type: ProvableType.constant(len === 224 || len === 256 ? 256 : 512),
     blocks: StaticArray(Block(len), blocksPerIteration),
@@ -481,9 +486,10 @@ function Sha2Iteration<L extends Length>(
 function Sha2FinalIteration<L extends Length>(
   len: L,
   blocksPerIteration: number
-): Struct<Sha2FinalIteration<L>> {
+): Constructor<Sha2FinalIteration<L>> &
+  Provable<Sha2FinalIteration<L>, { type: 256 | 512; blocks: bigint[][] }> {
   return Struct({
-    type: ProvableType.constant(len),
+    type: ProvableType.constant(len === 224 || len === 256 ? 256 : 512),
     blocks: DynamicArray(Block(len), { maxLength: blocksPerIteration }),
   });
 }
