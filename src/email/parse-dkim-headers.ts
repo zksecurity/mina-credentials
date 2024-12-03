@@ -1,3 +1,8 @@
+/**
+ * This file was copied and modified from zk-email-verify, which copied and modified from mailauth:
+ * https://github.com/postalsys/mailauth
+ */
+
 // NB! fails to properly parse nested comments (should be rare enough though)
 export { parseDkimHeaders };
 

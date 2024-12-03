@@ -1,80 +1,94 @@
 /**
  * Self-contained implementation of DKIM verification.
  * Spec: https://datatracker.ietf.org/doc/html/rfc6376
+ *
+ * Significant portions are copied and modified from
+ * - zk-email-verify: https://github.com/zkemail/zk-email-verify
+ * - mailauth: https://github.com/postalsys/mailauth
  */
-import { readFile } from 'fs/promises';
 import { arrayEqual, assert, assertDefined } from '../util.ts';
 import { parseDkimHeaders } from './parse-dkim-headers.ts';
 import { TupleN } from 'o1js';
 import { fromBase64 } from './base64.ts';
 import { resolveDNSHTTP } from './dns-over-http.ts';
 
+export { verifyDkim };
+
 let dec = new TextDecoder();
 let enc = new TextEncoder();
 
-let email = await readFile(`${import.meta.dirname}/email-good.eml`, 'utf-8');
-console.log(email);
+/**
+ * Verify DKIM signature on the given email.
+ */
+async function verifyDkim(email: string) {
+  let emailBytes = enc.encode(email);
+  let { headerBytes, bodyBytes } = splitEmail(emailBytes);
+  let header = dec.decode(headerBytes);
+  let body = dec.decode(bodyBytes);
 
-let emailBytes = enc.encode(email);
-let { headerBytes, bodyBytes } = splitEmail(emailBytes);
+  // parse and validate headers
+  let headers = parseHeaders(header);
 
-let header = dec.decode(headerBytes);
-let body = dec.decode(bodyBytes);
+  // TODO: is it correct to only allow one DKIM signature?
+  let [dkimHeaderRaw, ...others] = headers.filter(
+    (h) => h.key === 'dkim-signature'
+  );
+  assertDefined(dkimHeaderRaw, 'No DKIM signature found');
+  assert(others.length === 0, 'Expected at most one DKIM signature');
 
-console.log({ header, body });
+  let dkimHeaderParsed = parseDkimHeaders(dkimHeaderRaw.line).parsed;
+  assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
+  let dkimHeader = validateDkimHeader(dkimHeaderParsed);
 
-let headers = parseHeaders(header);
-console.log(headers);
+  // compute and compare sha256 body hash
+  let { bodyHashSpec, bodyHash } = dkimHeader;
+  let actualBodyHash = await computeBodyHash(body, bodyHashSpec);
+  assert(
+    arrayEqual(actualBodyHash, fromBase64(bodyHash)),
+    'Body hash mismatch'
+  );
 
-// TODO: is it correct to only allow one DKIM signature?
-let [dkimHeaderRaw, ...others] = headers.filter(
-  (h) => h.key === 'dkim-signature'
-);
-assertDefined(dkimHeaderRaw, 'No DKIM signature found');
-assert(others.length === 0, 'Expected at most one DKIM signature');
+  // prepare header message to verify signature on
+  let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
+  let canonicalHeader = canonicalizeHeader(
+    headersToSign,
+    dkimHeader.headerCanon
+  );
 
-let dkimHeaderParsed = parseDkimHeaders(dkimHeaderRaw.line).parsed;
-assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
-console.log(dkimHeaderParsed);
+  // get public key from DNS
+  let publicKeyResponse = await resolveDNSHTTP(
+    `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`,
+    'TXT'
+  );
+  let { publicKey } = await extractDnsPublicKey(publicKeyResponse);
 
-let dkimHeader = validateDkimHeader(dkimHeaderParsed);
-console.log(dkimHeader);
+  // verify signature
+  assert(dkimHeader.signAlgo === 'rsa', 'Only RSA signature is supported');
 
-// compute and compare sha256 body hash
-let { bodyHashSpec, bodyHash } = dkimHeader;
-assert(bodyHashSpec.hashAlgo !== 'sha1', 'sha1 is not supported');
+  let ok = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    publicKey,
+    fromBase64(dkimHeader.signature),
+    enc.encode(canonicalHeader)
+  );
+  assert(ok, 'Signature verification failed');
+}
 
-// TODO use the maxBodyLength
-let canonicalBody = canonicalizeBody(body, bodyHashSpec.bodyCanon);
-let canonicalBodyBytes = enc.encode(canonicalBody);
-let actualBodyHash = await crypto.subtle.digest('SHA-256', canonicalBodyBytes);
-assert(arrayEqual(actualBodyHash, fromBase64(bodyHash)), 'Body hash mismatch');
+async function computeBodyHash(
+  body: string,
+  spec: {
+    canon: 'simple' | 'relaxed';
+    algo: 'sha256' | 'sha1';
+    maxBodyLength: number | undefined;
+  }
+) {
+  assert(spec.algo !== 'sha1', 'sha1 is not supported');
 
-// prepare header message to verify signature on
-let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
-console.log(headersToSign);
-
-let canonicalHeader = canonicalizeHeader(headersToSign, dkimHeader.headerCanon);
-console.log(canonicalHeader);
-
-// get public key from DNS
-let publicKeyResponse = await resolveDNSHTTP(
-  `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`,
-  'TXT'
-);
-let { publicKey } = await extractDnsPublicKey(publicKeyResponse);
-
-// verify signature
-assert(dkimHeader.signAlgo === 'rsa', 'Only RSA signature is supported');
-
-let ok = await crypto.subtle.verify(
-  'RSASSA-PKCS1-v1_5',
-  publicKey,
-  fromBase64(dkimHeader.signature),
-  enc.encode(canonicalHeader)
-);
-console.log({ ok });
-assert(ok, 'Signature verification failed');
+  // TODO use the maxBodyLength?
+  let canonicalBody = canonicalizeBody(body, spec.canon);
+  let canonicalBodyBytes = enc.encode(canonicalBody);
+  return crypto.subtle.digest('SHA-256', canonicalBodyBytes);
+}
 
 /**
  * Find end of the header and split the email into header and body
@@ -162,7 +176,7 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
       (typeof maxBodyLength === 'number' && !isNaN(maxBodyLength)),
     'Invalid max body length'
   );
-  let bodyHashSpec = { bodyCanon, hashAlgo, maxBodyLength };
+  let bodyHashSpec = { canon: bodyCanon, algo: hashAlgo, maxBodyLength };
 
   let bodyHash = dkimHeader.bh?.value;
   assertString(bodyHash, 'Invalid or missing body hash');
@@ -304,10 +318,6 @@ function normalizeLineBreaks(s: string) {
   return s.replace(/\r(?!\n)|(?<!\r)\n/g, '\r\n');
 }
 
-function removeLineBreaks(s: string) {
-  return s.replace(/\r(?!\n)|(?<!\r)\n/g, '');
-}
-
 /**
  * Returns header lines to sign, in the correct order.
  *
@@ -346,6 +356,12 @@ function getHeadersToSign(
   return headers;
 }
 
+/**
+ * Extract public key from DNS TXT record
+ *
+ * This was copied and modified from zk-email-verify, which copied and modified from mailauth:
+ * https://github.com/postalsys/mailauth
+ */
 async function extractDnsPublicKey(s: string) {
   let rr = s.replaceAll(/\s+/g, '').replaceAll('"', '');
 
