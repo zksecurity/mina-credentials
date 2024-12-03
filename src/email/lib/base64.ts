@@ -51,7 +51,7 @@ function toBase64(inputBytes: Uint8Array | ArrayBuffer) {
 function lookup(x: number) {
   let b = _lookup[x];
   if (b === undefined) {
-    throw Error('Invalid base64 character');
+    throw Error(`Invalid base64 character: '${String.fromCharCode(x)}'`);
   }
   return b;
 }
@@ -59,7 +59,7 @@ function lookup(x: number) {
 function encodeLookup(x: number) {
   let b = _encodeLookup[x];
   if (b === undefined) {
-    throw Error('Invalid base64 character');
+    throw Error(`Invalid base64 character: ${x} out of 0..63 range`);
   }
   return b;
 }

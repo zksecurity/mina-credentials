@@ -8,6 +8,8 @@ import { arrayEqual, assert, assertDefined } from '../util.ts';
 import parseDkimHeaders from './lib/mailauth/parse-dkim-headers.ts';
 import { TupleN } from 'o1js';
 import { fromBase64 } from './lib/base64.ts';
+import { getPublicKey } from './lib/mailauth/tools.ts';
+import { resolveDNSHTTP } from './dkim/dns-over-http.ts';
 
 let dec = new TextDecoder();
 let enc = new TextEncoder();
@@ -48,16 +50,54 @@ console.log(dkimHeader);
 let { bodyHashSpec, bodyHash } = dkimHeader;
 assert(bodyHashSpec.hashAlgo !== 'sha1', 'sha1 is not supported');
 
+// TODO use the maxBodyLength
 let canonicalBody = canonicalizeBody(body, bodyHashSpec.bodyCanon);
 let canonicalBodyBytes = enc.encode(canonicalBody);
 let actualBodyHash = await crypto.subtle.digest('SHA-256', canonicalBodyBytes);
 assert(arrayEqual(actualBodyHash, fromBase64(bodyHash)), 'Body hash mismatch');
 
+// prepare header message to verify signature on
 let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
 console.log(headersToSign);
 
 let canonicalHeader = canonicalizeHeader(headersToSign, dkimHeader.headerCanon);
 console.log(canonicalHeader);
+
+// get public key from DNS
+let publicKeyObject: {
+  publicKey: ArrayBuffer;
+  rr: string;
+  modulusLength: number;
+} = await getPublicKey(
+  'DKIM',
+  `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`,
+  1024,
+  resolveDNSHTTP
+);
+console.log(publicKeyObject);
+
+// convert PEM public key to CryptoKey
+let publicKeyString = dec.decode(new Uint8Array(publicKeyObject.publicKey));
+publicKeyString = publicKeyString.replace(/(-(.*)-)/g, '');
+publicKeyString = removeLineBreaks(publicKeyString);
+console.log({ publicKeyString });
+let publicKey = await crypto.subtle.importKey(
+  'spki',
+  fromBase64(publicKeyString),
+  { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+  false,
+  ['verify']
+);
+
+// verify signature
+let ok = await crypto.subtle.verify(
+  'RSASSA-PKCS1-v1_5',
+  publicKey,
+  fromBase64(dkimHeader.signature),
+  enc.encode(canonicalHeader)
+);
+console.log({ ok });
+assert(ok, 'Signature verification failed');
 
 /**
  * Find end of the header and split the email into header and body
@@ -285,6 +325,10 @@ function canonicalizeHeaderLineRelaxed(line: string) {
  */
 function normalizeLineBreaks(s: string) {
   return s.replace(/\r(?!\n)|(?<!\r)\n/g, '\r\n');
+}
+
+function removeLineBreaks(s: string) {
+  return s.replace(/\r(?!\n)|(?<!\r)\n/g, '');
 }
 
 /**
