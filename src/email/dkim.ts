@@ -32,6 +32,7 @@ assertDefined(dkimHeaderRaw, 'No DKIM signature found');
 
 let dkimHeaderParsed = parseDkimHeaders(dkimHeaderRaw.line).parsed;
 assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
+console.log(dkimHeaderParsed);
 
 let dkimHeader = validateDkimHeader(dkimHeaderParsed);
 console.log(dkimHeader);
@@ -44,6 +45,9 @@ let canonicalBody = canonicalizeBody(body, bodyHashSpec.bodyCanon);
 let canonicalBodyBytes = enc.encode(canonicalBody);
 let actualBodyHash = await crypto.subtle.digest('SHA-256', canonicalBodyBytes);
 assert(arrayEqual(actualBodyHash, fromBase64(bodyHash)), 'Body hash mismatch');
+
+let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
+console.log(headersToSign);
 
 /**
  * Find end of the header and split the email into header and body
@@ -75,7 +79,7 @@ function splitEmail(emailBytes: Uint8Array) {
 }
 
 /**
- * Parse email headers into individual lines with keys
+ * Parse email headers into individual lines with keys.
  *
  * This was copied and modified from zk-email-verify, which copied and modified from mailauth:
  * https://github.com/postalsys/mailauth
@@ -93,16 +97,11 @@ function parseHeaders(headerString: string) {
       rows.splice(i, 1);
     }
   }
-
   return rows.map((row) => {
     let line = row.join('\r\n');
-    let key: RegExpMatchArray | string | null = line.match(/^[^:]+/);
-    if (key) {
-      key = key[0].trim().toLowerCase();
-    }
-
-    // return { key, line: enc.encode(line) };
-    return { key, line };
+    let key = line.match(/^[^:]+/) ?? [''];
+    let casedKey = key[0].trim();
+    return { key: casedKey.toLowerCase(), casedKey, line };
   });
 }
 
@@ -139,7 +138,22 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
   let bodyHashSpec = { bodyCanon, hashAlgo, maxBodyLength };
 
   let bodyHash = dkimHeader.bh?.value;
-  assertString(bodyHash, 'Invalid body hash');
+  assertString(bodyHash, 'Invalid or missing body hash');
+
+  // validate header fields
+  let signingHeaderFields = dkimHeader.h?.value;
+  assertNonemptyString(
+    signingHeaderFields,
+    'Invalid or missing signing header fields'
+  );
+  let headerFields = signingHeaderFields
+    .split(':')
+    .map((f) => f.trim().toLowerCase());
+  assert(
+    !headerFields.includes('dkim-signature'),
+    'Invalid header fields (includes dkim-signature)'
+  );
+  assert(headerFields.includes('from'), 'Invalid header fields (missing from)');
 
   // validate signing domain and selector
   let signingDomain = dkimHeader.d?.value;
@@ -156,8 +170,22 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
     selector,
     bodyHashSpec,
     bodyHash,
+    headerFields,
   };
 }
+
+type ParsedDkimHeader = {
+  a?: { value: unknown };
+  c?: { value: unknown };
+  d?: { value: unknown };
+  s?: { value: unknown };
+  bh?: { value: unknown };
+  l?: { value: unknown };
+  h?: { value: unknown };
+  // b?: { value: unknown };
+  // v?: { value: unknown };
+  // t?: { value: unknown };
+};
 
 function canonicalizeBody(s: string, canonType: 'simple' | 'relaxed') {
   switch (canonType) {
@@ -224,18 +252,29 @@ function normalizeLineBreaks(s: string) {
   return s.replace(/\r(?!\n)|(?<!\r)\n/g, '\r\n');
 }
 
-type ParsedDkimHeader = {
-  a?: { value: unknown };
-  c?: { value: unknown };
-  d?: { value: unknown };
-  s?: { value: unknown };
-  bh?: { value: unknown };
-  l?: { value: unknown };
-  // b?: { value: unknown };
-  // h?: { value: unknown };
-  // v?: { value: unknown };
-  // t?: { value: unknown };
-};
+/**
+ * Returns header lines to sign, in the correct order.
+ *
+ * See 3.5, h= tag on non-existent headers and case-insensivity
+ * See 5.4.2 for treatment of duplicate headers
+ */
+function getHeadersToSign(
+  headers: { key: string; line: string }[],
+  headerFields: string[]
+) {
+  // we find each correct header field starting from the bottom of the header!
+  let unusedHeaders = [...headers];
+  let headersToSign: string[] = [];
+
+  for (let field of headerFields) {
+    let i = unusedHeaders.findLastIndex((h) => h.key === field);
+    // non-existent headers have to be ignored i.e. treated as an empty string
+    if (i === -1) continue;
+    headersToSign.push(unusedHeaders[i]!.line);
+    unusedHeaders.splice(i, 1);
+  }
+  return headersToSign;
+}
 
 function assertString(
   value: unknown,
