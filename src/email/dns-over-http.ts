@@ -1,3 +1,8 @@
+/**
+ * This entire file was copied from zk-email-verify, and slightly modified.
+ * https://github.com/zkemail/zk-email-verify
+ */
+
 // DoH servers list
 const DoHServer = {
   // Google Public DNS
@@ -136,5 +141,5 @@ export async function resolveDNSHTTP(name: string, type: string) {
     );
   }
 
-  return [googleResult];
+  return [googleResult] as const;
 }

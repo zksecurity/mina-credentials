@@ -5,10 +5,10 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { arrayEqual, assert, assertDefined } from '../util.ts';
-import parseDkimHeaders from './lib/mailauth/parse-dkim-headers.ts';
+import parseDkimHeaders from './parse-dkim-headers.ts';
 import { TupleN } from 'o1js';
-import { fromBase64 } from './lib/base64.ts';
-import { resolveDNSHTTP } from './dkim/dns-over-http.ts';
+import { fromBase64 } from './base64.ts';
+import { resolveDNSHTTP } from './dns-over-http.ts';
 
 let dec = new TextDecoder();
 let enc = new TextEncoder();
