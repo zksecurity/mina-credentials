@@ -21,6 +21,7 @@ let enc = new TextEncoder();
  * Verify DKIM signature on the given email.
  */
 async function verifyDkim(email: string) {
+  // parse email for verification inputs
   let { canonicalHeader, canonicalBody, dkimHeader } =
     prepareEmailForVerification(email);
 
@@ -68,11 +69,11 @@ function prepareEmailForVerification(email: string) {
 
   let dkimHeaderParsed = parseDkimHeaders(dkimHeaderRaw.line).parsed;
   assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
+
   let dkimHeader = validateDkimHeader(dkimHeaderParsed);
-  let { bodyHashSpec } = dkimHeader;
 
   // canonical body
-  let canonicalBody = canonicalizeBody(body, bodyHashSpec.canon);
+  let canonicalBody = canonicalizeBody(body, dkimHeader.bodyCanon);
 
   // canonical header
   let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
@@ -195,7 +196,7 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
       (typeof maxBodyLength === 'number' && !isNaN(maxBodyLength)),
     'Invalid max body length'
   );
-  let bodyHashSpec = { canon: bodyCanon, algo: hashAlgo, maxBodyLength };
+  let bodyHashSpec = { algo: hashAlgo, maxBodyLength };
 
   let bodyHash = dkimHeader.bh?.value;
   assertString(bodyHash, 'Invalid or missing body hash');
@@ -398,11 +399,11 @@ async function extractDnsPublicKey(s: string) {
   assert(keyVersion.toLowerCase() === 'dkim1', 'Invalid key version');
   assert(keyType.toLowerCase() === 'rsa', 'Key type must be RSA');
 
-  let publicKeyBytes = fromBase64(publicKeyBase64);
+  let publicKeyBytesDer = fromBase64(publicKeyBase64);
 
   let publicKey = await crypto.subtle.importKey(
     'spki',
-    publicKeyBytes,
+    publicKeyBytesDer,
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['verify']
@@ -413,7 +414,7 @@ async function extractDnsPublicKey(s: string) {
     modulusLength !== undefined && modulusLength >= 1024,
     `Invalid public key length: ${modulusLength}`
   );
-  return { publicKey, publicKeyBytes, modulusLength };
+  return { publicKey, publicKeyBytesDer, modulusLength };
 }
 
 function assertString(
