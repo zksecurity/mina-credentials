@@ -273,8 +273,8 @@ test('Serialize Nodes', async (t) => {
     const expected = {
       type: 'and',
       inputs: [
-        { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-        { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+        { type: 'constant', data: { _type: 'Bool', value: true } },
+        { type: 'constant', data: { _type: 'Bool', value: false } },
       ],
     };
 
@@ -299,8 +299,8 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'or',
-      left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-      right: { type: 'constant', data: { _type: 'Bool', value: 'false' } },
+      left: { type: 'constant', data: { _type: 'Bool', value: true } },
+      right: { type: 'constant', data: { _type: 'Bool', value: false } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -424,7 +424,7 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'not',
-      inner: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      inner: { type: 'constant', data: { _type: 'Bool', value: true } },
     };
 
     assert.deepStrictEqual(serialized, expected);
@@ -474,7 +474,7 @@ test('Serialize Nodes', async (t) => {
 
     const expected = {
       type: 'ifThenElse',
-      condition: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+      condition: { type: 'constant', data: { _type: 'Bool', value: true } },
       thenNode: { type: 'constant', data: { _type: 'Field', value: '1' } },
       elseNode: { type: 'constant', data: { _type: 'Field', value: '0' } },
     };
@@ -502,7 +502,7 @@ test('Serialize Nodes', async (t) => {
       type: 'record',
       data: {
         field1: { type: 'constant', data: { _type: 'Field', value: '123' } },
-        field2: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+        field2: { type: 'constant', data: { _type: 'Bool', value: true } },
       },
     };
 
@@ -541,8 +541,8 @@ test('Serialize Nodes', async (t) => {
         },
         {
           type: 'equals',
-          left: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
-          right: { type: 'constant', data: { _type: 'Bool', value: 'true' } },
+          left: { type: 'constant', data: { _type: 'Bool', value: true } },
+          right: { type: 'constant', data: { _type: 'Bool', value: true } },
         },
       ],
     };

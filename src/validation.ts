@@ -19,14 +19,6 @@ const JsonSchema: z.ZodType<Json> = z.lazy(() =>
 
 const PublicKeySchema = z.string().length(55).startsWith('B62');
 
-const SerializedValueSchema = z
-  .object({
-    _type: z.string(),
-    value: JsonSchema,
-    properties: z.record(z.any()).optional(),
-  })
-  .strict();
-
 const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
   z
     .object({
@@ -80,6 +72,16 @@ const SerializedTypeSchema: z.ZodType<any> = z.lazy(() =>
     z.record(SerializedTypeSchema),
   ])
 );
+
+const SerializedValueSchema = z
+  .object({
+    _type: z.string(),
+    value: JsonSchema,
+    properties: z.record(z.any()).optional(),
+    inner: SerializedTypeSchema.optional(),
+    size: z.number().optional(),
+  })
+  .strict();
 
 const SerializedFieldSchema = z
   .object({
