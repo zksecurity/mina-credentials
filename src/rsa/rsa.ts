@@ -159,6 +159,12 @@ function rsaVerify65537(
   // multiply by signature
   x = modulus.modMul(x, signature);
 
+  // need reverse DER encoding of `DigestInfo` for message
+  // EM = 0x00 || 0x01 || PS || 0x00 || T
+  // SHA-256: (0x)30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20 || H
+  // reverse everything because the RFC views integers little-endian
+  // note: PS fills up the remaining space
+
   // check that x == message
   Provable.assertEqual(Bigint2048, message, x);
 }
