@@ -1,5 +1,15 @@
+import { assert } from '../util.ts';
+
 // copied from o1js: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
-export { generateRsaParams, rsaSign, randomPrime, bytesToBigint };
+export {
+  generateRsaParams,
+  rsaSign,
+  randomPrime,
+  bytesToBigint,
+  bigintToBytes,
+  bytesToBigintBE,
+  bigintToBytesBE,
+};
 
 /**
  * Generates an RSA signature for the given message using the private key and modulus.
@@ -108,6 +118,23 @@ function bytesToBigint(bytes: Uint8Array | number[]) {
     bitPosition += 8n;
   }
   return x;
+}
+
+function bigintToBytes(x: bigint, byteLength: number) {
+  let bytes = new Uint8Array(byteLength);
+  for (let i = 0; i < byteLength; i++) {
+    bytes[i] = Number(x & 0xffn);
+    x >>= 8n;
+  }
+  assert(x === 0n, 'bigint fits in byteLength');
+  return bytes;
+}
+
+function bytesToBigintBE(bytes: Uint8Array | number[]) {
+  return bytesToBigint(bytes.toReversed());
+}
+function bigintToBytesBE(x: bigint, byteLength: number) {
+  return bigintToBytes(x, byteLength).reverse();
 }
 
 function byteLength(x: bigint) {

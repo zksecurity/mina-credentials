@@ -4,6 +4,8 @@ import { Bigint2048 } from '../rsa/rsa.ts';
 import { fetchPublicKeyFromDNS, prepareEmailForVerification } from './dkim.ts';
 import { assert } from '../util.ts';
 import { parseRSASubjectPublicKeyInfo } from './der-parse.ts';
+import { fromBase64 } from './base64.ts';
+import { bytesToBigintBE } from '../rsa/utils.ts';
 
 type ProvableEmail = {
   /**
@@ -50,10 +52,10 @@ async function prepareProvableEmail(email: string): Promise<ProvableEmail> {
   assert(e === 65537n, 'public exponent is 65537');
   let publicKey = Bigint2048.from(n);
 
-  return {
-    header: canonicalHeader,
-    body: canonicalBody,
-    publicKey,
-    signature: Bigint2048.from(0n), // TODO
-  };
+  // signature encoding:
+  // https://datatracker.ietf.org/doc/html/rfc3447#section-4.1
+  let s = bytesToBigintBE(fromBase64(dkimHeader.signature));
+  let signature = Bigint2048.from(s);
+
+  return { header: canonicalHeader, body: canonicalBody, publicKey, signature };
 }
