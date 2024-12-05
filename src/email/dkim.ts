@@ -12,7 +12,7 @@ import { TupleN } from 'o1js';
 import { fromBase64 } from './base64.ts';
 import { resolveDNSHTTP } from './dns-over-http.ts';
 
-export { verifyDkim };
+export { verifyDkim, prepareEmailForVerification, fetchPublicKeyFromDNS };
 
 let dec = new TextDecoder();
 let enc = new TextEncoder();
@@ -21,6 +21,37 @@ let enc = new TextEncoder();
  * Verify DKIM signature on the given email.
  */
 async function verifyDkim(email: string) {
+  // parse email for verification inputs
+  let { canonicalHeader, canonicalBody, dkimHeader } =
+    prepareEmailForVerification(email);
+
+  // compute and compare sha256 body hash
+  let { bodyHashSpec, bodyHash } = dkimHeader;
+  let actualBodyHash = await computeBodyHash(canonicalBody, bodyHashSpec);
+  assert(
+    arrayEqual(actualBodyHash, fromBase64(bodyHash)),
+    'Body hash mismatch'
+  );
+
+  // get public key from DNS, verify signature
+  assert(dkimHeader.signAlgo === 'rsa', 'Only RSA signature is supported');
+
+  let { publicKey } = await fetchPublicKeyFromDNS(dkimHeader);
+
+  let ok = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    publicKey,
+    fromBase64(dkimHeader.signature),
+    enc.encode(canonicalHeader)
+  );
+  assert(ok, 'Signature verification failed');
+}
+
+/**
+ * Given an email string, extracts email header and body in their
+ * canonicalized form and parses the DKIM configuration from the header.
+ */
+function prepareEmailForVerification(email: string) {
   let emailBytes = enc.encode(email);
   let { headerBytes, bodyBytes } = splitEmail(emailBytes);
   let header = dec.decode(headerBytes);
@@ -38,53 +69,41 @@ async function verifyDkim(email: string) {
 
   let dkimHeaderParsed = parseDkimHeaders(dkimHeaderRaw.line).parsed;
   assertDefined(dkimHeaderParsed, 'Failed to parse DKIM header');
+
   let dkimHeader = validateDkimHeader(dkimHeaderParsed);
 
-  // compute and compare sha256 body hash
-  let { bodyHashSpec, bodyHash } = dkimHeader;
-  let actualBodyHash = await computeBodyHash(body, bodyHashSpec);
-  assert(
-    arrayEqual(actualBodyHash, fromBase64(bodyHash)),
-    'Body hash mismatch'
-  );
+  // canonical body
+  let canonicalBody = canonicalizeBody(body, dkimHeader.bodyCanon);
 
-  // prepare header message to verify signature on
+  // canonical header
   let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
   let canonicalHeader = canonicalizeHeader(
     headersToSign,
     dkimHeader.headerCanon
   );
 
-  // get public key from DNS
-  let publicKeyResponse = await resolveDNSHTTP(
-    `${dkimHeader.selector}._domainkey.${dkimHeader.signingDomain}`
-  );
-  let { publicKey } = await extractDnsPublicKey(publicKeyResponse);
+  return { canonicalHeader, canonicalBody, dkimHeader };
+}
 
-  // verify signature
-  assert(dkimHeader.signAlgo === 'rsa', 'Only RSA signature is supported');
-
-  let ok = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    publicKey,
-    fromBase64(dkimHeader.signature),
-    enc.encode(canonicalHeader)
-  );
-  assert(ok, 'Signature verification failed');
+async function fetchPublicKeyFromDNS({
+  selector,
+  signingDomain,
+}: {
+  selector: string;
+  signingDomain: string;
+}) {
+  let dnsName = `${selector}._domainkey.${signingDomain}`;
+  let response = await resolveDNSHTTP(dnsName);
+  return await extractDnsPublicKey(response);
 }
 
 async function computeBodyHash(
-  body: string,
-  spec: {
-    canon: 'simple' | 'relaxed';
-    algo: 'sha256' | 'sha1';
-    maxBodyLength: number | undefined;
-  }
+  canonicalBody: string,
+  spec: { algo: 'sha256' | 'sha1'; maxBodyLength: number | undefined }
 ) {
   assert(spec.algo !== 'sha1', 'sha1 is not supported');
 
   // TODO use the maxBodyLength?
-  let canonicalBody = canonicalizeBody(body, spec.canon);
   let canonicalBodyBytes = enc.encode(canonicalBody);
   return crypto.subtle.digest('SHA-256', canonicalBodyBytes);
 }
@@ -145,6 +164,8 @@ function parseHeaders(headerString: string) {
   });
 }
 
+type DkimHeader = ReturnType<typeof validateDkimHeader>;
+
 /**
  * Validate and extract DKIM header fields after initial parsing
  */
@@ -175,7 +196,7 @@ function validateDkimHeader(dkimHeader: ParsedDkimHeader) {
       (typeof maxBodyLength === 'number' && !isNaN(maxBodyLength)),
     'Invalid max body length'
   );
-  let bodyHashSpec = { canon: bodyCanon, algo: hashAlgo, maxBodyLength };
+  let bodyHashSpec = { algo: hashAlgo, maxBodyLength };
 
   let bodyHash = dkimHeader.bh?.value;
   assertString(bodyHash, 'Invalid or missing body hash');
@@ -367,20 +388,22 @@ async function extractDnsPublicKey(s: string) {
   let entry = parseDkimHeaders(rr).parsed;
   assertDefined(entry, 'Failed to parse public key response');
 
-  let publicKeyB64 = entry.p?.value;
+  let publicKeyBase64 = entry.p?.value;
   let keyVersion = entry.v?.value;
   let keyType = entry.k?.value;
 
-  assertNonemptyString(publicKeyB64, 'Invalid public key value');
+  assertNonemptyString(publicKeyBase64, 'Invalid public key value');
   assertNonemptyString(keyVersion, 'Invalid key version');
   assertNonemptyString(keyType, 'Invalid key type');
 
   assert(keyVersion.toLowerCase() === 'dkim1', 'Invalid key version');
   assert(keyType.toLowerCase() === 'rsa', 'Key type must be RSA');
 
+  let publicKeyBytesDer = fromBase64(publicKeyBase64);
+
   let publicKey = await crypto.subtle.importKey(
     'spki',
-    fromBase64(publicKeyB64),
+    publicKeyBytesDer,
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['verify']
@@ -391,7 +414,7 @@ async function extractDnsPublicKey(s: string) {
     modulusLength !== undefined && modulusLength >= 1024,
     `Invalid public key length: ${modulusLength}`
   );
-  return { publicKey, modulusLength };
+  return { publicKey, publicKeyBytesDer, modulusLength };
 }
 
 function assertString(
