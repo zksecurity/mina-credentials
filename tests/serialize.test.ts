@@ -685,7 +685,7 @@ test('serializeInput', async (t) => {
       type: 'credential',
       credentialType: 'simple',
       witness: {
-        type: { type: 'Constant', value: 'simple' },
+        type: { _type: 'Constant', value: 'simple' },
         issuer: { _type: 'PublicKey' },
         issuerSignature: { _type: 'Signature' },
       },
@@ -866,7 +866,7 @@ test('convertSpecToSerializable', async (t) => {
           type: 'credential',
           credentialType: 'simple',
           witness: {
-            type: { type: 'Constant', value: 'simple' },
+            type: { _type: 'Constant', value: 'simple' },
             issuer: { _type: 'PublicKey' },
             issuerSignature: { _type: 'Signature' },
           },
