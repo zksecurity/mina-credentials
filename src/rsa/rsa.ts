@@ -240,11 +240,14 @@ function rsaPadding(message: Bytes) {
 }
 
 /**
- * Generates an RSA signature for the given message using the private key d and modulus n.
+ * Generates an RSA signature for the given message using the private key d and modulus n,
+ * according to RSASSA-PKCS1-v1.5
  *
  * Returns the signature as a bigint.
  *
- * Note: This method is not provable!
+ * Notes:
+ * - Expects an already hashed input, rather than performing the sha256 hash itself
+ * - This method is not provable!
  */
 function rsaSign(message: Bytes, keys: { d: bigint; n: bigint }): bigint {
   let paddedMessage = rsaPadding(message).toBigint();

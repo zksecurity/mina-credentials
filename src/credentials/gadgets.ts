@@ -57,17 +57,20 @@ function unpack<N extends number>(
   chunkSize: 1 | 4 | 8 | 16 | 32 | 64,
   numChunks: N
 ) {
-  let chunks = Provable.witnessFields(numChunks, () => {
+  function computeChunks() {
     let x = Field.from(word).toBigInt();
     let mask = (1n << BigInt(chunkSize)) - 1n;
     return TupleN.fromArray(
       numChunks,
-      Array.from(
-        { length: numChunks },
-        (_, i) => (x >> BigInt(i * chunkSize)) & mask
+      Array.from({ length: numChunks }, (_, i) =>
+        Field((x >> BigInt(i * chunkSize)) & mask)
       )
     );
-  });
+  }
+  let chunks = Field.from(word).isConstant()
+    ? computeChunks()
+    : Provable.witnessFields(numChunks, computeChunks);
+
   // range check fields, so decomposition is unique and outputs are in range
   chunks.forEach((chunk) => rangeCheck(chunk, chunkSize));
 
