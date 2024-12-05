@@ -4,6 +4,7 @@ export {
   defined,
   Required,
   assertHasProperty,
+  assertHasMethod,
   hasProperty,
   assertIsObject,
   notImplemented,
@@ -79,6 +80,15 @@ function assertHasProperty<K extends string>(
 ): asserts obj is Record<K, unknown> {
   assertIsObject(obj, message ?? `Expected value to be an object or function`);
   assert(key in obj, message ?? `Expected object to have property ${key}`);
+}
+
+function assertHasMethod<K extends string>(
+  obj: unknown,
+  key: K,
+  message?: string
+): asserts obj is Record<K, Function> {
+  assertHasProperty(obj, key, message);
+  assert(typeof obj[key] === 'function', message);
 }
 
 function hasProperty<K extends string>(

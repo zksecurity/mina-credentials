@@ -14,7 +14,6 @@ import { Spec, type Input, type Claims } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
   hashCredential,
-  signCredentials,
   type CredentialSpec,
   type StoredCredential,
 } from './credential.ts';

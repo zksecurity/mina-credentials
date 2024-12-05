@@ -4,6 +4,7 @@ export type {
   FilterTuple,
   ExcludeFromTuple,
   ExcludeFromRecord,
+  JSONValue,
 };
 
 type Tuple<T = any> = [T, ...T[]] | [];
@@ -34,3 +35,11 @@ type FilterTuple<T extends readonly any[], E> = T extends [infer F, ...infer R]
 type ExcludeFromRecord<T, E> = {
   [P in keyof T as T[P] extends E ? never : P]: T[P];
 };
+
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | { [key: string]: JSONValue };

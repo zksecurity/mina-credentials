@@ -69,7 +69,7 @@ console.log('✅ ISSUER: issued credential:', credentialJson);
 // ---------------------------------------------
 // WALLET: deserialize, validate and store the credential
 
-let storedCredential = Credential.fromJSON(credentialJson);
+let storedCredential = await Credential.fromJSON(credentialJson);
 
 await Credential.validate(storedCredential);
 
