@@ -30,8 +30,4 @@ console.log((await rsaProgram.analyzeMethods()).run.summary());
 await rsaProgram.compile();
 
 // Run the program
-await rsaProgram.run(
-  message,
-  Bigint2048.from(signature),
-  Bigint2048.from(keys.n)
-);
+await rsaProgram.run(message, signature, keys.n);
