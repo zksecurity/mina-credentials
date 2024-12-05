@@ -669,7 +669,10 @@ class DynamicArrayBase<T = any, V = any> {
   /**
    * Assert that this array contains the given subarray, and returns the index where it starts.
    */
-  assertContains(subarray: DynamicArray<T, V> | StaticArray<T, V>) {
+  assertContains(
+    subarray: DynamicArray<T, V> | StaticArray<T, V>,
+    message?: string
+  ) {
     let type = this.innerType;
     assert(subarray.maxLength <= this.maxLength, 'subarray must be smaller');
 
@@ -693,6 +696,9 @@ class DynamicArrayBase<T = any, V = any> {
       }
       return -1n;
     });
+    // explicit constraint for !== -1, just to get a nice error message
+    // TODO: would be better to have error message in `Gadgets.rangeCheck16()`
+    i.assertNotEquals(-1, message ?? 'Array does not contain subarray');
 
     // i + subarray.length - 1 < this.length
     Gadgets.rangeCheck16(i);
