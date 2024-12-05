@@ -1,4 +1,8 @@
-import { z } from 'zod';
+import { record, z } from 'zod';
+import type {
+  SerializedNestedType,
+  SerializedType,
+} from './serialize-provable.ts';
 
 export {
   StoredCredentialSchema,
@@ -19,7 +23,7 @@ const JsonSchema: z.ZodType<Json> = z.lazy(() =>
 
 const PublicKeySchema = z.string().length(55).startsWith('B62');
 
-const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
+const ProofTypeSchema: z.ZodType<Record<string, any>> = z.lazy(() =>
   z
     .object({
       name: z.string(),
@@ -31,57 +35,63 @@ const ProofTypeSchema: z.ZodType<any> = z.lazy(() =>
     .strict()
 );
 
-const SerializedTypeSchema: z.ZodType<any> = z.lazy(() =>
+const SerializedTypeSchema: z.ZodType<SerializedType> = z.lazy(() =>
   z.union([
     // Basic type
-    z
-      .object({
-        _type: z.string(),
-      })
-      .strict(),
+    z.object({
+      _type: z.union([
+        z.literal('Field'),
+        z.literal('Bool'),
+        z.literal('UInt8'),
+        z.literal('UInt32'),
+        z.literal('UInt64'),
+        z.literal('PublicKey'),
+        z.literal('Signature'),
+        z.literal('Undefined'),
+        z.literal('VerificationKey'),
+      ]),
+    }),
     // Constant type
-    z
-      .object({
-        type: z.literal('Constant'),
-        value: z.string(),
-      })
-      .strict(),
+    z.object({
+      _type: z.literal('Constant'),
+      value: JsonSchema,
+    }),
     // Bytes type
-    z
-      .object({
-        _type: z.literal('Bytes'),
-        size: z.number(),
-      })
-      .strict(),
+    z.object({
+      _type: z.literal('Bytes'),
+      size: z.number(),
+    }),
     // Proof type
-    z
-      .object({
-        _type: z.literal('Proof'),
-        proof: ProofTypeSchema,
-      })
-      .strict(),
+    z.object({
+      _type: z.literal('Proof'),
+      proof: ProofTypeSchema,
+    }),
     // Array type
-    z
-      .object({
-        _type: z.literal('Array'),
-        innerType: SerializedTypeSchema,
-        size: z.number(),
-      })
-      .strict(),
-    // Allow records of nested types for Struct
-    z.record(SerializedTypeSchema),
+    z.object({
+      _type: z.literal('Array'),
+      inner: SerializedTypeSchema,
+      size: z.number(),
+    }),
+    // Struct type
+    z.object({
+      _type: z.literal('Struct'),
+      properties: record(NestedSerializedTypeSchema),
+    }),
+    // Factory
+    z.object({
+      _type: z.string(),
+      _isFactory: z.literal(true),
+    }),
   ])
 );
 
-const SerializedValueSchema = z
-  .object({
-    _type: z.string(),
-    value: JsonSchema,
-    properties: z.record(z.any()).optional(),
-    inner: SerializedTypeSchema.optional(),
-    size: z.number().optional(),
-  })
-  .strict();
+const NestedSerializedTypeSchema: z.ZodType<SerializedNestedType> = z.lazy(() =>
+  z.union([z.record(NestedSerializedTypeSchema), SerializedTypeSchema])
+);
+
+const SerializedValueSchema = SerializedTypeSchema.and(
+  z.object({ value: JsonSchema })
+);
 
 const SerializedFieldSchema = z
   .object({
@@ -277,8 +287,8 @@ const InputSchema = z.discriminatedUnion('type', [
         z.literal('unsigned'),
         z.literal('recursive'),
       ]),
-      witness: z.union([z.record(SerializedTypeSchema), SerializedTypeSchema]),
-      data: z.union([z.record(SerializedTypeSchema), SerializedTypeSchema]),
+      witness: NestedSerializedTypeSchema,
+      data: NestedSerializedTypeSchema,
     })
     .strict(),
 
@@ -286,14 +296,14 @@ const InputSchema = z.discriminatedUnion('type', [
     .object({
       type: z.literal('constant'),
       data: SerializedTypeSchema,
-      value: z.union([z.string(), z.record(z.string())]),
+      value: JsonSchema,
     })
     .strict(),
 
   z
     .object({
       type: z.literal('claim'),
-      data: z.union([z.record(SerializedTypeSchema), SerializedTypeSchema]),
+      data: NestedSerializedTypeSchema,
     })
     .strict(),
 ]);
@@ -363,6 +373,7 @@ const RecursiveWitnessSchema = z
     proof: z
       .object({
         _type: z.literal('Proof'),
+        proof: ProofTypeSchema,
         value: z
           .object({
             publicInput: JsonSchema,

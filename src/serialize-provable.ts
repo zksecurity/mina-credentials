@@ -27,6 +27,7 @@ export {
   type O1jsTypeName,
   type SerializedType,
   type SerializedValue,
+  type SerializedNestedType,
   supportedTypes,
   serializeProvableType,
   serializeProvable,

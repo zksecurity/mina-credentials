@@ -84,7 +84,7 @@ const ProvableType = {
   ): ProvablePure<T, T> & { serialize(): any } {
     return {
       serialize() {
-        return { type: 'Constant', value };
+        return { _type: 'Constant', value };
       },
       sizeInFields: () => 0,
       toFields: () => [],
