@@ -2,8 +2,8 @@ import { assert } from '../util.ts';
 
 // copied from o1js: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
 export {
-  generateRsaParams,
-  rsaSign,
+  power,
+  generateRsaKeys65537,
   randomPrime,
   bytesToBigint,
   bigintToBytes,
@@ -12,23 +12,15 @@ export {
 };
 
 /**
- * Generates an RSA signature for the given message using the private key and modulus.
- */
-function rsaSign(message: bigint, privateKey: bigint, modulus: bigint): bigint {
-  // Calculate the signature using modular exponentiation
-  return power(message, privateKey, modulus);
-}
-
-/**
- * Generates RSA parameters including prime numbers, public exponent, and private exponent.
+ * Generates 2048-bit RSA keys for a public exponent of e = 65537.
  * @param bitSize - The bit size of the prime numbers used for generating the RSA parameters.
  * @returns An object containing the RSA parameters:
  * `n` (modulus), `e` (public exponent), `d` (private exponent).
  */
-function generateRsaParams(bitSize: number) {
+function generateRsaKeys65537() {
   // Generate two random prime numbers
-  const p = randomPrime(bitSize / 2);
-  const q = randomPrime(bitSize / 2);
+  const p = randomPrime(1024);
+  const q = randomPrime(1024);
 
   // Public exponent
   const e = 65537n;
