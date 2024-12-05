@@ -180,6 +180,7 @@ function rsaVerify65537(
   x = modulus.modMul(x, signature);
 
   // check that x == padded message
+  // TODO: need an error message here, this is where a wrong signature would be detected
   Provable.assertEqual(Bigint2048, x, rsaPadding(message));
 }
 
