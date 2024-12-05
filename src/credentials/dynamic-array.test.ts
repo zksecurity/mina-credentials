@@ -1,6 +1,9 @@
 import { Provable, UInt8 } from 'o1js';
 import { DynamicArray, DynamicString } from '../dynamic.ts';
-import { log } from './dynamic-hash.ts';
+import assert from 'assert';
+import { stringLength } from '../util.ts';
+
+// concatenation of two strings
 
 let String1 = DynamicString({ maxLength: 100 });
 let String2 = DynamicString({ maxLength: 100 });
@@ -10,20 +13,23 @@ let StringLike2 = DynamicArray(UInt8, { maxLength: String2.maxLength });
 let String12 = DynamicString({
   maxLength: String1.maxLength + String2.maxLength,
 });
+let string1 = 'blub';
+let string2 = 'blob';
+let string12 = String12.from('blubblob');
 
 console.log(
   'baseline',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
   })
 );
 
 console.log(
   'baseline + chunk',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
     s1.chunk(8);
   })
 );
@@ -31,48 +37,88 @@ console.log(
 console.log(
   'concat naive',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(StringLike1, () => String1.from('blub').array);
-    let s2 = Provable.witness(StringLike2, () => String2.from('blob').array);
-
+    let s1 = Provable.witness(StringLike1, () => String1.from(string1));
+    let s2 = Provable.witness(StringLike2, () => String2.from(string2));
     let s12 = s1.concat(s2);
-    log(new String12(s12.array, s12.length));
+    s12.assertEquals(string12);
   })
 );
 
 console.log(
   'concat transposed',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
 
     let s12 = s1.concatTransposed(s2);
-    log(new String12(s12.array, s12.length));
+    new String12(s12.array, s12.length).assertEquals(string12);
   })
 );
 
 console.log(
   'concat with hashing',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
 
     let s12 = s1.concatByHashing(s2);
-    log(new String12(s12.array, s12.length));
+    new String12(s12.array, s12.length).assertEquals(string12);
   })
 );
 
 console.log(
   'concat string',
   await runAndConstraints(() => {
-    let s1 = Provable.witness(String1, () => 'blub');
-    let s2 = Provable.witness(String2, () => 'blob');
+    let s1 = Provable.witness(String1, () => string1);
+    let s2 = Provable.witness(String2, () => string2);
 
     let s12 = s1.concat(s2);
-    log(s12);
+    s12.assertEquals(string12);
   })
 );
 
+// substring check
+
+{
+  const String = DynamicString({ maxLength: 100 });
+  const SmallString = DynamicString({ maxLength: 10 });
+
+  function main() {
+    let string = Provable.witness(String, () => 'hello world');
+    let contained = Provable.witness(SmallString, () => 'lo wo');
+
+    let i = string.assertContains(contained);
+    i.assertEquals(3);
+
+    if (Provable.inProver()) {
+      let notContained = Provable.witness(SmallString, () => 'worldo');
+      assert.throws(() => string.assertContains(notContained));
+    }
+  }
+  function mainStatic() {
+    let string = Provable.witness(String, () => 'hello world');
+    let i = string.assertContains('lo wo');
+    i.assertEquals(3);
+  }
+
+  // can run normally
+  main();
+  mainStatic();
+
+  // can run while checking constraints
+  console.log(
+    `substring check (${SmallString.maxLength} in ${String.maxLength})`,
+    await runAndConstraints(main)
+  );
+  console.log(
+    `substring check static (5 in ${String.maxLength})`,
+    await runAndConstraints(mainStatic)
+  );
+}
+
+// helper
+
 async function runAndConstraints(fn: () => Promise<void> | void) {
   await Provable.runAndCheck(fn);
-  return (await Provable.constraintSystem(fn)).summary();
+  return (await Provable.constraintSystem(fn)).rows;
 }
