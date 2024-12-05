@@ -1,4 +1,3 @@
-import { readFile } from 'fs/promises';
 import { DynamicString, StaticArray } from '../dynamic.ts';
 import { Bigint2048, rsaVerify65537 } from '../rsa/rsa.ts';
 import { fetchPublicKeyFromDNS, prepareEmailForVerification } from './dkim.ts';
@@ -6,7 +5,9 @@ import { assert } from '../util.ts';
 import { parseRSASubjectPublicKeyInfo } from './der-parse.ts';
 import { fromBase64 } from './base64.ts';
 import { bytesToBigintBE } from '../rsa/utils.ts';
-import { UInt8 } from 'o1js';
+import { Struct, UInt8 } from 'o1js';
+
+export { ProvableEmail, verifyEmail, prepareProvableEmail };
 
 type ProvableEmail = {
   /**
@@ -30,12 +31,26 @@ type ProvableEmail = {
   signature: Bigint2048;
 };
 
-let email = await readFile(
-  `${import.meta.dirname}/test-emails/email-good.eml`,
-  'utf-8'
-);
-let provableEmail = await prepareProvableEmail(email);
-verifyEmail(provableEmail);
+function ProvableEmail({
+  maxHeaderLength,
+  maxBodyLength,
+}: {
+  maxHeaderLength: number;
+  maxBodyLength: number;
+}) {
+  const Header = DynamicString({ maxLength: maxHeaderLength });
+  const Body = DynamicString({ maxLength: maxBodyLength });
+
+  return class extends Struct({
+    header: Header,
+    body: Body,
+    publicKey: Bigint2048,
+    signature: Bigint2048,
+  }) {
+    static Header = Header;
+    static Body = Body;
+  };
+}
 
 function verifyEmail(email: ProvableEmail) {
   // provable types with max lengths
