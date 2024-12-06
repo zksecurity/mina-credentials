@@ -15,7 +15,7 @@ import { uint64FromBytesBE, uint64ToBytesBE } from './gadgets.ts';
 
 export { SHA2 };
 
-type FlexibleBytes = Bytes | (UInt8 | bigint | number)[] | Uint8Array;
+type FlexibleBytes = Bytes | (UInt8 | bigint | number)[] | Uint8Array | string;
 
 // sha2 spec: https://csrc.nist.gov/pubs/fips/180-4/upd1/final
 
@@ -261,6 +261,7 @@ function messageSchedule512(M: UInt64[]) {
 function padding256(data: FlexibleBytes): UInt32[][] {
   // create a provable Bytes instance from the input data
   // the Bytes class will be static sized according to the length of the input data
+  if (typeof data === 'string') data = Bytes.fromString(data);
   let message = Bytes.from(data);
 
   // now pad the data to reach the format expected by sha256
@@ -301,6 +302,7 @@ function padding256(data: FlexibleBytes): UInt32[][] {
 }
 
 function padding512(data: FlexibleBytes): UInt64[][] {
+  if (typeof data === 'string') data = Bytes.fromString(data);
   let message = Bytes.from(data);
 
   // pad the data to reach the format expected by sha512

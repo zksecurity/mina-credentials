@@ -340,7 +340,7 @@ function toValue(value: unknown): any {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'bigint') return value;
   if (value === undefined || value === null) return value;
-  if (Array.isArray(value)) value.map(toValue);
+  if (Array.isArray(value)) return value.map(toValue);
 
   let type = provableTypeOfConstructor(value);
 

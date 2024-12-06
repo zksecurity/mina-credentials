@@ -12,6 +12,7 @@ import {
   type ProvablePure,
   type IsPure,
   Poseidon,
+  MerkleList,
 } from 'o1js';
 import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
 import {
@@ -299,6 +300,32 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Split the array at index i, i.e. returns `[splice(0, i), splice(i)]`.
+   *
+   * If i is 0, the first array will be empty.
+   * If i it >= the length, the second array will be empty.
+   *
+   * Note: this method uses very few constraints, it's only rearranging the array contents
+   * and recomputing the two lengths.
+   */
+  splitAt(i: number): [DynamicArray<T, V>, DynamicArray<T, V>] {
+    assert(i >= 0 && i < 1 << 16, 'index must be in [0, 2^16)');
+    let maxLength1 = Math.min(i, this.maxLength);
+    let maxLength2 = Math.max(this.maxLength - i, 0);
+
+    let Array1 = DynamicArray(this.innerType, { maxLength: maxLength1 });
+    let Array2 = DynamicArray(this.innerType, { maxLength: maxLength2 });
+    let array1 = this.array.slice(0, maxLength1);
+    let array2 = this.array.slice(maxLength1);
+
+    let ltLength = lessThan16(Field(i), this.length);
+    let length1 = Provable.if(ltLength, Field(i), this.length);
+    let length2 = Provable.if(ltLength, this.length.sub(Field(i)), Field(0));
+
+    return [new Array1(array1, length1), new Array2(array2, length2)];
+  }
+
+  /**
    * Dynamic array hash that only depends on the actual values (not the padding).
    *
    * Avoids hash collisions by encoding the number of actual elements at the beginning of the hash input.
@@ -367,6 +394,17 @@ class DynamicArrayBase<T = any, V = any> {
     return state[0];
   }
 
+  merkelize(listHash?: (hash: Field, t: T) => Field): MerkleList<T> {
+    let type = this.innerType;
+    listHash ??= (h, t) => Poseidon.hash([h, packToField(t, type)]);
+    const List = MerkleList.create(type, listHash);
+    let list = List.empty();
+    this.forEach((t, isDummy) => {
+      list.pushIf(isDummy.not(), t);
+    });
+    return list;
+  }
+
   /**
    * Returns a dynamic number of full chunks and a final, smaller chunk.
    *
@@ -422,6 +460,23 @@ class DynamicArrayBase<T = any, V = any> {
     this.length.assertEquals(other.length, 'length mismatch');
     zip(this.array, other.array).forEach(([a, b]) => {
       Provable.assertEqual(this.innerType, a, b);
+    });
+  }
+
+  /**
+   * Assert that this array is equal to another.
+   *
+   * Note: This only requires the length and the actual elements to be equal, not the padding or the maxLength.
+   * To check for exact equality, use `assertEqualsStrict()`.
+   */
+  assertEquals(other: DynamicArray<T, V> | StaticArray<T, V> | (T | V)[]) {
+    this.length.assertEquals(other.length, 'length mismatch');
+    let otherArray = Array.isArray(other) ? other : other.array;
+    let type = ProvableType.get(this.innerType);
+    let NULL = ProvableType.synthesize(type);
+    this.forEach((t, isDummy, i) => {
+      let s = type.fromValue(otherArray[i] ?? NULL);
+      Provable.assertEqualIf(isDummy.not(), type, t, s);
     });
   }
 
@@ -647,6 +702,66 @@ class DynamicArrayBase<T = any, V = any> {
   toValue() {
     assertHasProperty(this.constructor, 'provable', 'Need subclass');
     return (this.constructor.provable as Provable<this, V[]>).toValue(this);
+  }
+
+  /**
+   * Assert that this array contains the given subarray, and returns the index where it starts.
+   */
+  assertContains(
+    subarray: DynamicArray<T, V> | StaticArray<T, V>,
+    message?: string
+  ) {
+    let type = this.innerType;
+    assert(subarray.maxLength <= this.maxLength, 'subarray must be smaller');
+
+    // idea: witness an index i and show that the subarray is contained at i
+    let i = Provable.witness(Field, () => {
+      let length = Number(this.length);
+      let sublength = Number(subarray.length);
+      if (sublength === 0) return 0n;
+      for (let i = 0; i < length; i++) {
+        // check if subarray is contained at i
+        let isContained = true;
+        for (let j = 0; j < sublength; j++) {
+          if (i + j >= length) return -1n;
+          isContained &&= Provable.equal(
+            type,
+            this.array[i + j]!,
+            subarray.array[j]!
+          ).toBoolean();
+        }
+        if (isContained) return BigInt(i);
+      }
+      return -1n;
+    });
+    // explicit constraint for !== -1, just to get a nice error message
+    // TODO: would be better to have error message in `Gadgets.rangeCheck16()`
+    i.assertNotEquals(-1, message ?? 'Array does not contain subarray');
+
+    // i + subarray.length - 1 < this.length
+    Gadgets.rangeCheck16(i);
+    this.assertIndexInRange(
+      UInt32.Unsafe.fromField(i.add(subarray.length).sub(1))
+    );
+
+    // assert that subarray is contained at i
+    // cost: M*(N*T + O(1))
+    let j = 0;
+    if (subarray instanceof DynamicArrayBase) {
+      subarray.forEach((si, isDummy) => {
+        let ai = this.getOrUnconstrained(i.add(j));
+        Provable.assertEqualIf(isDummy.not(), type, si, ai);
+        j++;
+      });
+    } else {
+      subarray.forEach((si) => {
+        let ai = this.getOrUnconstrained(i.add(j));
+        Provable.assertEqual(type, si, ai);
+        j++;
+      });
+    }
+
+    return i;
   }
 }
 

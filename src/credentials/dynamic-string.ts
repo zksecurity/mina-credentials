@@ -13,10 +13,11 @@ import {
   provableDynamicArray,
 } from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
-import { assert, pad } from '../util.ts';
+import { assert, pad, stringLength } from '../util.ts';
 import { BaseType } from './dynamic-base-types.ts';
 import { DynamicSHA2 } from './dynamic-sha2.ts';
 import { packBytes } from './gadgets.ts';
+import { StaticArray } from './static-array.ts';
 
 export { DynamicString };
 
@@ -77,6 +78,12 @@ function DynamicString({ maxLength }: { maxLength: number }) {
 
   return DynamicString;
 }
+
+DynamicString.from = function (s: string | DynamicStringBase) {
+  if (typeof s !== 'string') return s;
+  return DynamicString({ maxLength: stringLength(s) }).from(s);
+};
+
 BaseType.DynamicString = DynamicString;
 
 const enc = new TextEncoder();
@@ -198,6 +205,47 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
     return ab;
   }
 
+  /**
+   * Assert that this string is equal to another.
+   *
+   * Note: This only requires the length and the actual elements to be equal, not the padding or the maxLength.
+   * To check for exact equality, use `assertEqualsStrict()`.
+   */
+  assertEquals(
+    // complicated type here because we have to extend the method signature on DynamicArrayBase
+    other:
+      | DynamicString
+      | DynamicArray<UInt8, UInt8V>
+      | StaticArray<UInt8, UInt8V>
+      | (UInt8 | UInt8V)[]
+      | string
+  ) {
+    if (typeof other === 'string') {
+      other = DynamicString({ maxLength: stringLength(other) }).from(other);
+    }
+    super.assertEquals(other);
+  }
+
+  splitAt(index: number): [DynamicString, DynamicString] {
+    let [a, b] = super.splitAt(index);
+    let StringA = DynamicString({ maxLength: a.maxLength });
+    let StringB = DynamicString({ maxLength: b.maxLength });
+    return [new StringA(a.array, a.length), new StringB(b.array, b.length)];
+  }
+
+  assertContains(
+    substring:
+      | StaticArray<UInt8, UInt8V>
+      | DynamicArray<UInt8, UInt8V>
+      | string,
+    message?: string
+  ): Field {
+    if (typeof substring === 'string') {
+      substring = DynamicString.from(substring);
+    }
+    return super.assertContains(substring, message);
+  }
+
   growMaxLengthTo(maxLength: number): DynamicStringBase {
     assert(
       maxLength >= this.maxLength,
@@ -209,6 +257,8 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
 }
 
 DynamicString.Base = DynamicStringBase;
+
+type UInt8V = { value: bigint };
 
 // serialize/deserialize
 
