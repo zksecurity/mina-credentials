@@ -12,6 +12,7 @@ import {
   type ProvablePure,
   type IsPure,
   Poseidon,
+  MerkleList,
 } from 'o1js';
 import { assert, assertHasProperty, chunk, fill, pad, zip } from '../util.ts';
 import {
@@ -391,6 +392,17 @@ class DynamicArrayBase<T = any, V = any> {
       state[2] = Provable.if(isPadding, state[2], newState[2]);
     });
     return state[0];
+  }
+
+  merkelize(listHash?: (hash: Field, t: T) => Field): MerkleList<T> {
+    let type = this.innerType;
+    listHash ??= (h, t) => Poseidon.hash([h, packToField(t, type)]);
+    const List = MerkleList.create(type, listHash);
+    let list = List.empty();
+    this.forEach((t, isDummy) => {
+      list.pushIf(isDummy.not(), t);
+    });
+    return list;
   }
 
   /**
