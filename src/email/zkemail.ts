@@ -22,7 +22,9 @@ export {
   verifyEmail,
   prepareProvableEmail,
   verifyEmailRecursive,
+  verifyEmailHeader,
   hashProgram,
+  headerAndBodyProgram,
 };
 
 type ProvableEmail = {
@@ -127,32 +129,44 @@ function ProvableEmail({
   };
 }
 
+// below are the real zkemail circuits, split into one entrypoint circuit and 2 zkprograms
+
+/**
+ * Merkelized list of SHA256 blocks, for passing them down a recursive program.
+ */
 class MerkleBlocks extends MerkleList.create(
   Block32,
   DynamicSHA2.commitBlock256
 ) {
   /**
    * Pop off `n` elements from the end of the Merkle list. The return value is a tuple of:
-   * - The new Merkle list with elements popped off (the input list is not mutated)
-   * - The popped off elements, in their original order. Since there might be less than `n` elements in the list, this is an array of options.
+   * - `remaining`: The new Merkle list with elements popped off (input list is not mutated)
+   * - `tail`: The removed elements, in their original order.
+   *   Since there might be less than `n` elements in the list, `tail` is an array of options.
+   *
+   * Guarantees that pushing all the `Some` options back to `remaining` would result in the original list.
    */
   static popTail(
     blocks: MerkleBlocks,
     n: number
-  ): [MerkleBlocks, Option<Block32>[]] {
+  ): { remaining: MerkleBlocks; tail: Option<Block32>[] } {
     blocks = blocks.clone();
     let tail: Option<Block32>[] = Array(n);
 
     for (let i = n - 1; i >= 0; i--) {
       tail[i] = blocks.popOption();
     }
-    return [blocks, tail];
+    return { remaining: blocks, tail };
   }
 }
 
 // 9 is on the high end, leads to 47k constraints
 const BLOCKS_PER_RECURSIVE_PROOF = 9;
+const BLOCKS_PER_BASE_PROOF = 11;
 
+/**
+ * A generic ZkProgram that hashes an arbitrary number of SHA256 blocks.
+ */
 let hashProgram = ZkProgram({
   name: 'recursive-hash',
 
@@ -160,28 +174,27 @@ let hashProgram = ZkProgram({
   publicOutput: State32,
 
   methods: {
-    // main method that hashes recursively
-    hashRecursive: {
-      privateInputs: [],
-      async method(blocks: MerkleBlocks) {
-        let state = await hashBlocks(blocks, {
-          blocksInThisProof: BLOCKS_PER_RECURSIVE_PROOF,
-          blocksPerRecursiveProof: BLOCKS_PER_RECURSIVE_PROOF,
-          proofsEnabled: hashProgram.proofsEnabled,
-        });
-        return { publicOutput: state };
-      },
-    },
-
-    // base method that starts hashing from the initial state and must process all input blocks
+    // base method that starts hashing from the initial state and guarantees to process all input blocks
     hashBase: {
       privateInputs: [],
       async method(blocks: MerkleBlocks) {
         let state = DynamicSHA2.initialState256(256);
 
-        blocks.forEach(BLOCKS_PER_RECURSIVE_PROOF, (block, isDummy) => {
+        blocks.forEach(BLOCKS_PER_BASE_PROOF, (block, isDummy) => {
           let nextState = DynamicSHA2.hashBlock256(state, block);
           state = Provable.if(isDummy, State32, state, nextState);
+        });
+        return { publicOutput: state };
+      },
+    },
+
+    // method that hashes recursively, handles arbitrarily many blocks
+    hashRecursive: {
+      privateInputs: [],
+      async method(blocks: MerkleBlocks) {
+        let state = await hashBlocks(blocks, {
+          blocksInThisProof: BLOCKS_PER_RECURSIVE_PROOF,
+          proofsEnabled: hashProgram.proofsEnabled,
         });
         return { publicOutput: state };
       },
@@ -190,27 +203,22 @@ let hashProgram = ZkProgram({
 });
 
 /**
- * Wrapper around hashProgram, which splits up the input blocks into a main part and a final part,
- * hashes the main part recursively (determining which program method to use based on whether the
- * input is empty or not), and then hashes the final part and returns the final state.
+ * Wrapper around `hashProgram`, which hashes an arbitrary number of blocks with SHA256.
+ *
+ * The number of blocks to hash in the current proof is configurable.
  */
 async function hashBlocks(
   blocks: MerkleBlocks,
   options: {
     blocksInThisProof: number;
-    blocksPerRecursiveProof: number;
     proofsEnabled?: boolean;
   }
 ): Promise<State32> {
-  let {
-    blocksInThisProof,
-    blocksPerRecursiveProof,
-    proofsEnabled = true,
-  } = options;
+  let { blocksInThisProof, proofsEnabled = true } = options;
 
   // split blocks into remaining part and final part
   // the final part is done in this proof, the remaining part is done recursively
-  let [remaining, tail] = MerkleBlocks.popTail(blocks, blocksInThisProof);
+  let { remaining, tail } = MerkleBlocks.popTail(blocks, blocksInThisProof);
 
   // recursively hash the first, "remaining" part
   let proof = await Provable.witnessAsync(hashProgram.Proof, async () => {
@@ -223,14 +231,13 @@ async function hashBlocks(
 
     // figure out if we can call the base method or need to recurse
     let nBlocksRemaining = remaining.lengthUnconstrained().get();
-    console.log({ nBlocksRemaining });
     let proof: Proof<MerkleBlocks, State32>;
 
-    if (nBlocksRemaining <= blocksPerRecursiveProof) {
-      console.log('hashBase');
+    if (nBlocksRemaining <= BLOCKS_PER_BASE_PROOF) {
+      console.log({ nBlocksRemaining, method: 'hashBase' });
       ({ proof } = await hashProgram.hashBase(blocksForProof));
     } else {
-      console.log('hashRecursive');
+      console.log({ nBlocksRemaining, method: 'hashRecursive' });
       ({ proof } = await hashProgram.hashRecursive(blocksForProof));
     }
     hashProgram.setProofsEnabled(originalProofsEnabled);
@@ -251,6 +258,54 @@ async function hashBlocks(
   return state;
 }
 
+class HeaderAndBodyBlocks extends Struct({
+  headerBlocks: MerkleBlocks,
+  bodyBlocks: MerkleBlocks,
+}) {}
+class HeaderAndBodyState extends Struct({
+  headerState: State32,
+  bodyState: State32,
+}) {}
+
+// assumes that 10 blocks = 640 bytes are enough for the header
+const HEADER_BLOCKS_TOTAL = 10;
+const HEADER_BLOCKS_IN_INNER_PROOF = 9;
+const HEADER_BLOCKS_IN_OUTER_PROOF =
+  HEADER_BLOCKS_TOTAL - HEADER_BLOCKS_IN_INNER_PROOF;
+
+const BODY_BLOCKS_IN_INNER_PROOF =
+  BLOCKS_PER_RECURSIVE_PROOF - HEADER_BLOCKS_IN_INNER_PROOF;
+// 9 - 9 = 0, which means we support 0 + 11 = 11 body blocks in 3 proofs
+// more are supported by 4 proofs
+
+let headerAndBodyProgram = ZkProgram({
+  name: 'header-and-body-hash',
+
+  publicInput: HeaderAndBodyBlocks,
+  publicOutput: HeaderAndBodyState,
+
+  methods: {
+    run: {
+      privateInputs: [],
+      async method({ headerBlocks, bodyBlocks }: HeaderAndBodyBlocks) {
+        // hash the header here, and the body recursively
+        let headerState = DynamicSHA2.initialState256(256);
+
+        headerBlocks.forEach(HEADER_BLOCKS_IN_INNER_PROOF, (block, isDummy) => {
+          let nextState = DynamicSHA2.hashBlock256(headerState, block);
+          headerState = Provable.if(isDummy, State32, headerState, nextState);
+        });
+
+        let bodyState = await hashBlocks(bodyBlocks, {
+          blocksInThisProof: BODY_BLOCKS_IN_INNER_PROOF,
+          proofsEnabled: headerAndBodyProgram.proofsEnabled,
+        });
+        return { publicOutput: { headerState, bodyState } };
+      },
+    },
+  },
+});
+
 async function verifyEmailRecursive(
   email: ProvableEmail,
   { proofsEnabled = true } = {}
@@ -261,9 +316,49 @@ async function verifyEmailRecursive(
   let body = DynamicString.from(email.body);
   let header = DynamicString.from(email.header);
 
-  // compute and compare the body hash
-  // TODO: this needs a recursive proof
-  let bodyHash = Provable.witness(Bytes32, () => body.hashToBytes('sha2-256'));
+  // pad header/body into blocks, convert those into a Merkle list
+  // 3.7k constraints for header length 500
+  let headerBlocksDynamic = DynamicSHA2.padding256(header);
+  let bodyBlocksDynamic = DynamicSHA2.padding256(body);
+
+  // 200 constraints for header length 500
+  let headerBlocks = headerBlocksDynamic.merkelize(DynamicSHA2.commitBlock256);
+  let bodyBlocks = bodyBlocksDynamic.merkelize(DynamicSHA2.commitBlock256);
+
+  // pop off header tail
+  let { remaining: headerBlocksInner, tail: headerTail } = MerkleBlocks.popTail(
+    headerBlocks,
+    HEADER_BLOCKS_IN_OUTER_PROOF
+  );
+
+  // hash header and body in inner proof
+  // (we allow disabling proofs to run this quickly)
+  let originalProofsEnabled1 = hashProgram.proofsEnabled;
+  let originalProofsEnabled2 = headerAndBodyProgram.proofsEnabled;
+  hashProgram.setProofsEnabled(proofsEnabled);
+  headerAndBodyProgram.setProofsEnabled(proofsEnabled);
+
+  let { headerState, bodyState } =
+    await headerAndBodyProgram.proveRecursively.run({
+      headerBlocks: headerBlocksInner,
+      bodyBlocks,
+    });
+  hashProgram.setProofsEnabled(originalProofsEnabled1);
+  headerAndBodyProgram.setProofsEnabled(originalProofsEnabled2);
+
+  // continue hashing the header tail
+  // 5.3k * HEADER_BLOCKS_IN_OUTER_PROOF constraints
+  headerTail.forEach(({ isSome, value: block }) => {
+    let nextState = DynamicSHA2.hashBlock256(headerState, block);
+    headerState = Provable.if(isSome, State32, nextState, headerState);
+  });
+
+  // convert final states to bytes
+  let headerHash = Bytes32.from(
+    headerState.array.flatMap((x) => x.toBytesBE())
+  );
+  let bodyHash = Bytes32.from(bodyState.array.flatMap((x) => x.toBytesBE()));
+
   // 1.6k constraints
   let bodyHashBase64 = bodyHash.base64Encode();
 
@@ -274,12 +369,46 @@ async function verifyEmailRecursive(
 
   // TODO: this is just a sanity check and not secure at all
   // 22k constraints  :(
-  // header.assertContains(
-  //   StaticArray.from(UInt8, bodyHashBase64.bytes),
-  //   'verifyEmail: body hash mismatch'
-  // );
+  Provable.asProver(() => {
+    header.assertContains(
+      StaticArray.from(UInt8, bodyHashBase64.bytes),
+      'verifyEmail: body hash mismatch'
+    );
+  });
 
-  // hash the header:
+  // verify the signature
+  // 12k constraints
+  rsaVerify65537(headerHash, email.signature, email.publicKey);
+}
+
+// HEADER ONLY:
+
+type ProvableEmailHeader = {
+  /**
+   * The email header in canonicalized form, i.e. the form that was signed.
+   */
+  header: string | DynamicString;
+
+  /**
+   * RSA public key that signed the email.
+   */
+  publicKey: Bigint2048;
+
+  /**
+   * The RSA signature of the email.
+   */
+  signature: Bigint2048;
+};
+
+/**
+ * This is a variant of `verifyEmail()` which only verifies the header, not the body.
+ */
+async function verifyEmailHeader(
+  email: ProvableEmailHeader,
+  { proofsEnabled = true } = {}
+) {
+  // provable types with max lengths
+  let header = DynamicString.from(email.header);
 
   // pad header into blocks, convert those into a Merkle list, and hash using `hashBlocks()`
   // 3.7k constraints for header length 500
@@ -291,10 +420,8 @@ async function verifyEmailRecursive(
   // 5.3k constraints per block
   let state = await hashBlocks(headerBlocks, {
     blocksInThisProof: 1,
-    blocksPerRecursiveProof: BLOCKS_PER_RECURSIVE_PROOF,
     proofsEnabled,
   });
-
   // convert final state to bytes
   let headerHash = Bytes32.from(state.array.flatMap((x) => x.toBytesBE()));
 
