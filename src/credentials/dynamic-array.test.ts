@@ -125,8 +125,8 @@ console.log(
     let string = Provable.witness(String, () => 'hello world!');
 
     let [first, second] = string.splitAt(5);
-    first.assertEquals(String.from('hello'));
-    second.assertEquals(String.from(' world!'));
+    first.assertEquals('hello');
+    second.assertEquals(' world!');
 
     let [all, empty] = string.splitAt(19);
     all.assertEquals(string);

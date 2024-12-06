@@ -226,6 +226,13 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
     super.assertEquals(other);
   }
 
+  splitAt(index: number): [DynamicString, DynamicString] {
+    let [a, b] = super.splitAt(index);
+    let StringA = DynamicString({ maxLength: a.maxLength });
+    let StringB = DynamicString({ maxLength: b.maxLength });
+    return [new StringA(a.array, a.length), new StringB(b.array, b.length)];
+  }
+
   assertContains(
     substring:
       | StaticArray<UInt8, UInt8V>
