@@ -31,27 +31,11 @@ type ProvableEmail = {
   signature: Bigint2048;
 };
 
-function ProvableEmail({
-  maxHeaderLength,
-  maxBodyLength,
-}: {
-  maxHeaderLength: number;
-  maxBodyLength: number;
-}) {
-  const Header = DynamicString({ maxLength: maxHeaderLength });
-  const Body = DynamicString({ maxLength: maxBodyLength });
-
-  return class extends Struct({
-    header: Header,
-    body: Body,
-    publicKey: Bigint2048,
-    signature: Bigint2048,
-  }) {
-    static Header = Header;
-    static Body = Body;
-  };
-}
-
+/**
+ * Simple provable method to verify an email for demonstration purposes.
+ *
+ * Uses more than 150k constraints so needs breaking up into several proofs to actually use.
+ */
 function verifyEmail(email: ProvableEmail) {
   // provable types with max lengths
   let body = DynamicString.from(email.body);
@@ -67,7 +51,7 @@ function verifyEmail(email: ProvableEmail) {
   // (might be helpful to use the dkim header as hint since it is fairly strictly formatted,
   // and known to come last in the header, and then reassemble with the other headers)
 
-  // this is just a sanity check and not secure at all
+  // TODO: this is just a sanity check and not secure at all
   header.assertContains(
     StaticArray.from(UInt8, bodyHashBase64.bytes),
     'verifyEmail: body hash mismatch'
@@ -104,4 +88,25 @@ async function prepareProvableEmail(email: string): Promise<ProvableEmail> {
   let signature = Bigint2048.from(s);
 
   return { header: canonicalHeader, body: canonicalBody, publicKey, signature };
+}
+
+function ProvableEmail({
+  maxHeaderLength,
+  maxBodyLength,
+}: {
+  maxHeaderLength: number;
+  maxBodyLength: number;
+}) {
+  const Header = DynamicString({ maxLength: maxHeaderLength });
+  const Body = DynamicString({ maxLength: maxBodyLength });
+
+  return class extends Struct({
+    header: Header,
+    body: Body,
+    publicKey: Bigint2048,
+    signature: Bigint2048,
+  }) {
+    static Header = Header;
+    static Body = Body;
+  };
 }
