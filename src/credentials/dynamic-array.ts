@@ -299,6 +299,32 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Split the array at index i, i.e. returns `[splice(0, i), splice(i)]`.
+   *
+   * If i is 0, the first array will be empty.
+   * If i it >= the length, the second array will be empty.
+   *
+   * Note: this method uses very few constraints, it's only rearranging the array contents
+   * and recomputing the two lengths.
+   */
+  splitAt(i: number): [DynamicArray<T, V>, DynamicArray<T, V>] {
+    assert(i >= 0 && i < 1 << 16, 'index must be in [0, 2^16)');
+    let maxLength1 = Math.min(i, this.maxLength);
+    let maxLength2 = Math.max(this.maxLength - i, 0);
+
+    let Array1 = DynamicArray(this.innerType, { maxLength: maxLength1 });
+    let Array2 = DynamicArray(this.innerType, { maxLength: maxLength2 });
+    let array1 = this.array.slice(0, maxLength1);
+    let array2 = this.array.slice(maxLength1);
+
+    let ltLength = lessThan16(Field(i), this.length);
+    let length1 = Provable.if(ltLength, Field(i), this.length);
+    let length2 = Provable.if(ltLength, this.length.sub(Field(i)), Field(0));
+
+    return [new Array1(array1, length1), new Array2(array2, length2)];
+  }
+
+  /**
    * Dynamic array hash that only depends on the actual values (not the padding).
    *
    * Avoids hash collisions by encoding the number of actual elements at the beginning of the hash input.
