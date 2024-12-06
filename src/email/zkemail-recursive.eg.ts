@@ -1,14 +1,15 @@
 import { readFile } from 'fs/promises';
-import { initializeBindings, Provable, ZkProgram } from 'o1js';
+import { Provable, ZkProgram } from 'o1js';
 import {
   hashProgram,
+  headerAndBodyProgram,
   prepareProvableEmail,
   ProvableEmail,
   verifyEmailRecursive,
 } from './zkemail.ts';
 import { mapObject } from '../util.ts';
 
-const compileAndRunProgram = false;
+const compileAndRunProgram = true;
 
 let email = await readFile(
   `${import.meta.dirname}/test-emails/email-good.eml`,
@@ -32,8 +33,6 @@ console.time('zkemail plain');
 await main();
 console.timeEnd('zkemail plain');
 
-await initializeBindings();
-
 // run with constraints
 console.time('zkemail witness generation');
 await Provable.runAndCheck(() => main());
@@ -43,6 +42,10 @@ console.timeEnd('zkemail witness generation');
 console.time('hash constraints');
 console.log(mapObject(await hashProgram.analyzeMethods(), (m) => m.summary()));
 console.timeEnd('hash constraints');
+
+console.time('header and body constraints');
+console.log((await headerAndBodyProgram.analyzeMethods()).run.summary());
+console.timeEnd('header and body constraints');
 
 console.time('zkemail constraints');
 console.log((await Provable.constraintSystem(main)).summary());
@@ -66,6 +69,11 @@ if (compileAndRunProgram) {
   console.time('compile hash');
   await hashProgram.compile();
   console.timeEnd('compile hash');
+
+  console.time('compile header and body');
+  await headerAndBodyProgram.compile();
+  console.timeEnd('compile header and body');
+
   console.time('compile verify');
   await verifyProgram.compile();
   console.timeEnd('compile verify');
