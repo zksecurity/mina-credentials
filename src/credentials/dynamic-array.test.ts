@@ -116,6 +116,32 @@ console.log(
   );
 }
 
+// test for DynamicArray.splitAt
+
+{
+  const String = DynamicString({ maxLength: 20 });
+
+  function main() {
+    let string = Provable.witness(String, () => 'hello world!');
+
+    let [first, second] = string.splitAt(5);
+    first.assertEquals(String.from('hello'));
+    second.assertEquals(String.from(' world!'));
+
+    let [all, empty] = string.splitAt(19);
+    all.assertEquals(string);
+    empty.assertEquals(String.from(''));
+    empty.length.assertEquals(0);
+    assert(empty.maxLength === 1);
+  }
+
+  // can run normally
+  main();
+
+  // can run while checking constraints
+  console.log(`splitAt`, await runAndConstraints(main));
+}
+
 // helper
 
 async function runAndConstraints(fn: () => Promise<void> | void) {
