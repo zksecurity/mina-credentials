@@ -1,5 +1,5 @@
 // copied from o1js: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
-export { sha256Bigint, generateRsaParams, rsaSign, randomPrime };
+export { generateRsaParams, rsaSign, randomPrime, bytesToBigint };
 
 /**
  * Generates an RSA signature for the given message using the private key and modulus.
@@ -7,17 +7,6 @@ export { sha256Bigint, generateRsaParams, rsaSign, randomPrime };
 function rsaSign(message: bigint, privateKey: bigint, modulus: bigint): bigint {
   // Calculate the signature using modular exponentiation
   return power(message, privateKey, modulus);
-}
-
-/**
- * Generates a SHA-256 digest of the input message and returns the hash as a native bigint.
- */
-async function sha256Bigint(message: string) {
-  let messageBytes = new TextEncoder().encode(message);
-  let digestBytes = new Uint8Array(
-    await crypto.subtle.digest('SHA-256', messageBytes)
-  );
-  return bytesToBigint(digestBytes);
 }
 
 /**
