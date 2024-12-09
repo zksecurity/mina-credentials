@@ -1,4 +1,4 @@
-import { type PublicKey } from 'o1js';
+import { initializeBindings, type PublicKey } from 'o1js';
 import {
   createUnsigned,
   type CredentialSpec,
@@ -65,7 +65,8 @@ const Credential = {
   /**
    * Deserialize a credential from a JSON string.
    */
-  fromJSON(json: string): StoredCredential {
+  async fromJSON(json: string): Promise<StoredCredential> {
+    await initializeBindings();
     let obj = JSON.parse(json);
     return {
       version: obj.version,
