@@ -77,12 +77,14 @@ function prepareEmailForVerification(email: string) {
 
   // canonical header
   let headersToSign = getHeadersToSign(headers, dkimHeader.headerFields);
-  let canonicalHeader = canonicalizeHeader(
+  let canonicalHeaders = canonicalizeHeader(
     headersToSign,
     dkimHeader.headerCanon
   );
+  let canonicalHeader = canonicalHeaders.join('\r\n');
+  let canonicalDkimHeader = canonicalHeaders.pop()!;
 
-  return { canonicalHeader, canonicalBody, dkimHeader };
+  return { canonicalHeader, canonicalBody, canonicalDkimHeader, dkimHeader };
 }
 
 async function fetchPublicKeyFromDNS({
@@ -142,6 +144,8 @@ function splitEmail(emailBytes: Uint8Array) {
  *
  * This was copied and modified from zk-email-verify, which copied and modified from mailauth:
  * https://github.com/postalsys/mailauth
+ *
+ * TODO: where is the spec for this?
  */
 function parseHeaders(headerString: string) {
   let rows: string[][] = headerString
@@ -163,8 +167,6 @@ function parseHeaders(headerString: string) {
     return { key: casedKey.toLowerCase(), casedKey, line };
   });
 }
-
-type DkimHeader = ReturnType<typeof validateDkimHeader>;
 
 /**
  * Validate and extract DKIM header fields after initial parsing
@@ -311,10 +313,8 @@ function canonicalizeHeader(
   canonicalization: 'simple' | 'relaxed'
 ) {
   // no changes at all for simple canonicalization
-  if (canonicalization === 'simple') return headers.join('\r\n');
-
-  // relaxed canonicalization
-  return headers.map(canonicalizeHeaderLineRelaxed).join('\r\n');
+  if (canonicalization === 'simple') return headers;
+  return headers.map(canonicalizeHeaderLineRelaxed);
 }
 
 function canonicalizeHeaderLineRelaxed(line: string) {

@@ -104,6 +104,13 @@ function StaticArray<
   return StaticArray_;
 }
 
+StaticArray.from = function <A extends ProvableType>(
+  type: A,
+  array: From<A>[]
+) {
+  return StaticArray(type, array.length).from(array);
+};
+
 class StaticArrayBase<T = any, V = any> {
   /**
    * The plain array
