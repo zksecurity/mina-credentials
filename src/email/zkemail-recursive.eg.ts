@@ -5,7 +5,7 @@ import {
   headerAndBodyProgram,
   prepareProvableEmail,
   ProvableEmail,
-  verifyEmailRecursive,
+  verifyEmail,
 } from './zkemail.ts';
 import { mapObject } from '../util.ts';
 
@@ -24,7 +24,7 @@ class Email extends ProvableEmail({
 
 async function main() {
   let email = Provable.witness(Email, () => provableEmail);
-  await verifyEmailRecursive(email, { proofsEnabled });
+  await verifyEmail(email, { proofsEnabled });
 }
 
 // just run

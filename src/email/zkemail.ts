@@ -19,9 +19,9 @@ import { Block32, Bytes32, State32 } from '../credentials/dynamic-sha2.ts';
 
 export {
   ProvableEmail,
-  verifyEmail,
+  verifyEmailSimple,
   prepareProvableEmail,
-  verifyEmailRecursive,
+  verifyEmail,
   verifyEmailHeader,
   hashProgram,
   headerAndBodyProgram,
@@ -50,11 +50,12 @@ type ProvableEmail = {
 };
 
 /**
- * Simple provable method to verify an email for demonstration purposes.
+ * Simple provable method to verify an email. Only for demonstration purposes.
  *
- * Uses more than 150k constraints so needs breaking up into several proofs to actually use.
+ * **Note**: This uses more than 150k constraints, so it doesn't work inside a Pickles proof which has size limited to 2^16 constraints.
+ * `verifyEmail()` achieves the same functionality by breaking up the logic into several proofs.
  */
-function verifyEmail(email: ProvableEmail) {
+function verifyEmailSimple(email: ProvableEmail) {
   // provable types with max lengths
   let body = DynamicString.from(email.body);
   let header = DynamicString.from(email.header);
@@ -303,7 +304,7 @@ let headerAndBodyProgram = ZkProgram({
   },
 });
 
-async function verifyEmailRecursive(
+async function verifyEmail(
   email: ProvableEmail,
   { proofsEnabled = true } = {}
 ) {

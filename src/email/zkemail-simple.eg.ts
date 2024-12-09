@@ -1,6 +1,10 @@
 import { readFile } from 'fs/promises';
 import { Provable } from 'o1js';
-import { prepareProvableEmail, ProvableEmail, verifyEmail } from './zkemail.ts';
+import {
+  prepareProvableEmail,
+  ProvableEmail,
+  verifyEmailSimple,
+} from './zkemail.ts';
 
 let email = await readFile(
   `${import.meta.dirname}/test-emails/email-good.eml`,
@@ -15,7 +19,7 @@ class Email extends ProvableEmail({
 
 function main() {
   let email = Provable.witness(Email, () => provableEmail);
-  verifyEmail(email);
+  verifyEmailSimple(email);
 }
 
 // just run
