@@ -130,7 +130,7 @@ console.log(
 
     let [all, empty] = string.splitAt(19);
     all.assertEquals(string);
-    empty.assertEquals(String.from(''));
+    empty.assertEquals('');
     empty.length.assertEquals(0);
     assert(empty.maxLength === 1);
   }
