@@ -139,12 +139,12 @@ class MerkleBlocks extends MerkleList.create(
   DynamicSHA2.commitBlock256
 ) {
   /**
-   * Pop off `n` elements from the end of the Merkle list. The return value is a tuple of:
+   * Pop off `n` elements from the end of the Merkle list. The return values are:
    * - `remaining`: The new Merkle list with elements popped off (input list is not mutated)
    * - `tail`: The removed elements, in their original order.
    *   Since there might be less than `n` elements in the list, `tail` is an array of options.
    *
-   * Guarantees that pushing all the `Some` options back to `remaining` would result in the original list.
+   * The method guarantees that pushing all the `Some` options back to `remaining` would result in the original list.
    */
   static popTail(
     blocks: MerkleBlocks,
@@ -209,10 +209,7 @@ let hashProgram = ZkProgram({
  */
 async function hashBlocks(
   blocks: MerkleBlocks,
-  options: {
-    blocksInThisProof: number;
-    proofsEnabled?: boolean;
-  }
+  options: { blocksInThisProof: number; proofsEnabled?: boolean }
 ): Promise<State32> {
   let { blocksInThisProof, proofsEnabled = true } = options;
 
