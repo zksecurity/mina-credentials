@@ -1,8 +1,5 @@
 import { record, z } from 'zod';
-import type {
-  SerializedNestedType,
-  SerializedType,
-} from './serialize-provable.ts';
+import type { JSONValue } from '../types.ts';
 
 export {
   StoredCredentialSchema,
@@ -11,6 +8,38 @@ export {
   InputSchema,
   ContextSchema,
 };
+
+type SerializedFactory = {
+  _type: string;
+  _isFactory: true;
+} & Serialized;
+
+type Serialized = Record<string, any>;
+
+type O1jsTypeName =
+  | 'PublicKey'
+  | 'Signature'
+  | 'Field'
+  | 'Bool'
+  | 'UInt8'
+  | 'UInt32'
+  | 'UInt64'
+  | 'Undefined'
+  | 'VerificationKey';
+
+type SerializedType =
+  | { _type: O1jsTypeName }
+  | { _type: 'Struct'; properties: SerializedNestedType }
+  | { _type: 'Array'; inner: SerializedType; size: number }
+  | { _type: 'Constant'; value: JSONValue }
+  | { _type: 'Bytes'; size: number }
+  | { _type: 'Proof'; proof: Record<string, any> }
+  | { _type: 'String' }
+  | SerializedFactory;
+
+type SerializedNestedType =
+  | SerializedType
+  | { [key: string]: SerializedNestedType };
 
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
@@ -432,6 +461,3 @@ const StoredCredentialSchema = z
     credential: z.union([SimpleCredentialSchema, StructCredentialSchema]),
   })
   .strict();
-
-// we could infer the type of StoredCredential from the validation
-// type StoredCredential = z.infer<typeof StoredCredentialSchema>;
