@@ -43,7 +43,7 @@ import {
   deserializeProvableType,
   serializeProvable,
 } from '../src/serialize-provable.ts';
-import { PresentationRequestSchema } from '../src/validation.ts';
+import { PresentationRequestSchema } from '../src/validation/validation.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {

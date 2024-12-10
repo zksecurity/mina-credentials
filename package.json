@@ -1,6 +1,6 @@
 {
   "name": "mina-credentials",
-  "version": "0.2.4",
+  "version": "0.2.6",
   "description": "Private Credentials on Mina",
   "author": "zksecurity <hello@zksecurity.xyz>",
   "license": "Apache-2.0",
@@ -23,6 +23,9 @@
     },
     "./dynamic": {
       "import": "./build/src/dynamic.js"
+    },
+    "./validation": {
+      "import": "./build/src/validation/index.js"
     }
   },
   "scripts": {

@@ -12,7 +12,7 @@ import {
 import { Credential } from '../src/credential-index.ts';
 import { Presentation, PresentationRequest } from '../src/presentation.ts';
 import { Operation } from '../src/operation.ts';
-import { PresentationRequestSchema } from '../src/validation.ts';
+import { PresentationRequestSchema } from '../src/validation/validation.ts';
 
 test('program with simple spec and signature credential', async (t) => {
   const Bytes32 = Bytes(32);
