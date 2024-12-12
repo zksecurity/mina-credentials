@@ -1,4 +1,4 @@
-import { Bytes, Field, UInt64 } from 'o1js';
+import { Bytes, Field, PublicKey, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -20,6 +20,10 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
+import {
+  PresentationRequestSchema,
+  StoredCredentialSchema,
+} from '../src/validation/validation.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const Bytes16 = Bytes(16);
@@ -61,15 +65,24 @@ let data = schema.from({
   id: Bytes16.random(),
   expiresAt: Date.UTC(2028, 7, 1),
 });
-let credential = Credential.sign(issuerKey, { owner, data });
+let credential = Credential.sign(issuerKey, {
+  owner,
+  data,
+});
 let credentialJson = Credential.toJSON(credential);
 
-console.log('✅ ISSUER: issued credential:', credentialJson);
+const resultSC = StoredCredentialSchema.safeParse(JSON.parse(credentialJson));
+assert(
+  resultSC.success,
+  'Simple credential JSON should be valid: ' +
+    (resultSC.success ? '' : JSON.stringify(resultSC.error.issues, null, 2))
+);
+
+console.log('✅ ISSUER: issued credential:', JSON.stringify(resultSC.data));
 
 // ---------------------------------------------
 // WALLET: deserialize, validate and store the credential
-
-let storedCredential = await Credential.fromJSON(credentialJson);
+let storedCredential = await Credential.fromJSON(JSON.stringify(resultSC.data));
 
 await Credential.validate(storedCredential);
 
@@ -147,16 +160,32 @@ let request = PresentationRequest.https(
 );
 let requestJson = PresentationRequest.toJSON(request);
 
+const resultPR = PresentationRequestSchema.safeParse(JSON.parse(requestJson));
+assert(
+  resultPR.success,
+  'Presentation Request JSON should be valid: ' +
+    (resultPR.success ? '' : JSON.stringify(resultPR.error.issues, null, 2))
+);
+
 console.log(
   '✅ VERIFIER: created presentation request:',
-  requestJson.slice(0, 500) + '...'
+  JSON.stringify(resultPR.data).slice(0, 500) + '...'
+);
+
+console.log(
+  '✅ VERIFIER: created presentation request FULLLLLLL:',
+  JSON.stringify(resultPR.data)
 );
 
 // ---------------------------------------------
 // WALLET: deserialize request and create presentation
 
 console.time('compile');
-let deserialized = PresentationRequest.fromJSON('https', requestJson);
+let deserialized = PresentationRequest.fromJSON(
+  'https',
+  JSON.stringify(resultPR.data)
+);
+
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
 
