@@ -1,4 +1,4 @@
-import { Bytes, Field, PublicKey, UInt64 } from 'o1js';
+import { Bytes, Field, UInt64 } from 'o1js';
 import {
   Spec,
   Operation,
@@ -170,11 +170,6 @@ assert(
 console.log(
   '✅ VERIFIER: created presentation request:',
   JSON.stringify(resultPR.data).slice(0, 500) + '...'
-);
-
-console.log(
-  '✅ VERIFIER: created presentation request FULLLLLLL:',
-  JSON.stringify(resultPR.data)
 );
 
 // ---------------------------------------------
