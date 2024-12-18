@@ -1,10 +1,190 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { Switch } from './components/ui/switch';
 import { Label } from './components/ui/label';
+import { Copy } from 'lucide-react';
+import { getPublicKey, issueCredential } from './interactions/issue-credential';
+
+// Helper function to generate random hex string
+const generateHexString = (length: number): string => {
+  return Array.from({ length }, () =>
+    Math.floor(Math.random() * 16).toString(16)
+  ).join('');
+};
+
+const CopyableCode: React.FC<{ value: string; label: string }> = ({
+  value,
+  label,
+}) => {
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(value);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="relative">
+        <pre className="bg-gray-100 p-4 rounded-lg font-mono text-sm break-all">
+          {value}
+        </pre>
+        <button
+          onClick={copyToClipboard}
+          className="absolute top-3 right-3 p-2 hover:bg-gray-200 rounded-md"
+          title="Copy to clipboard"
+        >
+          <Copy size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const IssueCredentialsForm: React.FC<{
+  useMockWallet: boolean;
+  onSuccess: (credential: string) => void;
+  onError: (error: string) => void;
+}> = ({ useMockWallet, onSuccess, onError }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    birthDate: '',
+    nationality: '',
+    id: generateHexString(32),
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0],
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const result = await issueCredential(useMockWallet, {
+        ...formData,
+        birthDate: new Date(formData.birthDate).getTime(),
+        expiresAt: new Date(formData.expiresAt).getTime(),
+      });
+      onSuccess(result);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'An error occurred');
+    }
+  };
+
+  const regenerateId = () => {
+    setFormData((prev) => ({ ...prev, id: generateHexString(32) }));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Name</Label>
+        <input
+          id="name"
+          type="text"
+          required
+          className="w-full p-2 border rounded-md"
+          value={formData.name}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, name: e.target.value }))
+          }
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="birthDate">Birth Date</Label>
+        <input
+          id="birthDate"
+          type="date"
+          required
+          className="w-full p-2 border rounded-md"
+          value={formData.birthDate}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, birthDate: e.target.value }))
+          }
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="nationality">Nationality</Label>
+        <input
+          id="nationality"
+          type="text"
+          required
+          className="w-full p-2 border rounded-md"
+          value={formData.nationality}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, nationality: e.target.value }))
+          }
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="id">ID</Label>
+        <div className="flex space-x-2">
+          <input
+            id="id"
+            type="text"
+            required
+            className="flex-1 p-2 border rounded-md font-mono text-sm"
+            value={formData.id}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, id: e.target.value }))
+            }
+          />
+          <button
+            type="button"
+            onClick={regenerateId}
+            className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
+          >
+            Generate
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="expiresAt">Expires At</Label>
+        <input
+          id="expiresAt"
+          type="date"
+          required
+          className="w-full p-2 border rounded-md"
+          value={formData.expiresAt}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, expiresAt: e.target.value }))
+          }
+        />
+      </div>
+
+      <button
+        type="submit"
+        className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+      >
+        Issue Credential
+      </button>
+    </form>
+  );
+};
 
 const App: React.FC = () => {
   const [useMockWallet, setUseMockWallet] = useState(true);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [issuedCredential, setIssuedCredential] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPublicKey = async () => {
+      try {
+        const key = await getPublicKey(useMockWallet);
+        setPublicKey(key);
+        setError(null);
+      } catch (error) {
+        setError(
+          error instanceof Error ? error.message : 'Failed to fetch public key'
+        );
+        setPublicKey(null);
+      }
+    };
+
+    fetchPublicKey();
+  }, [useMockWallet]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -38,13 +218,35 @@ const App: React.FC = () => {
           </TabsList>
 
           <TabsContent value="issue" className="mt-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h2 className="text-xl font-medium text-gray-900 mb-4">
-                Issue Credential
-              </h2>
-              <p className="text-gray-500">
-                Issue credential content will go here
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+                  {error}
+                </div>
+              )}
+
+              {publicKey && (
+                <CopyableCode value={publicKey} label="Your public key" />
+              )}
+
+              <IssueCredentialsForm
+                useMockWallet={useMockWallet}
+                onSuccess={(credential) => {
+                  setIssuedCredential(credential);
+                  setError(null);
+                }}
+                onError={(error) => {
+                  setError(error);
+                  setIssuedCredential(null);
+                }}
+              />
+
+              {issuedCredential && (
+                <CopyableCode
+                  value={issuedCredential}
+                  label="Issued Credential"
+                />
+              )}
             </div>
           </TabsContent>
 
