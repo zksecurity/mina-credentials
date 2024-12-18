@@ -6,6 +6,10 @@ import { Copy } from 'lucide-react';
 import { getPublicKey, issueCredential } from './interactions/issue-credential';
 import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
+import {
+  requestPresentation,
+  verifyPresentation,
+} from './interactions/request-presentation';
 
 // Helper function to generate random hex string
 const generateHexString = (length: number): string => {
@@ -244,6 +248,63 @@ const StoreCredentialTab: React.FC<{ useMockWallet: boolean }> = ({
   );
 };
 
+const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
+  useMockWallet,
+}) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleVerificationRequest = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const presentation = await requestPresentation(useMockWallet);
+
+      // If we got the presentation, proceed with verification
+      try {
+        await verifyPresentation(presentation);
+        toast({
+          title: 'Success',
+          description: 'Presentation verified successfully',
+          className: 'bg-green-50 border border-green-200 text-green-800',
+        });
+      } catch (error) {
+        setError(
+          error instanceof Error ? error.message : 'Verification failed'
+        );
+      }
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to request presentation'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={handleVerificationRequest}
+        disabled={isLoading}
+        className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isLoading ? 'Processing...' : 'Request Verification'}
+      </button>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [useMockWallet, setUseMockWallet] = useState(true);
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -390,14 +451,7 @@ const App: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="verify" className="mt-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm">
-                <h2 className="text-xl font-medium text-gray-900 mb-4">
-                  Verification Request
-                </h2>
-                <p className="text-gray-500">
-                  Verification request content will go here
-                </p>
-              </div>
+              <VerificationTab useMockWallet={useMockWallet} />
             </TabsContent>
           </Tabs>
         </main>

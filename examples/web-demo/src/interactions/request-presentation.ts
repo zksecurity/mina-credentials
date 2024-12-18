@@ -96,11 +96,8 @@ async function requestPresentation(useMockWallet: boolean) {
   return createMockPresentation(requestJson);
 }
 
-async function verifyPresentation(
-  requestJson: string,
-  presentationJson: string
-) {
-  request ??= PresentationRequest.fromJSON('https', requestJson);
+async function verifyPresentation(presentationJson: string) {
+  if (request === undefined) throw Error('Request not found');
   let presentation = Presentation.fromJSON(presentationJson);
 
   await Presentation.verify(request, presentation, {
