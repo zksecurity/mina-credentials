@@ -42,6 +42,7 @@ const CopyableCode: React.FC<{ value: string; label: string }> = ({
 const IssueCredentialsForm: React.FC<{
   useMockWallet: boolean;
   formData: {
+    ownerPublicKey: string;
     name: string;
     birthDate: string;
     nationality: string;
@@ -51,7 +52,7 @@ const IssueCredentialsForm: React.FC<{
   onFormDataChange: (formData: any) => void;
   onSubmit: () => void;
   onClear: () => void;
-}> = ({ useMockWallet, formData, onFormDataChange, onSubmit, onClear }) => {
+}> = ({ formData, onFormDataChange, onSubmit, onClear }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit();
@@ -63,6 +64,20 @@ const IssueCredentialsForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="ownerPublicKey">Owner public key</Label>
+        <input
+          id="ownerPublicKey"
+          type="text"
+          required
+          className="w-full p-2 border rounded-md font-mono text-sm"
+          value={formData.ownerPublicKey}
+          onChange={(e) =>
+            onFormDataChange({ ...formData, ownerPublicKey: e.target.value })
+          }
+        />
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="name">Name</Label>
         <input
@@ -170,8 +185,8 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [issuedCredential, setIssuedCredential] = useState<string | null>(null);
 
-  // Lifted form state
   const [formData, setFormData] = useState({
+    ownerPublicKey: '',
     name: '',
     birthDate: '',
     nationality: '',
@@ -183,6 +198,7 @@ const App: React.FC = () => {
 
   const handleClearForm = () => {
     setFormData({
+      ownerPublicKey: '',
       name: '',
       birthDate: '',
       nationality: '',
@@ -197,14 +213,21 @@ const App: React.FC = () => {
 
   const handleSubmitForm = async () => {
     try {
-      const result = await issueCredential(useMockWallet, {
-        ...formData,
-        birthDate: new Date(formData.birthDate).getTime(),
-        expiresAt: new Date(formData.expiresAt).getTime(),
-      });
+      const result = await issueCredential(
+        useMockWallet,
+        formData.ownerPublicKey,
+        {
+          name: formData.name,
+          birthDate: new Date(formData.birthDate).getTime(),
+          nationality: formData.nationality,
+          id: formData.id,
+          expiresAt: new Date(formData.expiresAt).getTime(),
+        }
+      );
       setIssuedCredential(result);
       setError(null);
     } catch (error) {
+      console.error(error);
       setError(error instanceof Error ? error.message : 'An error occurred');
       setIssuedCredential(null);
     }

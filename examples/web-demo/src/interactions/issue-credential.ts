@@ -1,38 +1,66 @@
+import { Bytes, PrivateKey, PublicKey } from 'o1js';
+import { Credential, Schema } from '../../../..';
+
 export { getPublicKey, issueCredential };
 
+let { privateKey, publicKey } = PrivateKey.randomKeypair();
+
 async function getPublicKey(useMockWallet: boolean): Promise<string> {
-  return 'not implemented';
+  if (useMockWallet) {
+    return publicKey.toBase58();
+  } else {
+    return 'NOT_IMPLEMENTED';
+  }
 }
 
 type DataInput = {
   name: string;
   birthDate: number;
   nationality: string;
-  /**
-   * Hex string of length 32
-   */
   id: string;
   expiresAt: number;
 };
 
+const Bytes16 = Bytes(16);
+
+const schema = Schema({
+  /**
+   * Nationality of the owner.
+   */
+  nationality: Schema.String,
+
+  /**
+   * Full name of the owner.
+   */
+  name: Schema.String,
+
+  /**
+   * Date of birth of the owner.
+   */
+  birthDate: Schema.Number,
+
+  /**
+   * Owner ID (16 bytes).
+   */
+  id: Bytes16,
+
+  /**
+   * Timestamp when the credential expires.
+   */
+  expiresAt: Schema.Number,
+});
+
 async function issueCredential(
   useMockWallet: boolean,
-  data: DataInput
+  ownerPublicKey: string,
+  dataInput: DataInput
 ): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  if (
-    !data.name ||
-    !data.birthDate ||
-    !data.nationality ||
-    !data.id ||
-    !data.expiresAt
-  ) {
-    throw new Error('All fields are required');
-  }
+  if (!useMockWallet) return 'NOT_IMPLEMENTED';
 
-  // Use btoa instead of Buffer for base64 encoding
-  const mockJWT =
-    'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.MKW_zZZhnlkz9bmV6einho4qGH_i7QaMW-xdzP3ExdXnZKhRJ3';
-  const encodedData = btoa(JSON.stringify(data));
-  return `cred.${mockJWT}.${encodedData}`;
+  let owner = PublicKey.fromBase58(ownerPublicKey);
+  let id = Bytes16.fromHex(dataInput.id);
+  let data = schema.from({ ...dataInput, id });
+
+  let credential = Credential.sign(privateKey, { owner, data });
+  return Credential.toJSON(credential);
 }
