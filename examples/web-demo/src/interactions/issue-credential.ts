@@ -1,7 +1,7 @@
 import { Bytes, PrivateKey, PublicKey } from 'o1js';
 import { Credential, Schema } from '../../../..';
 
-export { getPublicKey, issueCredential };
+export { getPublicKey, issueCredential, type Data };
 
 let { privateKey, publicKey } = PrivateKey.randomKeypair();
 
@@ -49,6 +49,8 @@ const schema = Schema({
    */
   expiresAt: Schema.Number,
 });
+
+type Data = ReturnType<typeof schema.from>;
 
 async function issueCredential(
   useMockWallet: boolean,

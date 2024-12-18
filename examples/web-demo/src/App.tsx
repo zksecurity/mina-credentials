@@ -4,6 +4,8 @@ import { Switch } from './components/ui/switch';
 import { Label } from './components/ui/label';
 import { Copy } from 'lucide-react';
 import { getPublicKey, issueCredential } from './interactions/issue-credential';
+import { useToast, ToastProvider } from './components/ui/toast';
+import { storeCredential } from './interactions/store-credential';
 
 // Helper function to generate random hex string
 const generateHexString = (length: number): string => {
@@ -179,6 +181,69 @@ const IssueCredentialsForm: React.FC<{
   );
 };
 
+const StoreCredentialTab: React.FC<{ useMockWallet: boolean }> = ({
+  useMockWallet,
+}) => {
+  const [credential, setCredential] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isStoring, setIsStoring] = useState(false);
+  const { toast } = useToast();
+
+  const handleStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsStoring(true);
+    setError(null);
+
+    try {
+      await storeCredential(useMockWallet, credential);
+      toast({
+        title: 'Success',
+        description: 'Credential stored successfully',
+        className: 'bg-green-50 border border-green-200 text-green-800',
+      });
+      setCredential(''); // Clear the form after success
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsStoring(false);
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleStore} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="credential">Paste your credential</Label>
+          <textarea
+            id="credential"
+            required
+            className="w-full p-3 border rounded-md font-mono text-sm min-h-[120px]"
+            value={credential}
+            onChange={(e) => setCredential(e.target.value)}
+            placeholder={
+              '{"version":"v0","witness":{"type":"simple","issuer":...'
+            }
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isStoring}
+          className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isStoring ? 'Storing...' : 'Store Credential'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [useMockWallet, setUseMockWallet] = useState(true);
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -251,98 +316,93 @@ const App: React.FC = () => {
   }, [useMockWallet]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-gray-900">
-              Private Credentials Demo
-            </h1>
+    <ToastProvider>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white border-b border-gray-200">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Private Credentials Demo
+              </h1>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="wallet-mode"
-                checked={useMockWallet}
-                onCheckedChange={setUseMockWallet}
-              />
-              <Label htmlFor="wallet-mode">
-                {useMockWallet ? 'Using mock wallet' : 'Using your wallet'}
-              </Label>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="wallet-mode"
+                  checked={useMockWallet}
+                  onCheckedChange={setUseMockWallet}
+                />
+                <Label htmlFor="wallet-mode">
+                  {useMockWallet ? 'Using mock wallet' : 'Using your wallet'}
+                </Label>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="issue" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="issue">Issue Credential</TabsTrigger>
-            <TabsTrigger value="store">Store Credential</TabsTrigger>
-            <TabsTrigger value="verify">Verification Request</TabsTrigger>
-          </TabsList>
+        <main className="container mx-auto px-4 py-8">
+          <Tabs defaultValue="issue" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="issue">Issue Credential</TabsTrigger>
+              <TabsTrigger value="store">Store Credential</TabsTrigger>
+              <TabsTrigger value="verify">Verification Request</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="issue" className="mt-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm divide-y divide-gray-200">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
-                  {error}
-                </div>
-              )}
-
-              <div className="pb-6">
-                {publicKey && (
-                  <CopyableCode value={publicKey} label="Your public key" />
-                )}
-              </div>
-
-              <div className="pt-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                  Enter credential data
-                </h2>
-                <IssueCredentialsForm
-                  useMockWallet={useMockWallet}
-                  formData={formData}
-                  onFormDataChange={setFormData}
-                  onSubmit={handleSubmitForm}
-                  onClear={handleClearForm}
-                />
-
-                {issuedCredential && (
-                  <div className="mt-6">
-                    <CopyableCode
-                      value={issuedCredential}
-                      label="Issued Credential"
-                    />
+            <TabsContent value="issue" className="mt-6">
+              <div className="bg-white p-6 rounded-lg shadow-sm divide-y divide-gray-200">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
+                    {error}
                   </div>
                 )}
+
+                <div className="pb-6">
+                  {publicKey && (
+                    <CopyableCode value={publicKey} label="Your public key" />
+                  )}
+                </div>
+
+                <div className="pt-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    Enter credential data
+                  </h2>
+                  <IssueCredentialsForm
+                    useMockWallet={useMockWallet}
+                    formData={formData}
+                    onFormDataChange={setFormData}
+                    onSubmit={handleSubmitForm}
+                    onClear={handleClearForm}
+                  />
+
+                  {issuedCredential && (
+                    <div className="mt-6">
+                      <CopyableCode
+                        value={issuedCredential}
+                        label="Issued Credential"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="store" className="mt-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h2 className="text-xl font-medium text-gray-900 mb-4">
-                Store Credential
-              </h2>
-              <p className="text-gray-500">
-                Store credential content will go here
-              </p>
-            </div>
-          </TabsContent>
+            <TabsContent value="store" className="mt-6">
+              <StoreCredentialTab useMockWallet={useMockWallet} />
+            </TabsContent>
 
-          <TabsContent value="verify" className="mt-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h2 className="text-xl font-medium text-gray-900 mb-4">
-                Verification Request
-              </h2>
-              <p className="text-gray-500">
-                Verification request content will go here
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+            <TabsContent value="verify" className="mt-6">
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <h2 className="text-xl font-medium text-gray-900 mb-4">
+                  Verification Request
+                </h2>
+                <p className="text-gray-500">
+                  Verification request content will go here
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+    </ToastProvider>
   );
 };
 

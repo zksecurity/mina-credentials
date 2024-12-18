@@ -1,5 +1,6 @@
 export { Spec, Claim, Constant } from './program-spec.ts';
 export { Operation } from './operation.ts';
+export type { StoredCredential } from './credential.ts';
 export { Credential } from './credential-index.ts';
 export { Presentation, PresentationRequest } from './presentation.ts';
 export { assert } from './util.ts';
