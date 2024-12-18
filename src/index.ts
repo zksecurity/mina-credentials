@@ -17,7 +17,3 @@ export {
   toValue,
 } from './credentials/dynamic-hash.ts';
 export { Schema } from './credentials/schema.ts';
-export {
-  StoredCredentialSchema,
-  PresentationRequestSchema,
-} from './validation.ts';

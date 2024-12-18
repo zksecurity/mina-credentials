@@ -81,6 +81,10 @@ const SerializedTypeSchema: z.ZodType<SerializedType> = z.lazy(() =>
     z.object({
       _type: z.string(),
       _isFactory: z.literal(true),
+      maxLength: z.number().optional(),
+      maxEntries: z.number().optional(),
+      innerType: z.lazy(() => SerializedTypeSchema).optional(),
+      knownShape: z.record(z.lazy(() => SerializedTypeSchema)).optional(),
     }),
   ])
 );
@@ -92,6 +96,13 @@ const NestedSerializedTypeSchema: z.ZodType<SerializedNestedType> = z.lazy(() =>
 const SerializedValueSchema = SerializedTypeSchema.and(
   z.object({ value: JsonSchema })
 );
+
+const SerializedDataValueSchema = z.union([
+  SerializedValueSchema,
+  z.string(),
+  z.number(),
+  z.boolean(),
+]);
 
 const SerializedFieldSchema = z
   .object({
@@ -124,8 +135,28 @@ const SerializedSignatureSchema = z
   .strict();
 
 // Node schemas
+type Node =
+  | { type: 'owner' }
+  | { type: 'issuer'; credentialKey: string }
+  | { type: 'constant'; data: z.infer<typeof SerializedValueSchema> }
+  | { type: 'root' }
+  | { type: 'property'; key: string; inner: Node }
+  | { type: 'record'; data: Record<string, Node> }
+  | { type: 'equals'; left: Node; right: Node }
+  | { type: 'equalsOneOf'; input: Node; options: Node[] | Node }
+  | { type: 'lessThan'; left: Node; right: Node }
+  | { type: 'lessThanEq'; left: Node; right: Node }
+  | { type: 'add'; left: Node; right: Node }
+  | { type: 'sub'; left: Node; right: Node }
+  | { type: 'mul'; left: Node; right: Node }
+  | { type: 'div'; left: Node; right: Node }
+  | { type: 'and'; inputs: Node[] }
+  | { type: 'or'; left: Node; right: Node }
+  | { type: 'not'; inner: Node }
+  | { type: 'hash'; inputs: Node[]; prefix?: string | null }
+  | { type: 'ifThenElse'; condition: Node; thenNode: Node; elseNode: Node };
 
-const NodeSchema: z.ZodType<any> = z.lazy(() =>
+const NodeSchema: z.ZodType<Node> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z
       .object({
@@ -402,7 +433,7 @@ const WitnessSchema = z.discriminatedUnion('type', [
 const SimpleCredentialSchema = z
   .object({
     owner: SerializedPublicKeySchema,
-    data: z.record(SerializedValueSchema),
+    data: z.record(SerializedDataValueSchema),
   })
   .strict();
 
@@ -432,6 +463,3 @@ const StoredCredentialSchema = z
     credential: z.union([SimpleCredentialSchema, StructCredentialSchema]),
   })
   .strict();
-
-// we could infer the type of StoredCredential from the validation
-// type StoredCredential = z.infer<typeof StoredCredentialSchema>;
