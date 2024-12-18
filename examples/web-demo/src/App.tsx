@@ -11,7 +11,6 @@ const generateHexString = (length: number): string => {
     Math.floor(Math.random() * 16).toString(16)
   ).join('');
 };
-
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,
   label,
@@ -24,7 +23,7 @@ const CopyableCode: React.FC<{ value: string; label: string }> = ({
     <div className="space-y-2">
       <Label>{label}</Label>
       <div className="relative">
-        <pre className="bg-gray-100 p-4 rounded-lg font-mono text-sm break-all">
+        <pre className="bg-gray-100 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap break-all">
           {value}
         </pre>
         <button
@@ -41,35 +40,24 @@ const CopyableCode: React.FC<{ value: string; label: string }> = ({
 
 const IssueCredentialsForm: React.FC<{
   useMockWallet: boolean;
-  onSuccess: (credential: string) => void;
-  onError: (error: string) => void;
-}> = ({ useMockWallet, onSuccess, onError }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    birthDate: '',
-    nationality: '',
-    id: generateHexString(32),
-    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0],
-  });
-
+  formData: {
+    name: string;
+    birthDate: string;
+    nationality: string;
+    id: string;
+    expiresAt: string;
+  };
+  onFormDataChange: (formData: any) => void;
+  onSubmit: () => void;
+  onClear: () => void;
+}> = ({ useMockWallet, formData, onFormDataChange, onSubmit, onClear }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const result = await issueCredential(useMockWallet, {
-        ...formData,
-        birthDate: new Date(formData.birthDate).getTime(),
-        expiresAt: new Date(formData.expiresAt).getTime(),
-      });
-      onSuccess(result);
-    } catch (error) {
-      onError(error instanceof Error ? error.message : 'An error occurred');
-    }
+    onSubmit();
   };
 
   const regenerateId = () => {
-    setFormData((prev) => ({ ...prev, id: generateHexString(32) }));
+    onFormDataChange({ ...formData, id: generateHexString(32) });
   };
 
   return (
@@ -83,7 +71,7 @@ const IssueCredentialsForm: React.FC<{
           className="w-full p-2 border rounded-md"
           value={formData.name}
           onChange={(e) =>
-            setFormData((prev) => ({ ...prev, name: e.target.value }))
+            onFormDataChange({ ...formData, name: e.target.value })
           }
         />
       </div>
@@ -97,7 +85,7 @@ const IssueCredentialsForm: React.FC<{
           className="w-full p-2 border rounded-md"
           value={formData.birthDate}
           onChange={(e) =>
-            setFormData((prev) => ({ ...prev, birthDate: e.target.value }))
+            onFormDataChange({ ...formData, birthDate: e.target.value })
           }
         />
       </div>
@@ -111,7 +99,7 @@ const IssueCredentialsForm: React.FC<{
           className="w-full p-2 border rounded-md"
           value={formData.nationality}
           onChange={(e) =>
-            setFormData((prev) => ({ ...prev, nationality: e.target.value }))
+            onFormDataChange({ ...formData, nationality: e.target.value })
           }
         />
       </div>
@@ -126,7 +114,7 @@ const IssueCredentialsForm: React.FC<{
             className="flex-1 p-2 border rounded-md font-mono text-sm"
             value={formData.id}
             onChange={(e) =>
-              setFormData((prev) => ({ ...prev, id: e.target.value }))
+              onFormDataChange({ ...formData, id: e.target.value })
             }
           />
           <button
@@ -148,17 +136,29 @@ const IssueCredentialsForm: React.FC<{
           className="w-full p-2 border rounded-md"
           value={formData.expiresAt}
           onChange={(e) =>
-            setFormData((prev) => ({ ...prev, expiresAt: e.target.value }))
+            onFormDataChange({ ...formData, expiresAt: e.target.value })
           }
         />
       </div>
 
-      <button
-        type="submit"
-        className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-      >
-        Issue Credential
-      </button>
+      <div className="flex space-x-4">
+        <button
+          type="submit"
+          className="flex-1 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Issue Credential
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            onClear();
+          }}
+          className="flex-1 p-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+        >
+          Clear Form
+        </button>
+      </div>
     </form>
   );
 };
@@ -168,6 +168,46 @@ const App: React.FC = () => {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [issuedCredential, setIssuedCredential] = useState<string | null>(null);
+
+  // Lifted form state
+  const [formData, setFormData] = useState({
+    name: '',
+    birthDate: '',
+    nationality: '',
+    id: generateHexString(32),
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0],
+  });
+
+  const handleClearForm = () => {
+    setFormData({
+      name: '',
+      birthDate: '',
+      nationality: '',
+      id: generateHexString(32),
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0],
+    });
+    setIssuedCredential(null);
+    setError(null);
+  };
+
+  const handleSubmitForm = async () => {
+    try {
+      const result = await issueCredential(useMockWallet, {
+        ...formData,
+        birthDate: new Date(formData.birthDate).getTime(),
+        expiresAt: new Date(formData.expiresAt).getTime(),
+      });
+      setIssuedCredential(result);
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
+      setIssuedCredential(null);
+    }
+  };
 
   useEffect(() => {
     const fetchPublicKey = async () => {
@@ -231,14 +271,10 @@ const App: React.FC = () => {
 
               <IssueCredentialsForm
                 useMockWallet={useMockWallet}
-                onSuccess={(credential) => {
-                  setIssuedCredential(credential);
-                  setError(null);
-                }}
-                onError={(error) => {
-                  setError(error);
-                  setIssuedCredential(null);
-                }}
+                formData={formData}
+                onFormDataChange={setFormData}
+                onSubmit={handleSubmitForm}
+                onClear={handleClearForm}
               />
 
               {issuedCredential && (

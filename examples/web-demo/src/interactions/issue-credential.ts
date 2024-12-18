@@ -19,10 +19,7 @@ async function issueCredential(
   useMockWallet: boolean,
   data: DataInput
 ): Promise<string> {
-  // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Validate the data
   if (
     !data.name ||
     !data.birthDate ||
@@ -33,9 +30,9 @@ async function issueCredential(
     throw new Error('All fields are required');
   }
 
-  // Return a mock credential
-  return (
-    'cred.eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.MKW_zZZhnlkz9bmV6einho4qGH_i7QaMW-xdzP3ExdXnZKhRJ3' +
-    JSON.stringify(data)
-  );
+  // Use btoa instead of Buffer for base64 encoding
+  const mockJWT =
+    'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.MKW_zZZhnlkz9bmV6einho4qGH_i7QaMW-xdzP3ExdXnZKhRJ3';
+  const encodedData = btoa(JSON.stringify(data));
+  return `cred.${mockJWT}.${encodedData}`;
 }
