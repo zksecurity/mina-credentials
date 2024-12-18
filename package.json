@@ -25,7 +25,7 @@
       "import": "./build/src/dynamic.js"
     },
     "./validation": {
-      "import": "./build/src/validation/index.js"
+      "import": "./build/src/validation.js"
     }
   },
   "scripts": {

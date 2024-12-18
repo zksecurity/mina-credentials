@@ -20,11 +20,7 @@ import {
   serializeNestedProvable,
   serializeProvableType,
 } from '../src/serialize-provable.ts';
-import {
-  ContextSchema,
-  InputSchema,
-  NodeSchema,
-} from '../src/validation/validation.ts';
+import { ContextSchema, InputSchema, NodeSchema } from '../src/validation.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {

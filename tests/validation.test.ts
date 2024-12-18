@@ -4,7 +4,7 @@ import { Credential } from '../src/credential-index.ts';
 import {
   StoredCredentialSchema,
   PresentationRequestSchema,
-} from '../src/validation/index.ts';
+} from '../src/validation.ts';
 import { Bytes, Field, PublicKey, Signature } from 'o1js';
 import { owner, issuerKey } from './test-utils.ts';
 import { Spec, Claim } from '../src/program-spec.ts';

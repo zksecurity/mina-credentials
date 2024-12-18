@@ -1,5 +1,5 @@
 import { record, z } from 'zod';
-import type { JSONValue } from '../types.ts';
+import type { JSONValue } from './types.ts';
 
 export {
   StoredCredentialSchema,

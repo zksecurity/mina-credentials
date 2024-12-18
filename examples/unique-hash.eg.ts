@@ -20,10 +20,6 @@ import {
   ownerKey,
   randomPublicKey,
 } from '../tests/test-utils.ts';
-import {
-  PresentationRequestSchema,
-  StoredCredentialSchema,
-} from '../src/validation/validation.ts';
 
 // example schema of the credential, which has enough entropy to be hashed into a unique id
 const Bytes16 = Bytes(16);
@@ -71,18 +67,11 @@ let credential = Credential.sign(issuerKey, {
 });
 let credentialJson = Credential.toJSON(credential);
 
-const resultSC = StoredCredentialSchema.safeParse(JSON.parse(credentialJson));
-assert(
-  resultSC.success,
-  'Simple credential JSON should be valid: ' +
-    (resultSC.success ? '' : JSON.stringify(resultSC.error.issues, null, 2))
-);
-
-console.log('✅ ISSUER: issued credential:', JSON.stringify(resultSC.data));
+console.log('✅ ISSUER: issued credential:', credentialJson);
 
 // ---------------------------------------------
 // WALLET: deserialize, validate and store the credential
-let storedCredential = await Credential.fromJSON(JSON.stringify(resultSC.data));
+let storedCredential = await Credential.fromJSON(credentialJson);
 
 await Credential.validate(storedCredential);
 
@@ -160,26 +149,16 @@ let request = PresentationRequest.https(
 );
 let requestJson = PresentationRequest.toJSON(request);
 
-const resultPR = PresentationRequestSchema.safeParse(JSON.parse(requestJson));
-assert(
-  resultPR.success,
-  'Presentation Request JSON should be valid: ' +
-    (resultPR.success ? '' : JSON.stringify(resultPR.error.issues, null, 2))
-);
-
 console.log(
   '✅ VERIFIER: created presentation request:',
-  JSON.stringify(resultPR.data).slice(0, 500) + '...'
+  requestJson.slice(0, 500) + '...'
 );
 
 // ---------------------------------------------
 // WALLET: deserialize request and create presentation
 
 console.time('compile');
-let deserialized = PresentationRequest.fromJSON(
-  'https',
-  JSON.stringify(resultPR.data)
-);
+let deserialized = PresentationRequest.fromJSON('https', requestJson);
 
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
