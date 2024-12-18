@@ -1,5 +1,8 @@
 import { record, z } from 'zod';
-import type { JSONValue } from './types.ts';
+import type {
+  SerializedNestedType,
+  SerializedType,
+} from './serialize-provable.ts';
 
 export {
   StoredCredentialSchema,
@@ -8,38 +11,6 @@ export {
   InputSchema,
   ContextSchema,
 };
-
-type SerializedFactory = {
-  _type: string;
-  _isFactory: true;
-} & Serialized;
-
-type Serialized = Record<string, any>;
-
-type O1jsTypeName =
-  | 'PublicKey'
-  | 'Signature'
-  | 'Field'
-  | 'Bool'
-  | 'UInt8'
-  | 'UInt32'
-  | 'UInt64'
-  | 'Undefined'
-  | 'VerificationKey';
-
-type SerializedType =
-  | { _type: O1jsTypeName }
-  | { _type: 'Struct'; properties: SerializedNestedType }
-  | { _type: 'Array'; inner: SerializedType; size: number }
-  | { _type: 'Constant'; value: JSONValue }
-  | { _type: 'Bytes'; size: number }
-  | { _type: 'Proof'; proof: Record<string, any> }
-  | { _type: 'String' }
-  | SerializedFactory;
-
-type SerializedNestedType =
-  | SerializedType
-  | { [key: string]: SerializedNestedType };
 
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
