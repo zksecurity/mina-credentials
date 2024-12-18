@@ -11,6 +11,7 @@ const generateHexString = (length: number): string => {
     Math.floor(Math.random() * 16).toString(16)
   ).join('');
 };
+
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,
   label,
@@ -21,7 +22,7 @@ const CopyableCode: React.FC<{ value: string; label: string }> = ({
 
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <h2 className="text-xl font-semibold text-gray-900">{label}</h2>
       <div className="relative">
         <pre className="bg-gray-100 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap break-all">
           {value}
@@ -258,31 +259,40 @@ const App: React.FC = () => {
           </TabsList>
 
           <TabsContent value="issue" className="mt-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm space-y-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm divide-y divide-gray-200">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
+                <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
                   {error}
                 </div>
               )}
 
-              {publicKey && (
-                <CopyableCode value={publicKey} label="Your public key" />
-              )}
+              <div className="pb-6">
+                {publicKey && (
+                  <CopyableCode value={publicKey} label="Your public key" />
+                )}
+              </div>
 
-              <IssueCredentialsForm
-                useMockWallet={useMockWallet}
-                formData={formData}
-                onFormDataChange={setFormData}
-                onSubmit={handleSubmitForm}
-                onClear={handleClearForm}
-              />
-
-              {issuedCredential && (
-                <CopyableCode
-                  value={issuedCredential}
-                  label="Issued Credential"
+              <div className="pt-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                  Enter credential data
+                </h2>
+                <IssueCredentialsForm
+                  useMockWallet={useMockWallet}
+                  formData={formData}
+                  onFormDataChange={setFormData}
+                  onSubmit={handleSubmitForm}
+                  onClear={handleClearForm}
                 />
-              )}
+
+                {issuedCredential && (
+                  <div className="mt-6">
+                    <CopyableCode
+                      value={issuedCredential}
+                      label="Issued Credential"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </TabsContent>
 
