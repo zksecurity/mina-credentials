@@ -61,16 +61,14 @@ let data = schema.from({
   id: Bytes16.random(),
   expiresAt: Date.UTC(2028, 7, 1),
 });
-let credential = Credential.sign(issuerKey, {
-  owner,
-  data,
-});
+let credential = Credential.sign(issuerKey, { owner, data });
 let credentialJson = Credential.toJSON(credential);
 
 console.log('✅ ISSUER: issued credential:', credentialJson);
 
 // ---------------------------------------------
 // WALLET: deserialize, validate and store the credential
+
 let storedCredential = await Credential.fromJSON(credentialJson);
 
 await Credential.validate(storedCredential);
@@ -159,7 +157,6 @@ console.log(
 
 console.time('compile');
 let deserialized = PresentationRequest.fromJSON('https', requestJson);
-
 let compiled = await Presentation.compile(deserialized);
 console.timeEnd('compile');
 
