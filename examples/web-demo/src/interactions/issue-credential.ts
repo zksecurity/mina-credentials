@@ -1,7 +1,7 @@
 import { Bytes, PrivateKey, PublicKey } from 'o1js';
 import { Credential, Schema } from '../../../..';
 
-export { getPublicKey, issueCredential, type Data };
+export { getPublicKey, issueCredential, type Data, privateKey };
 
 let { privateKey, publicKey } = PrivateKey.randomKeypair();
 

@@ -37,15 +37,13 @@ import {
 import { DynamicRecord } from './credentials/dynamic-record.ts';
 
 // external API
-export { PresentationRequest, Presentation };
+export { PresentationRequest, HttpsRequest, ZkAppRequest, Presentation };
 
 // internal
 export {
   type ZkAppInputContext,
   type HttpsInputContext,
   type WalletDerivedContext,
-  ZkAppRequest,
-  HttpsRequest,
   hashClaims,
 };
 
