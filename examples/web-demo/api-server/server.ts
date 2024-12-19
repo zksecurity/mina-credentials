@@ -1,9 +1,7 @@
 import http from 'http';
 import { URL } from 'url';
-import { ZodSchemas } from './schema.ts';
-import { Credential } from '../../../src/index.ts';
-import { getPrivateKey } from './keys.ts';
 import { requestLogin, verifyLogin } from './anonymous-login.ts';
+import { issueCredential } from './issue-credential.ts';
 
 // Helper to read request body
 async function readBody(req: http.IncomingMessage): Promise<string> {
@@ -44,11 +42,7 @@ const server = http.createServer(async (req, res) => {
       let body = await readBody(req);
       console.log('/issue-credential', body);
 
-      // validate
-      ZodSchemas.CredentialData.parse(JSON.parse(body));
-
-      let credential = Credential.sign(getPrivateKey(), body);
-      let credentialJson = Credential.toJSON(credential);
+      let credentialJson = issueCredential(body);
 
       res.writeHead(200);
       res.end(credentialJson);
@@ -58,6 +52,7 @@ const server = http.createServer(async (req, res) => {
     // Anonymous Login Request endpoint
     if (url.pathname === '/anonymous-login-request' && req.method === 'GET') {
       console.log('/anonymous-login-request');
+
       let request = await requestLogin();
 
       res.writeHead(200);
@@ -65,12 +60,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Verify Credential endpoint
+    // Verify Login endpoint
     if (url.pathname === '/anonymous-login' && req.method === 'POST') {
       let body = await readBody(req);
       console.log('/anonymous-login', body);
 
       await verifyLogin(body);
+
       res.writeHead(200);
       res.end('');
       return;

@@ -3,20 +3,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { Switch } from './components/ui/switch';
 import { Label } from './components/ui/label';
 import { Copy } from 'lucide-react';
-import { getPublicKey, issueCredential } from './interactions/issue-credential';
+import {
+  getPublicKey,
+  obtainCredential,
+} from './interactions/obtain-credential';
 import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
 import {
   requestPresentation,
   verifyPresentation,
-} from './interactions/request-presentation';
-
-// Helper function to generate random hex string
-const generateHexString = (length: number): string => {
-  return Array.from({ length }, () =>
-    Math.floor(Math.random() * 16).toString(16)
-  ).join('');
-};
+} from './interactions/anonymous-login';
 
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,
@@ -48,12 +44,10 @@ const CopyableCode: React.FC<{ value: string; label: string }> = ({
 const IssueCredentialsForm: React.FC<{
   useMockWallet: boolean;
   formData: {
-    ownerPublicKey: string;
+    owner: string;
     name: string;
     birthDate: string;
     nationality: string;
-    id: string;
-    expiresAt: string;
   };
   onFormDataChange: (formData: any) => void;
   onSubmit: () => void;
@@ -62,10 +56,6 @@ const IssueCredentialsForm: React.FC<{
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit();
-  };
-
-  const regenerateId = () => {
-    onFormDataChange({ ...formData, id: generateHexString(32) });
   };
 
   return (
@@ -77,7 +67,7 @@ const IssueCredentialsForm: React.FC<{
           type="text"
           required
           className="w-full p-2 border rounded-md font-mono text-sm"
-          value={formData.ownerPublicKey}
+          value={formData.owner}
           onChange={(e) =>
             onFormDataChange({ ...formData, ownerPublicKey: e.target.value })
           }
@@ -122,43 +112,6 @@ const IssueCredentialsForm: React.FC<{
           value={formData.nationality}
           onChange={(e) =>
             onFormDataChange({ ...formData, nationality: e.target.value })
-          }
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="id">ID</Label>
-        <div className="flex space-x-2">
-          <input
-            id="id"
-            type="text"
-            required
-            className="flex-1 p-2 border rounded-md font-mono text-sm"
-            value={formData.id}
-            onChange={(e) =>
-              onFormDataChange({ ...formData, id: e.target.value })
-            }
-          />
-          <button
-            type="button"
-            onClick={regenerateId}
-            className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
-          >
-            Generate
-          </button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="expiresAt">Expires At</Label>
-        <input
-          id="expiresAt"
-          type="date"
-          required
-          className="w-full p-2 border rounded-md"
-          value={formData.expiresAt}
-          onChange={(e) =>
-            onFormDataChange({ ...formData, expiresAt: e.target.value })
           }
         />
       </div>
@@ -302,31 +255,22 @@ const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
 
 const App: React.FC = () => {
   const [useMockWallet, setUseMockWallet] = useState(true);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [issuedCredential, setIssuedCredential] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    ownerPublicKey: '',
+    owner: '',
     name: '',
     birthDate: '',
     nationality: '',
-    id: generateHexString(32),
-    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0],
   });
 
   const handleClearForm = () => {
     setFormData({
-      ownerPublicKey: '',
+      owner: '',
       name: '',
       birthDate: '',
       nationality: '',
-      id: generateHexString(32),
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0],
     });
     setIssuedCredential(null);
     setError(null);
@@ -334,17 +278,11 @@ const App: React.FC = () => {
 
   const handleSubmitForm = async () => {
     try {
-      const result = await issueCredential(
-        useMockWallet,
-        formData.ownerPublicKey,
-        {
-          name: formData.name,
-          birthDate: new Date(formData.birthDate).getTime(),
-          nationality: formData.nationality,
-          id: formData.id,
-          expiresAt: new Date(formData.expiresAt).getTime(),
-        }
-      );
+      const result = await obtainCredential(formData.owner, {
+        name: formData.name,
+        birthDate: new Date(formData.birthDate).getTime(),
+        nationality: formData.nationality,
+      });
       setIssuedCredential(result);
       setError(null);
     } catch (error) {
@@ -358,14 +296,12 @@ const App: React.FC = () => {
     const fetchPublicKey = async () => {
       try {
         const key = await getPublicKey(useMockWallet);
-        setPublicKey(key);
-        setFormData({ ...formData, ownerPublicKey: key });
+        setFormData({ ...formData, owner: key });
         setError(null);
       } catch (error) {
         setError(
           error instanceof Error ? error.message : 'Failed to fetch public key'
         );
-        setPublicKey(null);
       }
     };
 

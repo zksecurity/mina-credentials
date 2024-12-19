@@ -1,4 +1,4 @@
-import { Presentation, PresentationRequest } from '../../../..';
+import { Presentation, PresentationRequest } from '../../../../build/src';
 import { getStoredCredentials } from './store-credential';
 import { privateKey } from './mock-wallet';
 import { API_URL } from '../config';
