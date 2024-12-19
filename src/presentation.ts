@@ -67,6 +67,7 @@ type PresentationRequest<
   claims: Claims<Inputs>;
   inputContext: InputContext;
   program?: unknown;
+  verificationKey?: VerificationKey;
 
   deriveContext(
     /**
@@ -82,6 +83,12 @@ type PresentationRequest<
      */
     derivedContext: WalletDerivedContext
   ): Field;
+};
+
+type CompiledRequest<Output, Inputs extends Record<string, Input>> = {
+  spec: Spec<Output, Inputs>;
+  program: Program<Output, Inputs>;
+  verificationKey: VerificationKey;
 };
 
 const PresentationRequest = {
@@ -101,6 +108,22 @@ const PresentationRequest = {
     });
   },
 
+  httpsFromCompiled<Output, Inputs extends Record<string, Input>>(
+    compiled: CompiledRequest<Output, Inputs>,
+    claims: Claims<Inputs>,
+    context: { action: string }
+  ) {
+    let serverNonce = Field.random();
+
+    return HttpsRequest({
+      spec: compiled.spec,
+      claims,
+      program: compiled.program,
+      verificationKey: compiled.verificationKey,
+      inputContext: { type: 'https', ...context, serverNonce },
+    });
+  },
+
   zkApp<Output, Inputs extends Record<string, Input>>(
     spec: Spec<Output, Inputs>,
     claims: Claims<Inputs>,
@@ -113,6 +136,22 @@ const PresentationRequest = {
       spec,
       claims,
       program: createProgram(spec),
+      inputContext: { type: 'zk-app', ...context, serverNonce },
+    });
+  },
+
+  zkAppFromCompiled<Output, Inputs extends Record<string, Input>>(
+    compiled: CompiledRequest<Output, Inputs>,
+    claims: Claims<Inputs>,
+    context: { action: Field }
+  ) {
+    let serverNonce = Field.random();
+
+    return ZkAppRequest({
+      spec: compiled.spec,
+      claims,
+      program: compiled.program,
+      verificationKey: compiled.verificationKey,
       inputContext: { type: 'zk-app', ...context, serverNonce },
     });
   },
@@ -183,6 +222,7 @@ type Presentation<
   version: 'v0';
   claims: Claims<Inputs>;
   outputClaim: Output;
+  serverNonce: Field;
   clientNonce: Field;
   proof: { proof: string; maxProofsVerified: number };
 };
@@ -200,6 +240,14 @@ type WalletContext<R> = R extends PresentationRequest<
   : never;
 
 const Presentation = {
+  async precompile<Output, Inputs extends Record<string, Input>>(
+    spec: Spec<Output, Inputs>
+  ): Promise<CompiledRequest<Output, Inputs>> {
+    let program = createProgram(spec);
+    let verificationKey = await program.compile();
+    return { spec, program, verificationKey };
+  },
+
   async compile<R extends PresentationRequest>(
     request: R
   ): Promise<
@@ -264,14 +312,14 @@ async function preparePresentation<R extends PresentationRequest>({
   context: Field;
   messageFields: string[];
   credentialsUsed: Record<string, StoredCredential>;
+  serverNonce: Field;
   clientNonce: Field;
-  compiledRequest: {
-    program: Program<Output<R>, Inputs<R>>;
-    verificationKey: VerificationKey;
-  };
+  compiledRequest: CompiledRequest<Output<R>, Inputs<R>>;
 }> {
   // compile the program
-  let { program, verificationKey } = await Presentation.compile(request);
+  let compiled = await Presentation.precompile(
+    request.spec as Spec<Output<R>, Inputs<R>>
+  );
 
   // generate random client nonce
   let clientNonce = Field.random();
@@ -279,7 +327,7 @@ async function preparePresentation<R extends PresentationRequest>({
   // derive context
   let context = request.deriveContext(request.inputContext, walletContext, {
     clientNonce,
-    vkHash: verificationKey.hash,
+    vkHash: compiled.verificationKey.hash,
     claims: hashClaims(request.claims),
   });
 
@@ -306,7 +354,7 @@ async function preparePresentation<R extends PresentationRequest>({
   });
 
   // prepare fields to sign
-  let credHashes = credentialsAndTypes.map(({ credentialType, credential }) =>
+  let credHashes = credentialsAndTypes.map(({ credential }) =>
     hashCredential(credential)
   );
   let issuers = credentialsAndTypes.map(({ credentialType, witness }) =>
@@ -325,8 +373,9 @@ async function preparePresentation<R extends PresentationRequest>({
     context,
     messageFields: fieldsToSign.map((f) => f.toString()),
     credentialsUsed,
+    serverNonce: request.inputContext.serverNonce,
     clientNonce,
-    compiledRequest: { program, verificationKey },
+    compiledRequest: compiled,
   };
 }
 
@@ -334,6 +383,7 @@ async function finalizePresentation<R extends PresentationRequest>(
   request: R,
   ownerSignature: Signature,
   preparedData: {
+    serverNonce: Field;
     clientNonce: Field;
     context: Field;
     credentialsUsed: Record<string, StoredCredential>;
@@ -353,6 +403,7 @@ async function finalizePresentation<R extends PresentationRequest>(
     version: 'v0',
     claims: request.claims as any,
     outputClaim: proof.publicOutput,
+    serverNonce: preparedData.serverNonce,
     clientNonce: preparedData.clientNonce,
     proof: { maxProofsVerified, proof: proofBase64 },
   };
@@ -425,6 +476,7 @@ function toJSON<Output, Inputs extends Record<string, Input>>(
     version: presentation.version,
     claims: serializeNestedProvableValue(presentation.claims),
     outputClaim: serializeNestedProvableValue(presentation.outputClaim),
+    serverNonce: serializeProvable(presentation.serverNonce),
     clientNonce: serializeProvable(presentation.clientNonce),
     proof: presentation.proof,
   };
@@ -442,6 +494,7 @@ function fromJSON(presentationJson: string): Presentation {
     version: presentation.version,
     claims: deserializeNestedProvableValue(presentation.claims),
     outputClaim: deserializeNestedProvableValue(presentation.outputClaim),
+    serverNonce: deserializeProvable(presentation.serverNonce),
     clientNonce: deserializeProvable(presentation.clientNonce),
     proof: presentation.proof,
   };
@@ -523,6 +576,7 @@ function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
   claims: Claims<Inputs>;
   inputContext: HttpsInputContext;
   program?: Program<Output, Inputs>;
+  verificationKey?: VerificationKey;
 }): HttpsRequest<Output, Inputs> {
   return {
     type: 'https',
@@ -560,6 +614,7 @@ function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
   claims: Claims<Inputs>;
   inputContext: ZkAppInputContext;
   program?: Program<Output, Inputs>;
+  verificationKey?: VerificationKey;
 }): ZkAppRequest<Output, Inputs> {
   return {
     type: 'zk-app',
