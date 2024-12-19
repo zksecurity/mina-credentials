@@ -11,8 +11,10 @@ import {
   PresentationRequest,
   Spec,
   HttpsRequest,
+  assert,
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
+import { HOSTNAME } from './config.ts';
 
 export { requestLogin, verifyLogin };
 
@@ -60,6 +62,12 @@ const spec = Spec(
   }
 );
 
+let compiledRequestPromise = Presentation.precompile(spec);
+
+compiledRequestPromise.then(() =>
+  console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
+);
+
 const acceptedNations = [
   'United States of America',
   'Canada',
@@ -73,12 +81,14 @@ const ACTION_ID = 'credentials-web-demo-server:anonymous-login';
 
 // TODO our API design is flawed, need to be able to prepare compiled request template without
 // already specifying the public inputs
+const openRequests = new Map<string, Request>();
 
-function createRequest(currentDate: UInt64) {
+async function createRequest(currentDate: UInt64) {
   let expectedIssuer = Credential.Simple.issuer(getPublicKey());
+  let compiled = await compiledRequestPromise;
 
-  return PresentationRequest.https(
-    spec,
+  let request = PresentationRequest.httpsFromCompiled(
+    compiled,
     {
       acceptedNations: acceptedNationHashes,
       expectedIssuer,
@@ -87,14 +97,16 @@ function createRequest(currentDate: UInt64) {
     },
     { action: ACTION_ID }
   );
+  openRequests.set(request.inputContext.serverNonce.toString(), request as any);
+  return request;
 }
-type Request = ReturnType<typeof createRequest>;
+
+type Request = Awaited<ReturnType<typeof createRequest>>;
 type Output = Request extends HttpsRequest<infer O> ? O : never;
 type Inputs = Request extends HttpsRequest<any, infer I> ? I : never;
 
 async function requestLogin() {
-  let publicKey = getPublicKey();
-  let request = createRequest(UInt64.from(Date.now()));
+  let request = await createRequest(UInt64.from(Date.now()));
   return PresentationRequest.toJSON(request);
 }
 
@@ -103,12 +115,17 @@ async function verifyLogin(presentationJson: string) {
     Output,
     Inputs
   >;
-  // TODO
-  let currentDate = presentation.claims.currentDate;
-  currentDate.assertGreaterThan(UInt64.from(Date.now() - 1000));
-  let request = createRequest(presentation.claims.currentDate);
+  let nonce = presentation.serverNonce.toString();
+  let request = openRequests.get(nonce);
+  if (!request) throw Error('Unknown presentation');
+  openRequests.delete(nonce);
 
-  await Presentation.verify(request, presentation, {
-    verifierIdentity: window.location.hostname,
+  // date must be within 5 minutes of the current date
+  let createdAt = Number(request.claims.currentDate);
+  assert(createdAt > Date.now() - 5 * 60 * 1000);
+
+  let outputClaim = await Presentation.verify(request, presentation, {
+    verifierIdentity: HOSTNAME,
   });
+  // TODO nullifier
 }

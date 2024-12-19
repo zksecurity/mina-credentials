@@ -3,15 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node --experimental-strip-types --no-warnings server.ts",
-    "check": "tsc"
+    "start": "node --watch --experimental-strip-types --no-warnings server.ts"
   },
   "devDependencies": {
-    "@types/node": "^22.5.5",
-    "typescript": "^5.7.2"
+    "@types/node": "^22.5.5"
   },
   "dependencies": {
-    "zod": "^3.24.1",
-    "o1js": "^2.2.0"
+    "dotenv": "^16.4.7",
+    "o1js": "^2.2.0",
+    "zod": "^3.24.1"
   }
 }
