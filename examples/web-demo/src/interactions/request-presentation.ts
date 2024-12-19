@@ -5,7 +5,11 @@ import { API_URL } from '../config';
 
 export { requestPresentation, verifyPresentation };
 
-async function requestPresentation(useMockWallet: boolean) {
+async function requestPresentation(
+  useMockWallet: boolean,
+  log: (msg: string) => void = () => {}
+) {
+  log('Sending login request...');
   let response = await fetch(`${API_URL}/anonymous-login-request`, {
     method: 'GET',
   });
@@ -17,11 +21,16 @@ async function requestPresentation(useMockWallet: boolean) {
 
   if (!useMockWallet) throw Error('Not implemented');
 
+  log('Awaiting proof from wallet...');
   let presentation = await createMockPresentation(requestJson);
   return presentation;
 }
 
-async function verifyPresentation(presentation: string) {
+async function verifyPresentation(
+  presentation: string,
+  log: (msg: string) => void = () => {}
+) {
+  log('Sending proof for verification...');
   let response2 = await fetch(`${API_URL}/anonymous-login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

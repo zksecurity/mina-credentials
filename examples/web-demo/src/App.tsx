@@ -251,40 +251,35 @@ const StoreCredentialTab: React.FC<{ useMockWallet: boolean }> = ({
 const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
   useMockWallet,
 }) => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleVerificationRequest = async () => {
-    setIsLoading(true);
+    setIsLoading('Loading...');
     setError(null);
 
     try {
-      const presentation = await requestPresentation(useMockWallet);
+      const presentation = await requestPresentation(
+        useMockWallet,
+        setIsLoading
+      );
 
       // If we got the presentation, proceed with verification
-      try {
-        await verifyPresentation(presentation);
-        toast({
-          title: 'Success',
-          description: 'Presentation verified successfully',
-          className: 'bg-green-50 border border-green-200 text-green-800',
-        });
-      } catch (error) {
-        console.error(error);
-        setError(
-          error instanceof Error ? error.message : 'Verification failed'
-        );
-      }
+      await verifyPresentation(presentation, setIsLoading);
+
+      toast({
+        title: 'Success',
+        description: 'Presentation verified successfully',
+        className: 'bg-green-50 border border-green-200 text-green-800',
+      });
     } catch (error) {
       console.error(error);
       setError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to request presentation'
+        error instanceof Error ? error.message : 'Anonymous login failed'
       );
     } finally {
-      setIsLoading(false);
+      setIsLoading(undefined);
     }
   };
 
@@ -298,10 +293,10 @@ const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
 
       <button
         onClick={handleVerificationRequest}
-        disabled={isLoading}
+        disabled={!!isLoading}
         className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ? 'Processing...' : 'Request Verification'}
+        {isLoading ?? 'Request Verification'}
       </button>
     </div>
   );
