@@ -56,7 +56,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Anonymous Login Request endpoint
-    if (url.pathname === '/anonymous-login-request' && req.method === 'POST') {
+    if (url.pathname === '/anonymous-login-request' && req.method === 'GET') {
       console.log('/anonymous-login-request');
       let request = await requestLogin();
 
