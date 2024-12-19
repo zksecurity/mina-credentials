@@ -11,6 +11,7 @@ import {
 import { NestedProvable } from './nested.ts';
 import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';
+import { deserializeNestedProvableValue } from './serialize-provable.ts';
 
 export { Signed, createSigned, type Witness, type Metadata };
 
@@ -58,9 +59,13 @@ const Signed = Object.assign(
 
 function createSigned<Data>(
   issuerPrivateKey: PrivateKey,
-  credential: Credential<Data>
+  credentialInput: Credential<Data> | string
 ): Signed<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
+  let credential =
+    typeof credentialInput === 'string'
+      ? deserializeNestedProvableValue(credentialInput)
+      : credentialInput;
   let credHash = hashCredential(credential);
   let issuerSignature = Signature.create(issuerPrivateKey, [credHash.hash]);
 
