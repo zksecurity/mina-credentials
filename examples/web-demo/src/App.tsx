@@ -270,14 +270,12 @@ const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
 
       toast({
         title: 'Success',
-        description: 'Presentation verified successfully',
+        description: 'Login successful',
         className: 'bg-green-50 border border-green-200 text-green-800',
       });
     } catch (error) {
       console.error(error);
-      setError(
-        error instanceof Error ? error.message : 'Anonymous login failed'
-      );
+      setError(error instanceof Error ? error.message : 'Login failed');
     } finally {
       setIsLoading(undefined);
     }
@@ -296,7 +294,7 @@ const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
         disabled={!!isLoading}
         className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isLoading ?? 'Request Verification'}
+        {isLoading ?? 'Anonymous Login'}
       </button>
     </div>
   );
@@ -403,7 +401,7 @@ const App: React.FC = () => {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="issue">Obtain Credential</TabsTrigger>
               <TabsTrigger value="store">Store Credential</TabsTrigger>
-              <TabsTrigger value="verify">Verification Request</TabsTrigger>
+              <TabsTrigger value="verify">Anonymous Login</TabsTrigger>
             </TabsList>
 
             <TabsContent value="issue" className="mt-6">
