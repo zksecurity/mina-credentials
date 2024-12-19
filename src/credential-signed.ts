@@ -64,7 +64,7 @@ function createSigned<Data>(
   let issuer = issuerPrivateKey.toPublicKey();
   let credential =
     typeof credentialInput === 'string'
-      ? deserializeNestedProvableValue(credentialInput)
+      ? deserializeNestedProvableValue(JSON.parse(credentialInput))
       : credentialInput;
   let credHash = hashCredential(credential);
   let issuerSignature = Signature.create(issuerPrivateKey, [credHash.hash]);
