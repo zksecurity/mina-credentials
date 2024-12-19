@@ -12,8 +12,9 @@ import {
   Spec,
   HttpsRequest,
 } from '../../../..';
-import { getPublicKey, privateKey } from './issue-credential';
+import { getPublicKey } from './issue-credential';
 import { getStoredCredentials } from './store-credential';
+import { privateKey } from './mock-wallet';
 
 export { requestPresentation, verifyPresentation };
 
@@ -66,7 +67,12 @@ const spec = Spec(
   }
 );
 
-const acceptedNations = ['United States of America', 'Canada', 'Mexico'];
+const acceptedNations = [
+  'United States of America',
+  'Canada',
+  'Mexico',
+  'Austria',
+];
 
 let request: HttpsRequest | undefined;
 

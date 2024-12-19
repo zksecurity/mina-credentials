@@ -271,11 +271,13 @@ const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
           className: 'bg-green-50 border border-green-200 text-green-800',
         });
       } catch (error) {
+        console.error(error);
         setError(
           error instanceof Error ? error.message : 'Verification failed'
         );
       }
     } catch (error) {
+      console.error(error);
       setError(
         error instanceof Error
           ? error.message
