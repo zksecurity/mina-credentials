@@ -71,7 +71,7 @@ const IssueCredentialsForm: React.FC<{
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="ownerPublicKey">Owner public key</Label>
+        <Label htmlFor="ownerPublicKey">Your Public Key</Label>
         <input
           id="ownerPublicKey"
           type="text"
@@ -168,7 +168,7 @@ const IssueCredentialsForm: React.FC<{
           type="submit"
           className="flex-1 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Issue Credential
+          Obtain Credential
         </button>
         <button
           type="button"
@@ -366,6 +366,7 @@ const App: React.FC = () => {
       try {
         const key = await getPublicKey(useMockWallet);
         setPublicKey(key);
+        setFormData({ ...formData, ownerPublicKey: key });
         setError(null);
       } catch (error) {
         setError(
@@ -405,46 +406,38 @@ const App: React.FC = () => {
         <main className="container mx-auto px-4 py-8">
           <Tabs defaultValue="issue" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="issue">Issue Credential</TabsTrigger>
+              <TabsTrigger value="issue">Obtain Credential</TabsTrigger>
               <TabsTrigger value="store">Store Credential</TabsTrigger>
               <TabsTrigger value="verify">Verification Request</TabsTrigger>
             </TabsList>
 
             <TabsContent value="issue" className="mt-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm divide-y divide-gray-200">
+              <div className="bg-white p-6 rounded-lg shadow-sm divide-gray-200">
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
                     {error}
                   </div>
                 )}
 
-                <div className="pb-6">
-                  {publicKey && (
-                    <CopyableCode value={publicKey} label="Your public key" />
-                  )}
-                </div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                  Enter credential data
+                </h2>
+                <IssueCredentialsForm
+                  useMockWallet={useMockWallet}
+                  formData={formData}
+                  onFormDataChange={setFormData}
+                  onSubmit={handleSubmitForm}
+                  onClear={handleClearForm}
+                />
 
-                <div className="pt-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                    Enter credential data
-                  </h2>
-                  <IssueCredentialsForm
-                    useMockWallet={useMockWallet}
-                    formData={formData}
-                    onFormDataChange={setFormData}
-                    onSubmit={handleSubmitForm}
-                    onClear={handleClearForm}
-                  />
-
-                  {issuedCredential && (
-                    <div className="mt-6">
-                      <CopyableCode
-                        value={issuedCredential}
-                        label="Issued Credential"
-                      />
-                    </div>
-                  )}
-                </div>
+                {issuedCredential && (
+                  <div className="mt-6">
+                    <CopyableCode
+                      value={issuedCredential}
+                      label="Issued Credential"
+                    />
+                  </div>
+                )}
               </div>
             </TabsContent>
 

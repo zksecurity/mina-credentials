@@ -46,17 +46,16 @@ const server = http.createServer(async (req, res) => {
     // Issue Credential endpoint
     if (url.pathname === '/issue-credential' && req.method === 'POST') {
       let body = await readBody(req);
+      console.log('/issue-credential', body);
 
       // validate
       ZodSchemas.CredentialData.parse(JSON.parse(body));
-      console.log('CredentialData', body);
 
       let credential = Credential.sign(privateKey, body);
       let credentialJson = Credential.toJSON(credential);
 
       res.writeHead(200);
       res.end(credentialJson);
-      console.log('Issue Credential', credentialJson);
       return;
     }
 
