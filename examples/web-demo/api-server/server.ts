@@ -2,12 +2,7 @@ import http from 'http';
 import { URL } from 'url';
 import { ZodSchemas } from './schema.ts';
 import { Credential } from '../../../src/index.ts';
-import { PrivateKey } from 'o1js';
-
-// private key
-const privateKey = PrivateKey.fromBase58(
-  'EKDsgej3YrJriYnibHcEsJtYmoRsp2mzD2ta98EkvdNNLeXsrNB9'
-);
+import { getPrivateKey } from './keys.ts';
 
 // Helper to read request body
 async function readBody(req: http.IncomingMessage): Promise<string> {
@@ -51,11 +46,26 @@ const server = http.createServer(async (req, res) => {
       // validate
       ZodSchemas.CredentialData.parse(JSON.parse(body));
 
-      let credential = Credential.sign(privateKey, body);
+      let credential = Credential.sign(getPrivateKey(), body);
       let credentialJson = Credential.toJSON(credential);
 
       res.writeHead(200);
       res.end(credentialJson);
+      return;
+    }
+
+    // Anonymous Login Request endpoint
+    if (url.pathname === '/anonymous-login-request' && req.method === 'POST') {
+      let body = await readBody(req);
+      let { presentation } = JSON.parse(body);
+
+      // TODO: Add your actual verification logic here
+      // For now, just check if it's a valid JSON
+      JSON.parse(presentation);
+
+      res.writeHead(200);
+      res.end(JSON.stringify({ status: 'ok' }));
+      console.log('Verify Credential', presentation);
       return;
     }
 
