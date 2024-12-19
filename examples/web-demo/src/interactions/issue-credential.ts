@@ -1,16 +1,13 @@
-import { Bytes, PrivateKey, PublicKey } from 'o1js';
+import { Bytes, PublicKey } from 'o1js';
 import { Credential, Schema } from '../../../..';
+import { privateKey, publicKey } from './mock-wallet';
 
-export { getPublicKey, issueCredential, type Data, privateKey };
-
-let { privateKey, publicKey } = PrivateKey.randomKeypair();
+export { getPublicKey, issueCredential, type Data };
 
 async function getPublicKey(useMockWallet: boolean): Promise<string> {
-  if (useMockWallet) {
-    return publicKey.toBase58();
-  } else {
-    return 'NOT_IMPLEMENTED';
-  }
+  if (useMockWallet) return publicKey.toBase58();
+
+  return 'NOT_IMPLEMENTED';
 }
 
 type DataInput = {
