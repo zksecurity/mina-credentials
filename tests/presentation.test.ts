@@ -207,11 +207,17 @@ test('presentation with context binding', async (t) => {
       verifierIdentity: zkAppAddress,
     });
 
+    const differentContext = JSON.stringify({
+      address: 'B62qrPWhPDKMDKKmZYkPkRVT9tFuqGiHmBxM8AHFSTnS7iCK5X5kXmg',
+      tokenId: '1',
+      network: 'mainnet',
+    });
+
     // doesn't verify against different context
     await assert.rejects(
       () =>
         Presentation.verify(request, presentation, {
-          verifierIdentity: randomPublicKey(),
+          verifierIdentity: differentContext,
         }),
       /Invalid proof/,
       'Should throw an error for invalid context'

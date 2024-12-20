@@ -509,6 +509,11 @@ type HttpsInputContext = BaseInputContext & {
   action: string;
 };
 
+type ZkAppInputContext = BaseInputContext & {
+  type: 'zk-app';
+  action: Field;
+};
+
 type HttpsRequest<
   Output = any,
   Inputs extends Record<string, Input> = Record<string, Input>
@@ -517,6 +522,17 @@ type HttpsRequest<
   Output,
   Inputs,
   HttpsInputContext,
+  { verifierIdentity: string }
+>;
+
+type ZkAppRequest<
+  Output = any,
+  Inputs extends Record<string, Input> = Record<string, Input>
+> = PresentationRequest<
+  'zk-app',
+  Output,
+  Inputs,
+  ZkAppInputContext,
   { verifierIdentity: string }
 >;
 
@@ -540,22 +556,6 @@ function HttpsRequest<Output, Inputs extends Record<string, Input>>(request: {
     },
   };
 }
-
-type ZkAppInputContext = BaseInputContext & {
-  type: 'zk-app';
-  action: Field;
-};
-
-type ZkAppRequest<
-  Output = any,
-  Inputs extends Record<string, Input> = Record<string, Input>
-> = PresentationRequest<
-  'zk-app',
-  Output,
-  Inputs,
-  ZkAppInputContext,
-  { verifierIdentity: PublicKey }
->;
 
 function ZkAppRequest<Output, Inputs extends Record<string, Input>>(request: {
   spec: Spec<Output, Inputs>;

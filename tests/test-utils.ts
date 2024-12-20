@@ -17,7 +17,14 @@ export {
 
 const { publicKey: owner, privateKey: ownerKey } = PrivateKey.randomKeypair();
 const { publicKey: issuer, privateKey: issuerKey } = PrivateKey.randomKeypair();
-const zkAppAddress = randomPublicKey();
+
+export const zkAppContext = {
+  address: 'B62qiV4KJMMfAuUCs1b8T3RMRJrLk3paXcEPkLz9jbga1zKP782NmBA',
+  tokenId: '1',
+  network: 'mainnet',
+};
+
+const zkAppAddress = JSON.stringify(zkAppContext);
 
 function randomPublicKey() {
   return PrivateKey.random().toPublicKey();
