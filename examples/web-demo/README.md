@@ -12,3 +12,22 @@ Features:
 Note: The only wallet compatible with Private Credentials is currently [an unreleased version of Pallad](https://github.com/palladians/pallad/pull/231), which is confirmed to work well with this example app, but still in review.
 
 The server is a plain Node.js server located in `/api-server`. The web app is contained in `/src`.
+
+## Try it out locally
+
+```bash
+# build `mina-credentials`, from repo root
+npm i && npm run build 
+
+# start the vite dev server
+cd examples/web-demo
+npm run dev 
+```
+
+in another terminal:
+
+```bash
+# start api server
+cd examples/web-demo/api-server
+npm start
+```
