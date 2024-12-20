@@ -18,7 +18,7 @@ function issueCredential(userString: string) {
   let id = Bytes16.random();
 
   // expires in 1 year
-  let expiresAt = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+  let expiresAt = Date.now() + 365 * 24 * 3600 * 1000;
 
   let credential = {
     owner: PublicKey.fromBase58(owner),

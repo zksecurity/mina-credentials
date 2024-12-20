@@ -63,7 +63,7 @@ const server = http.createServer(async (req, res) => {
     // Verify Login endpoint
     if (url.pathname === '/anonymous-login' && req.method === 'POST') {
       let body = await readBody(req);
-      console.log('/anonymous-login', body);
+      console.log('/anonymous-login', body.slice(0, 1000));
 
       await verifyLogin(body);
 

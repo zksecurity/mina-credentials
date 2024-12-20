@@ -1,11 +1,9 @@
-import { Bytes, Field, PublicKey, UInt64 } from 'o1js';
+import { Bytes, Field, UInt64 } from 'o1js';
 import {
   Claim,
   Credential,
-  DynamicArray,
   DynamicRecord,
   DynamicString,
-  hashDynamic,
   Operation,
   Presentation,
   PresentationRequest,
@@ -14,87 +12,59 @@ import {
   assert,
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
-import { HOSTNAME } from './config.ts';
+import { HOSTNAME, SERVER_ID } from './config.ts';
 
 export { requestLogin, verifyLogin };
 
+const ACTION_ID = `${SERVER_ID}:anonymous-login`;
+
 const String = DynamicString({ maxLength: 50 });
 
-const Subschema = DynamicRecord(
+// use a `DynamicRecord` to allow more fields in the credential than we explicitly list
+const Schema = DynamicRecord(
   { nationality: String, expiresAt: UInt64, id: Bytes(16) },
   { maxEntries: 20 }
 );
 
-const FieldArray = DynamicArray(Field, { maxLength: 100 });
-
 const authenticationSpec = Spec(
   {
-    credential: Credential.Simple(Subschema),
-    acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
+    credential: Credential.Simple(Schema),
     expectedIssuer: Claim(Field),
-    currentDate: Claim(UInt64),
-    actionId: Claim(String),
+    createdAt: Claim(UInt64),
   },
-  ({ credential, acceptedNations, expectedIssuer, currentDate, actionId }) => {
+  ({ credential, expectedIssuer, createdAt }) => {
     // extract properties from the credential
-    let nationality = Operation.property(credential, 'nationality');
     let issuer = Operation.issuer(credential);
     let expiresAt = Operation.property(credential, 'expiresAt');
 
     // we assert that:
-    // 1. the owner has one of the accepted nationalities
-    // 2. the credential issuer matches the expected (public) input
-    // 3. the credential is not expired (by comparing with the current date)
-    let assert = Operation.and(
-      Operation.equalsOneOf(Operation.hash(nationality), acceptedNations),
-      Operation.equals(issuer, expectedIssuer),
-      Operation.lessThanEq(currentDate, expiresAt)
-    );
-
-    // we expose a unique hash of the credential data, to be used as nullifier
-    // note: since the credential contains a 16 byte = 128 bit random ID, it has enough
-    // entropy such that exposing this hash will not reveal the credential data
-    let outputClaim = Operation.record({
-      nullifier: Operation.hash(credential, actionId),
-    });
-
-    return { assert, outputClaim };
+    // - the credential issuer matches the expected (public) input, i.e. this server
+    // - the credential is not expired (by comparing with the current date)
+    return {
+      assert: Operation.and(
+        Operation.equals(issuer, expectedIssuer),
+        Operation.lessThanEq(createdAt, expiresAt)
+      ),
+    };
   }
 );
 
+// set off compiling of the request -- this promise is needed when verifying
 let compiledRequestPromise = Presentation.precompile(authenticationSpec);
 
 compiledRequestPromise.then(() =>
   console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
 );
 
-const acceptedNations = [
-  'United States of America',
-  'Canada',
-  'Mexico',
-  'Austria',
-];
-const acceptedNationHashes = FieldArray.from(
-  acceptedNations.map((s) => hashDynamic(s))
-);
-const ACTION_ID = 'credentials-web-demo-server:anonymous-login';
-
-// TODO our API design is flawed, need to be able to prepare compiled request template without
-// already specifying the public inputs
 const openRequests = new Map<string, Request>();
 
-async function createRequest(currentDate: UInt64) {
+async function createRequest(createdAt: UInt64) {
   let expectedIssuer = Credential.Simple.issuer(getPublicKey());
   let compiled = await compiledRequestPromise;
 
   let request = PresentationRequest.httpsFromCompiled(
     compiled,
-    {
-      acceptedNations: acceptedNationHashes,
-      expectedIssuer,
-      currentDate,
-      actionId: String.from(ACTION_ID),
-    },
+    { expectedIssuer, createdAt },
     { action: ACTION_ID }
   );
   openRequests.set(request.inputContext.serverNonce.toString(), request as any);
@@ -111,21 +81,19 @@ async function requestLogin() {
 }
 
 async function verifyLogin(presentationJson: string) {
-  let presentation = Presentation.fromJSON(presentationJson) as Presentation<
-    Output,
-    Inputs
-  >;
+  let presentation = Presentation.fromJSON(presentationJson);
   let nonce = presentation.serverNonce.toString();
   let request = openRequests.get(nonce);
   if (!request) throw Error('Unknown presentation');
-  openRequests.delete(nonce);
 
   // date must be within 5 minutes of the current date
-  let createdAt = Number(request.claims.currentDate);
+  let createdAt = Number(request.claims.createdAt);
   assert(createdAt > Date.now() - 5 * 60 * 1000);
 
-  let outputClaim = await Presentation.verify(request, presentation, {
+  // verify the presentation
+  await Presentation.verify(request, presentation, {
     verifierIdentity: HOSTNAME,
   });
-  // TODO nullifier
+
+  openRequests.delete(nonce);
 }
