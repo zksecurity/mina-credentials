@@ -1,14 +1,26 @@
 import { publicKey } from './mock-wallet';
 import { API_URL } from '../config';
-import { createStore } from '@mina-js/connect';
 
 export { getProvider, getPublicKey, obtainCredential };
 
-const store = createStore();
-const providers = store.getProviders();
-const provider = providers.find((p) => p.info.slug === 'pallad')?.provider;
+// const store = createStore();
+// const providers = store.getProviders();
+// const provider = providers.find((p) => p.info.slug === 'pallad')?.provider;
 
-function getProvider() {
+const providers: any[] = [];
+window.addEventListener('mina:announceProvider', (event: any) => {
+  providers.push(event.detail);
+});
+window.dispatchEvent(new Event('mina:requestProvider'));
+const { provider } = providers.find(
+  (provider) => provider.info.slug === 'pallad'
+);
+
+type Provider = {
+  request<M>(params: { method: M; params?: any; context?: any }): Promise<any>;
+};
+
+function getProvider(): Provider {
   if (!provider) throw Error('Provider not found');
   return provider;
 }

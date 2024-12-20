@@ -55,7 +55,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "o1js": "^2.2.0"
+    "o1js": "2.2.0"
   },
   "engines": {
     "node": ">=22.0"
