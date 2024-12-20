@@ -1,99 +1,117 @@
-import { Bytes, Field, UInt64 } from 'o1js';
+import { Bool, Bytes, Field, UInt64 } from 'o1js';
 import {
   Claim,
+  Constant,
   Credential,
-  DynamicArray,
   DynamicRecord,
   DynamicString,
-  hashDynamic,
   Operation,
   Presentation,
   PresentationRequest,
   Spec,
-  HttpsRequest,
   assert,
+  hashDynamic,
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
 import { HOSTNAME, SERVER_ID } from './config.ts';
+import { Nullifier } from './nullifier-store.ts';
+import { z } from 'zod';
+import { resolve } from 'path';
 
-export { requestLogin, verifyLogin };
+export { requestVote, verifyVote };
+
+const ACTION_ID = `${SERVER_ID}:poll:0`;
 
 const String = DynamicString({ maxLength: 50 });
 
-const Subschema = DynamicRecord(
-  { nationality: String, expiresAt: UInt64, id: Bytes(16) },
+// use a `DynamicRecord` to allow more fields in the credential than we explicitly list
+const Schema = DynamicRecord(
+  {
+    nationality: String,
+    birthDate: UInt64,
+    expiresAt: UInt64,
+    id: Bytes(16),
+  },
   { maxEntries: 20 }
 );
 
-const FieldArray = DynamicArray(Field, { maxLength: 100 });
-
-const authenticationSpec = Spec(
+const votingSpec = Spec(
   {
-    credential: Credential.Simple(Subschema),
-    acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
+    credential: Credential.Simple(Schema),
     expectedIssuer: Claim(Field),
-    currentDate: Claim(UInt64),
-    actionId: Claim(String),
+    createdAt: Claim(UInt64),
+    inFavor: Claim(Bool),
+
+    // TODO we should have `Operation.action()` to get the `action` that was used for `context`
+    actionId: Claim(Field),
+
+    unitedStates: Constant(String, String.from('United States of America')),
+    eighteenYears: Constant(
+      UInt64,
+      UInt64.from(18 * 365 * 24 * 60 * 60 * 1000)
+    ),
   },
-  ({ credential, acceptedNations, expectedIssuer, currentDate, actionId }) => {
+  ({
+    credential,
+    expectedIssuer,
+    createdAt,
+    actionId,
+    unitedStates,
+    eighteenYears,
+  }) => {
     // extract properties from the credential
-    let nationality = Operation.property(credential, 'nationality');
     let issuer = Operation.issuer(credential);
     let expiresAt = Operation.property(credential, 'expiresAt');
+    let nationality = Operation.property(credential, 'nationality');
+    let birthDate = Operation.property(credential, 'birthDate');
 
-    // we assert that:
-    // 1. the owner has one of the accepted nationalities
-    // 2. the credential issuer matches the expected (public) input
-    // 3. the credential is not expired (by comparing with the current date)
-    let assert = Operation.and(
-      Operation.equalsOneOf(Operation.hash(nationality), acceptedNations),
-      Operation.equals(issuer, expectedIssuer),
-      Operation.lessThanEq(currentDate, expiresAt)
-    );
+    return {
+      assert: Operation.and(
+        // - the credential issuer matches the expected (public) input, i.e. this server
+        Operation.equals(issuer, expectedIssuer),
 
-    // we expose a unique hash of the credential data, to be used as nullifier
-    // note: since the credential contains a 16 byte = 128 bit random ID, it has enough
-    // entropy such that exposing this hash will not reveal the credential data
-    let outputClaim = Operation.record({
-      nullifier: Operation.hash(credential, actionId),
-    });
+        // - the credential is not expired (by comparing with the current date)
+        Operation.lessThanEq(createdAt, expiresAt),
 
-    return { assert, outputClaim };
+        // - the nationality is not USA
+        Operation.not(Operation.equals(nationality, unitedStates)),
+
+        // - the user is older than 18 years (by comparing with the current date)
+        Operation.lessThan(Operation.add(birthDate, eighteenYears), createdAt)
+      ),
+
+      // return a nullifier
+      // this won't reveal the data because our Schema with the `id` field has enough entropy
+      outputClaim: Operation.record({
+        nullifier: Operation.hash(credential, actionId),
+      }),
+    };
   }
 );
 
-let compiledRequestPromise = Presentation.precompile(authenticationSpec);
+// set off compiling of the request -- this promise is needed when verifying
+// TODO this is ill-typed and brittle, implement async queue
+let compiledRequestPromise = new Promise<any>((resolve) => {
+  setTimeout(() => resolve(Presentation.precompile(votingSpec)), 5000);
+});
 
 compiledRequestPromise.then(() =>
   console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
 );
 
-const acceptedNations = [
-  'United States of America',
-  'Canada',
-  'Mexico',
-  'Austria',
-];
-const acceptedNationHashes = FieldArray.from(
-  acceptedNations.map((s) => hashDynamic(s))
-);
-const ACTION_ID = `${SERVER_ID}:anonymous-login`;
-
-// TODO our API design is flawed, need to be able to prepare compiled request template without
-// already specifying the public inputs
 const openRequests = new Map<string, Request>();
 
-async function createRequest(currentDate: UInt64) {
+async function createRequest(inFavor: boolean, createdAt: number) {
   let expectedIssuer = Credential.Simple.issuer(getPublicKey());
   let compiled = await compiledRequestPromise;
 
   let request = PresentationRequest.httpsFromCompiled(
     compiled,
     {
-      acceptedNations: acceptedNationHashes,
       expectedIssuer,
-      currentDate,
-      actionId: String.from(ACTION_ID),
+      createdAt: UInt64.from(createdAt),
+      inFavor: Bool(inFavor),
+      actionId: hashDynamic(ACTION_ID),
     },
     { action: ACTION_ID }
   );
@@ -102,30 +120,34 @@ async function createRequest(currentDate: UInt64) {
 }
 
 type Request = Awaited<ReturnType<typeof createRequest>>;
-type Output = Request extends HttpsRequest<infer O> ? O : never;
-type Inputs = Request extends HttpsRequest<any, infer I> ? I : never;
 
-async function requestLogin() {
-  let request = await createRequest(UInt64.from(Date.now()));
+let Vote = z.union([z.literal('btc'), z.literal('eth')]);
+
+async function requestVote(voteStr: unknown) {
+  let vote = Vote.parse(voteStr);
+  let request = await createRequest(vote === 'btc', Date.now());
   return PresentationRequest.toJSON(request);
 }
 
-async function verifyLogin(presentationJson: string) {
-  let presentation = Presentation.fromJSON(presentationJson) as Presentation<
-    Output,
-    Inputs
-  >;
+async function verifyVote(presentationJson: string) {
+  let presentation = Presentation.fromJSON(presentationJson);
   let nonce = presentation.serverNonce.toString();
   let request = openRequests.get(nonce);
   if (!request) throw Error('Unknown presentation');
-  openRequests.delete(nonce);
 
   // date must be within 5 minutes of the current date
-  let createdAt = Number(request.claims.currentDate);
-  assert(createdAt > Date.now() - 5 * 60 * 1000);
+  let createdAt = Number(request.claims.createdAt);
+  assert(createdAt > Date.now() - 5 * 60 * 1000, 'Expired presentation');
 
-  let outputClaim = await Presentation.verify(request, presentation, {
+  // verify the presentation
+  let { nullifier } = await Presentation.verify(request, presentation, {
     verifierIdentity: HOSTNAME,
   });
-  // TODO nullifier
+  openRequests.delete(nonce);
+
+  // check that the nullifier hasn't been used before; if not, store it
+  if (Nullifier.exists(nullifier)) {
+    throw Error('Duplicate nullifier: Only allowed to vote once');
+  }
+  Nullifier.add(nullifier);
 }

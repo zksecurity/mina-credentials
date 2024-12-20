@@ -1,6 +1,7 @@
 import http from 'http';
 import { URL } from 'url';
 import { requestLogin, verifyLogin } from './action-login.ts';
+import { requestVote, verifyVote } from './action-voting.ts';
 import { issueCredential } from './issue-credential.ts';
 
 // Helper to read request body
@@ -37,7 +38,7 @@ const server = http.createServer(async (req, res) => {
     });
     res.setHeader('Content-Type', 'application/json');
 
-    // Issue Credential endpoint
+    // issue credential endpoint
     if (url.pathname === '/issue-credential' && req.method === 'POST') {
       let body = await readBody(req);
       console.log('/issue-credential', body);
@@ -48,6 +49,7 @@ const server = http.createServer(async (req, res) => {
       res.end(credentialJson);
       return;
     }
+
     // login endpoints
     if (url.pathname === '/login-request' && req.method === 'GET') {
       console.log('/login-request');
@@ -66,6 +68,42 @@ const server = http.createServer(async (req, res) => {
 
       res.writeHead(200);
       res.end('');
+      return;
+    }
+
+    // polling endpoints
+    if (url.pathname === '/poll-request' && req.method === 'GET') {
+      let vote = url.searchParams.get('vote');
+      console.log('/voting-request', vote);
+
+      let request = await requestVote(vote);
+
+      res.writeHead(200);
+      res.end(request);
+      return;
+    }
+    if (url.pathname === '/poll' && req.method === 'POST') {
+      let body = await readBody(req);
+      console.log('/poll', body.slice(0, 1000));
+
+      // TODO unmock
+      let votes = { btc: 95, eth: 100 };
+
+      let result = await verifyVote(body)
+        .then(() =>
+          JSON.stringify({ ...votes, voteCounted: true, failureReason: '' })
+        )
+        .catch((error) =>
+          JSON.stringify({
+            ...votes,
+            voteCounted: false,
+            failureReason:
+              error instanceof Error ? error.message : 'Unknown error',
+          })
+        );
+
+      res.writeHead(200);
+      res.end(result);
       return;
     }
 

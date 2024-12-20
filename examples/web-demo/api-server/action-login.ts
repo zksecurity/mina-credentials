@@ -1,14 +1,12 @@
-import { Bytes, Field, UInt64 } from 'o1js';
+import { Field, UInt64 } from 'o1js';
 import {
   Claim,
   Credential,
   DynamicRecord,
-  DynamicString,
   Operation,
   Presentation,
   PresentationRequest,
   Spec,
-  HttpsRequest,
   assert,
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
@@ -18,13 +16,9 @@ export { requestLogin, verifyLogin };
 
 const ACTION_ID = `${SERVER_ID}:anonymous-login`;
 
-const String = DynamicString({ maxLength: 50 });
-
 // use a `DynamicRecord` to allow more fields in the credential than we explicitly list
-const Schema = DynamicRecord(
-  { nationality: String, expiresAt: UInt64, id: Bytes(16) },
-  { maxEntries: 20 }
-);
+// here, we ONLY care about whether the user has a valid credential issued by this server
+const Schema = DynamicRecord({ expiresAt: UInt64 }, { maxEntries: 20 });
 
 const authenticationSpec = Spec(
   {
@@ -72,8 +66,6 @@ async function createRequest(createdAt: UInt64) {
 }
 
 type Request = Awaited<ReturnType<typeof createRequest>>;
-type Output = Request extends HttpsRequest<infer O> ? O : never;
-type Inputs = Request extends HttpsRequest<any, infer I> ? I : never;
 
 async function requestLogin() {
   let request = await createRequest(UInt64.from(Date.now()));
@@ -88,7 +80,7 @@ async function verifyLogin(presentationJson: string) {
 
   // date must be within 5 minutes of the current date
   let createdAt = Number(request.claims.createdAt);
-  assert(createdAt > Date.now() - 5 * 60 * 1000);
+  assert(createdAt > Date.now() - 5 * 60 * 1000, 'Expired presentation');
 
   // verify the presentation
   await Presentation.verify(request, presentation, {

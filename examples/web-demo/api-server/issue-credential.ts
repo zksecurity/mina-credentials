@@ -2,6 +2,7 @@ import { CredentialData, schema } from './schema.ts';
 import { Bytes, PublicKey } from 'o1js';
 import { Credential } from '../../../src/index.ts';
 import { getPrivateKey } from './keys.ts';
+import { CREDENTIAL_EXPIRY } from './config.ts';
 
 export { issueCredential };
 
@@ -17,8 +18,7 @@ function issueCredential(userString: string) {
   // random 16 bytes ID
   let id = Bytes16.random();
 
-  // expires in 1 year
-  let expiresAt = Date.now() + 365 * 24 * 3600 * 1000;
+  let expiresAt = Date.now() + CREDENTIAL_EXPIRY;
 
   let credential = {
     owner: PublicKey.fromBase58(owner),

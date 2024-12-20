@@ -50,6 +50,7 @@ const AnonymousPoll: React.FC<{ useMockWallet: boolean }> = ({
         });
       }
     } catch (err) {
+      console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to submit vote');
     } finally {
       setIsLoading(undefined);
