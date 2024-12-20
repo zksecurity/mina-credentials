@@ -12,9 +12,10 @@ window.addEventListener('mina:announceProvider', (event: any) => {
   providers.push(event.detail);
 });
 window.dispatchEvent(new Event('mina:requestProvider'));
-const { provider } = providers.find(
-  (provider) => provider.info.slug === 'pallad'
-);
+const provider = providers.find((provider) => {
+  console.log(provider.info);
+  return provider.info.slug === 'pallad';
+})?.provider;
 
 type Provider = {
   request<M>(params: { method: M; params?: any; context?: any }): Promise<any>;

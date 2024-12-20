@@ -10,7 +10,7 @@ import {
   assert,
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
-import { HOSTNAME, SERVER_ID } from './config.ts';
+import { ORIGIN, SERVER_ID } from './config.ts';
 import { queuePromise } from './async-queue.ts';
 
 export { requestLogin, verifyLogin };
@@ -86,7 +86,7 @@ async function verifyLogin(presentationJson: string) {
 
   // verify the presentation
   await Presentation.verify(request, presentation, {
-    verifierIdentity: HOSTNAME,
+    verifierIdentity: ORIGIN,
   });
 
   openRequests.delete(nonce);

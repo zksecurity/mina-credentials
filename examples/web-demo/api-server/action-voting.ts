@@ -13,7 +13,7 @@ import {
   hashDynamic,
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
-import { HOSTNAME, SERVER_ID } from './config.ts';
+import { ORIGIN, SERVER_ID } from './config.ts';
 import { Nullifier } from './nullifier-store.ts';
 import { z } from 'zod';
 import { createJsonStore } from './json-store.ts';
@@ -143,7 +143,7 @@ async function verifyVote(presentationJson: string) {
 
     // verify the presentation
     let { nullifier } = await Presentation.verify(request, presentation, {
-      verifierIdentity: HOSTNAME,
+      verifierIdentity: ORIGIN,
     });
     openRequests.delete(nonce);
 

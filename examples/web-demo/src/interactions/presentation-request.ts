@@ -70,7 +70,7 @@ async function presentationRequest(
       method: 'mina_requestPresentation',
       params: [{ presentationRequest: JSON.parse(requestJson) }],
     });
-    ({ presentation } = result);
+    presentation = result;
   }
 
   log('Sending proof for verification...');
@@ -98,7 +98,7 @@ async function createMockPresentation(requestJson: string) {
   let presentation = await Presentation.create(privateKey, {
     request,
     credentials,
-    context: { verifierIdentity: window.location.hostname },
+    context: { verifierIdentity: window.location.origin },
   });
   console.timeEnd('create');
 
