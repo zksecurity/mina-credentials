@@ -1,6 +1,6 @@
 {
   "name": "mina-credentials",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "workspaces": [
     "examples/web-demo",
     "examples/web-demo/api-server"
