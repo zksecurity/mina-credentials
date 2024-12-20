@@ -92,7 +92,6 @@ const server = http.createServer(async (req, res) => {
 
       res.writeHead(200);
       res.end(response);
-      console.log('Response:', response);
       return;
     }
 
