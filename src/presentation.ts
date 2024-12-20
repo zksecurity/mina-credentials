@@ -373,7 +373,7 @@ async function preparePresentation<R extends PresentationRequest>({
     context,
     messageFields: fieldsToSign.map((f) => f.toString()),
     credentialsUsed,
-    serverNonce: request.inputContext.serverNonce,
+    serverNonce: request.inputContext?.serverNonce ?? Field(0),
     clientNonce,
     compiledRequest: compiled,
   };
