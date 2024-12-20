@@ -10,6 +10,7 @@ import {
 import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
 import { loginRequest } from './interactions/anonymous-login';
+import AnonymousPoll from './components/poll';
 
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,
@@ -198,9 +199,7 @@ const StoreCredentialTab: React.FC<{ useMockWallet: boolean }> = ({
   );
 };
 
-const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
-  useMockWallet,
-}) => {
+const LoginTab: React.FC<{ useMockWallet: boolean }> = ({ useMockWallet }) => {
   const [isLoading, setIsLoading] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -329,6 +328,7 @@ const App: React.FC = () => {
               <TabsTrigger value="issue">Obtain Credential</TabsTrigger>
               <TabsTrigger value="store">Store Credential</TabsTrigger>
               <TabsTrigger value="verify">Anonymous Login</TabsTrigger>
+              <TabsTrigger value="vote">Anonymous Poll</TabsTrigger>
             </TabsList>
 
             <TabsContent value="issue" className="mt-6">
@@ -366,7 +366,11 @@ const App: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="verify" className="mt-6">
-              <VerificationTab useMockWallet={useMockWallet} />
+              <LoginTab useMockWallet={useMockWallet} />
+            </TabsContent>
+
+            <TabsContent value="vote" className="mt-6">
+              <AnonymousPoll useMockWallet={useMockWallet} />
             </TabsContent>
           </Tabs>
         </main>
