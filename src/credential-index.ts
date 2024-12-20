@@ -88,11 +88,9 @@ const Credential = {
    *
    * Example
    * ```ts
-   * // client side: prepare credential data
    * let credentialData = { owner: publicKey, data: { name: 'Alice' } };
    * let credentialDataJson = Credential.dataToJSON(credentialData);
    *
-   * // server side: sign credential
    * let credential = Credential.sign(privateKey, credentialDataJson);
    * ```
    */
