@@ -9,8 +9,8 @@ import {
 } from './interactions/obtain-credential';
 import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
-import { loginRequest } from './interactions/anonymous-login';
 import AnonymousPoll from './components/poll';
+import { loginRequest } from './interactions/presentation-request';
 
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,

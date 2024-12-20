@@ -48,10 +48,9 @@ const server = http.createServer(async (req, res) => {
       res.end(credentialJson);
       return;
     }
-
-    // Anonymous Login Request endpoint
-    if (url.pathname === '/anonymous-login-request' && req.method === 'GET') {
-      console.log('/anonymous-login-request');
+    // login endpoints
+    if (url.pathname === '/login-request' && req.method === 'GET') {
+      console.log('/login-request');
 
       let request = await requestLogin();
 
@@ -59,11 +58,9 @@ const server = http.createServer(async (req, res) => {
       res.end(request);
       return;
     }
-
-    // Verify Login endpoint
-    if (url.pathname === '/anonymous-login' && req.method === 'POST') {
+    if (url.pathname === '/login' && req.method === 'POST') {
       let body = await readBody(req);
-      console.log('/anonymous-login', body.slice(0, 1000));
+      console.log('/login', body.slice(0, 1000));
 
       await verifyLogin(body);
 
@@ -74,7 +71,8 @@ const server = http.createServer(async (req, res) => {
 
     // Handle 404
     res.writeHead(404);
-    res.end(JSON.stringify({ error: 'Not Found' }));
+    console.log('Not Found:', url.pathname);
+    res.end(JSON.stringify({ error: `Not Found: ${url.pathname}` }));
   } catch (error) {
     console.error('Error:', error);
     res.writeHead(400);

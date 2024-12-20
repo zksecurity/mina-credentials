@@ -8,16 +8,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { submitVote } from '../interactions/presentation-request';
+import { useToast } from './ui/toast';
 
 type PollResults = {
   btc: number;
   eth: number;
-};
-
-// Mock API call with fixed response
-const submitVote = async (vote: string): Promise<PollResults> => {
-  await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-  return { btc: 95, eth: 63 };
 };
 
 const AnonymousPoll: React.FC<{ useMockWallet: boolean }> = ({
@@ -26,24 +22,37 @@ const AnonymousPoll: React.FC<{ useMockWallet: boolean }> = ({
   const [selectedOption, setSelectedOption] = useState<'btc' | 'eth' | null>(
     null
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<PollResults | null>(null);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOption) return;
 
-    setIsSubmitting(true);
     setError(null);
 
     try {
-      const pollResults = await submitVote(selectedOption);
-      setResults(pollResults);
+      const { btc, eth, voteCounted, failureReason } = await submitVote(
+        selectedOption,
+        useMockWallet,
+        setIsLoading
+      );
+      setResults({ btc, eth });
+      if (!voteCounted) setError(failureReason);
+      else {
+        // show success toast
+        toast({
+          title: 'Success',
+          description: 'Vote submitted',
+          className: 'bg-green-50 border border-green-200 text-green-800',
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit vote');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(undefined);
     }
   };
 
@@ -102,10 +111,10 @@ const AnonymousPoll: React.FC<{ useMockWallet: boolean }> = ({
 
         <button
           type="submit"
-          disabled={isSubmitting || !selectedOption}
+          disabled={!!isLoading || !selectedOption}
           className="w-full p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Submitting...' : 'Submit vote'}
+          {isLoading ?? 'Submit vote'}
         </button>
       </form>
 
