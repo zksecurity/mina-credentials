@@ -9,10 +9,7 @@ import {
 } from './interactions/obtain-credential';
 import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
-import {
-  requestPresentation,
-  verifyPresentation,
-} from './interactions/anonymous-login';
+import { loginRequest } from './interactions/anonymous-login';
 
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,
@@ -213,13 +210,7 @@ const VerificationTab: React.FC<{ useMockWallet: boolean }> = ({
     setError(null);
 
     try {
-      const presentation = await requestPresentation(
-        useMockWallet,
-        setIsLoading
-      );
-
-      // If we got the presentation, proceed with verification
-      await verifyPresentation(presentation, setIsLoading);
+      await loginRequest(useMockWallet, setIsLoading);
 
       toast({
         title: 'Success',

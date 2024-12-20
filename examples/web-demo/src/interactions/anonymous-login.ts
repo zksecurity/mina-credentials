@@ -3,9 +3,9 @@ import { getStoredCredentials } from './store-credential';
 import { privateKey } from './mock-wallet';
 import { API_URL } from '../config';
 
-export { requestPresentation, verifyPresentation };
+export { loginRequest };
 
-async function requestPresentation(
+async function loginRequest(
   useMockWallet: boolean,
   log: (msg: string) => void = () => {}
 ) {
@@ -23,13 +23,7 @@ async function requestPresentation(
 
   log('Awaiting proof from wallet...');
   let presentation = await createMockPresentation(requestJson);
-  return presentation;
-}
 
-async function verifyPresentation(
-  presentation: string,
-  log: (msg: string) => void = () => {}
-) {
   log('Sending proof for verification...');
   let response2 = await fetch(`${API_URL}/anonymous-login`, {
     method: 'POST',
