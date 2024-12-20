@@ -1,14 +1,28 @@
-import { PublicKey, UInt64 } from 'o1js';
-import { Credential } from '../../../../build/src';
 import { publicKey } from './mock-wallet';
 import { API_URL } from '../config';
+import { createStore } from '@mina-js/connect';
 
-export { getPublicKey, obtainCredential };
+export { getProvider, getPublicKey, obtainCredential };
+
+const store = createStore();
+const providers = store.getProviders();
+const provider = providers.find((p) => p.info.slug === 'pallad')?.provider;
+
+function getProvider() {
+  if (!provider) throw Error('Provider not found');
+  return provider;
+}
 
 async function getPublicKey(useMockWallet: boolean): Promise<string> {
   if (useMockWallet) return publicKey.toBase58();
 
-  return 'NOT_IMPLEMENTED';
+  let { result: accounts } =
+    await getProvider().request<'mina_requestAccounts'>({
+      method: 'mina_requestAccounts',
+    });
+
+  if (accounts.length === 0) throw Error('No accounts found');
+  return accounts[0];
 }
 
 type UserInput = {

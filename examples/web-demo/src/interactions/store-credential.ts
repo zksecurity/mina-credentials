@@ -1,4 +1,5 @@
 import { type StoredCredential, Credential } from '../../../..';
+import { getProvider } from './obtain-credential';
 
 export { storeCredential, getStoredCredentials };
 
@@ -20,7 +21,13 @@ async function storeCredential(
     return;
   }
 
-  throw Error('NOT_IMPLEMENTED');
+  let provider = getProvider();
+
+  let { result } = await provider.request<'mina_storePrivateCredential'>({
+    method: 'mina_storePrivateCredential',
+    params: [JSON.parse(credential)],
+  });
+  if (!result.success) throw Error('Failed to store credential');
 }
 
 async function getStoredCredentialStrings(

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mina-js/connect": "https://pkg.pr.new/palladians/mina-js/@mina-js/connect@main",
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.2",
