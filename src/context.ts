@@ -1,4 +1,4 @@
-import { Field, PublicKey, Bytes, Poseidon, Hash } from 'o1js';
+import { Field, Bytes, Poseidon, Hash } from 'o1js';
 import { prefixes } from './constants.ts';
 
 export { computeContext, generateContext };
@@ -11,17 +11,16 @@ type BaseContext = {
   clientNonce: Field;
   serverNonce: Field;
   claims: Field;
+  verifierIdentity: string;
 };
 
 type ZkAppContext = BaseContext & {
   type: 'zk-app';
-  verifierIdentity: PublicKey;
   action: Field;
 };
 
 type HttpsContext = BaseContext & {
   type: 'https';
-  verifierIdentity: string;
   action: string;
 };
 
@@ -31,7 +30,7 @@ type ContextOutput = {
   type: ContextType;
   vkHash: Field;
   nonce: Field;
-  verifierIdentity: PublicKey | Bytes;
+  verifierIdentity: Bytes;
   action: Field | Bytes;
   claims: Field;
 };
@@ -44,10 +43,9 @@ function computeContext(input: Context): ContextOutput {
   const nonce = computeNonce(input.serverNonce, input.clientNonce);
   const type = input.type;
 
-  const verifierIdentity =
-    type === 'zk-app'
-      ? input.verifierIdentity
-      : Hash.Keccak256.hash(Bytes.fromString(input.verifierIdentity));
+  const verifierIdentity = Hash.Keccak256.hash(
+    Bytes.fromString(input.verifierIdentity)
+  );
 
   const action =
     type === 'zk-app'
