@@ -3,6 +3,7 @@ import { getStoredCredentials } from './store-credential';
 import { privateKey } from './mock-wallet';
 import { API_URL } from '../config';
 import { z } from 'zod';
+import { getProvider } from './obtain-credential';
 
 export { loginRequest, submitVote };
 
@@ -30,13 +31,6 @@ async function submitVote(
   log: (msg: string) => void = () => {}
 ) {
   log('Submitting vote...');
-  // await new Promise((resolve) => setTimeout(resolve, 1000));
-  // return {
-  //   btc: 95,
-  //   eth: 63,
-  //   voteCounted: true,
-  //   failureReason: 'Duplicate nullifier: Only allowed to vote once',
-  // };
   let response = await presentationRequest(
     { GET: 'poll-request', POST: 'poll' },
     useMockWallet,
@@ -66,10 +60,18 @@ async function presentationRequest(
   }
   let requestJson = await response.text();
 
-  if (!useMockWallet) throw Error('Not implemented');
-
   log('Awaiting proof from wallet...');
-  let presentation = await createMockPresentation(requestJson);
+  let presentation: string;
+  if (useMockWallet) {
+    presentation = await createMockPresentation(requestJson);
+  } else {
+    let provider = getProvider();
+    let { result } = await provider.request<'mina_requestPresentation'>({
+      method: 'mina_requestPresentation',
+      params: [{ presentationRequest: JSON.parse(requestJson) }],
+    });
+    ({ presentation } = result);
+  }
 
   log('Sending proof for verification...');
   let response2 = await fetch(`${API_URL}/${endpoints.POST}`, {
