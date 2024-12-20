@@ -324,12 +324,22 @@ const App: React.FC = () => {
 
         <main className="container mx-auto px-4 py-8">
           <Tabs defaultValue="issue" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="issue">Obtain Credential</TabsTrigger>
-              <TabsTrigger value="store">Store Credential</TabsTrigger>
-              <TabsTrigger value="verify">Anonymous Login</TabsTrigger>
-              <TabsTrigger value="vote">Anonymous Poll</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-auto scrollbar-none">
+              <TabsList className="inline-flex min-w-full w-auto">
+                <TabsTrigger value="issue" className="flex-1 min-w-[120px]">
+                  Obtain Credential
+                </TabsTrigger>
+                <TabsTrigger value="store" className="flex-1 min-w-[120px]">
+                  Store Credential
+                </TabsTrigger>
+                <TabsTrigger value="verify" className="flex-1 min-w-[120px]">
+                  Anonymous Login
+                </TabsTrigger>
+                <TabsTrigger value="poll" className="flex-1 min-w-[120px]">
+                  Anonymous Poll
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="issue" className="mt-6">
               <div className="bg-white p-6 rounded-lg shadow-sm divide-gray-200">
@@ -369,7 +379,7 @@ const App: React.FC = () => {
               <LoginTab useMockWallet={useMockWallet} />
             </TabsContent>
 
-            <TabsContent value="vote" className="mt-6">
+            <TabsContent value="poll" className="mt-6">
               <AnonymousPoll useMockWallet={useMockWallet} />
             </TabsContent>
           </Tabs>
