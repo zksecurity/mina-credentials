@@ -27,6 +27,9 @@
     },
     "./dynamic": {
       "import": "./build/src/dynamic.js"
+    },
+    "./validation": {
+      "import": "./build/src/validation.js"
     }
   },
   "scripts": {
@@ -52,7 +55,7 @@
     "prettier": "^2.3.2",
     "typescript": "^5.7.0-beta",
     "vite": "^4.3.9",
-    "zod": "^3.23.8"
+    "zod": "3.23.8"
   },
   "peerDependencies": {
     "o1js": "2.2.0"
