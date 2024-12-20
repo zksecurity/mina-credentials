@@ -1,7 +1,7 @@
 import http from 'http';
 import { URL } from 'url';
 import { requestLogin, verifyLogin } from './action-login.ts';
-import { requestVote, verifyVote } from './action-voting.ts';
+import { getVotes, requestVote, verifyVote } from './action-voting.ts';
 import { issueCredential } from './issue-credential.ts';
 
 // Helper to read request body
@@ -86,24 +86,13 @@ const server = http.createServer(async (req, res) => {
       let body = await readBody(req);
       console.log('/poll', body.slice(0, 1000));
 
-      // TODO unmock
-      let votes = { btc: 95, eth: 100 };
-
-      let result = await verifyVote(body)
-        .then(() =>
-          JSON.stringify({ ...votes, voteCounted: true, failureReason: '' })
-        )
-        .catch((error) =>
-          JSON.stringify({
-            ...votes,
-            voteCounted: false,
-            failureReason:
-              error instanceof Error ? error.message : 'Unknown error',
-          })
-        );
+      let result = await verifyVote(body);
+      let votes = getVotes();
+      let response = JSON.stringify({ ...votes, ...result });
 
       res.writeHead(200);
-      res.end(result);
+      res.end(response);
+      console.log('Response:', response);
       return;
     }
 

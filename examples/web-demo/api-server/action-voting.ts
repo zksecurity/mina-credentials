@@ -16,9 +16,9 @@ import { getPublicKey } from './keys.ts';
 import { HOSTNAME, SERVER_ID } from './config.ts';
 import { Nullifier } from './nullifier-store.ts';
 import { z } from 'zod';
-import { resolve } from 'path';
+import { createJsonStore } from './json-store.ts';
 
-export { requestVote, verifyVote };
+export { requestVote, verifyVote, getVotes };
 
 const ACTION_ID = `${SERVER_ID}:poll:0`;
 
@@ -94,6 +94,7 @@ const votingSpec = Spec(
 let compiledRequestPromise = new Promise<any>((resolve) => {
   setTimeout(() => resolve(Presentation.precompile(votingSpec)), 5000);
 });
+// let compiledRequestPromise = Presentation.precompile(votingSpec);
 
 compiledRequestPromise.then(() =>
   console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
@@ -129,25 +130,45 @@ async function requestVote(voteStr: unknown) {
   return PresentationRequest.toJSON(request);
 }
 
+const voteStore = createJsonStore('votes.json', { btc: 0, eth: 0 });
+
 async function verifyVote(presentationJson: string) {
-  let presentation = Presentation.fromJSON(presentationJson);
-  let nonce = presentation.serverNonce.toString();
-  let request = openRequests.get(nonce);
-  if (!request) throw Error('Unknown presentation');
+  try {
+    let presentation = Presentation.fromJSON(presentationJson);
+    let nonce = presentation.serverNonce.toString();
+    let request = openRequests.get(nonce);
+    if (!request) throw Error('Unknown presentation');
 
-  // date must be within 5 minutes of the current date
-  let createdAt = Number(request.claims.createdAt);
-  assert(createdAt > Date.now() - 5 * 60 * 1000, 'Expired presentation');
+    // date must be within 5 minutes of the current date
+    let createdAt = Number(request.claims.createdAt);
+    assert(createdAt > Date.now() - 5 * 60 * 1000, 'Expired presentation');
 
-  // verify the presentation
-  let { nullifier } = await Presentation.verify(request, presentation, {
-    verifierIdentity: HOSTNAME,
-  });
-  openRequests.delete(nonce);
+    // verify the presentation
+    let { nullifier } = await Presentation.verify(request, presentation, {
+      verifierIdentity: HOSTNAME,
+    });
+    openRequests.delete(nonce);
 
-  // check that the nullifier hasn't been used before; if not, store it
-  if (Nullifier.exists(nullifier)) {
-    throw Error('Duplicate nullifier: Only allowed to vote once');
+    // check that the nullifier hasn't been used before; if not, store it
+    if (Nullifier.exists(nullifier)) {
+      throw Error('Duplicate nullifier: Only allowed to vote once');
+    }
+    Nullifier.add(nullifier);
+
+    // add the vote!
+    let vote: 'btc' | 'eth' = request.claims.inFavor.toBoolean()
+      ? 'btc'
+      : 'eth';
+    voteStore.update((votes) => {
+      votes[vote]++;
+    });
+    return { voteCounted: true, failureReason: '' };
+  } catch (error: any) {
+    console.error('Failed to verify vote:', error);
+    return { voteCounted: false, failureReason: error.message as string };
   }
-  Nullifier.add(nullifier);
+}
+
+function getVotes() {
+  return voteStore.get();
 }
