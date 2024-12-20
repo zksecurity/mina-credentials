@@ -1,6 +1,6 @@
 import http from 'http';
 import { URL } from 'url';
-import { requestLogin, verifyLogin } from './anonymous-login.ts';
+import { requestLogin, verifyLogin } from './action-login.ts';
 import { issueCredential } from './issue-credential.ts';
 
 // Helper to read request body

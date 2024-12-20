@@ -27,7 +27,7 @@ const Subschema = DynamicRecord(
 
 const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
-const spec = Spec(
+const authenticationSpec = Spec(
   {
     credential: Credential.Simple(Subschema),
     acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
@@ -62,7 +62,7 @@ const spec = Spec(
   }
 );
 
-let compiledRequestPromise = Presentation.precompile(spec);
+let compiledRequestPromise = Presentation.precompile(authenticationSpec);
 
 compiledRequestPromise.then(() =>
   console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
