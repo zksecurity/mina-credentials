@@ -80,6 +80,23 @@ const Credential = {
    * Validate a credential.
    */
   validate: validateCredential,
+
+  /**
+   * Serialize the data input to a `signCredential()` call.
+   *
+   * The resulting string is accepted as input to `Credential.sign()`.
+   *
+   * Example
+   * ```ts
+   * let credentialData = { owner: publicKey, data: { name: 'Alice' } };
+   * let credentialDataJson = Credential.dataToJSON(credentialData);
+   *
+   * let credential = Credential.sign(privateKey, credentialDataJson);
+   * ```
+   */
+  dataToJSON<Data>(credential: Credential<Data>) {
+    return JSON.stringify(serializeNestedProvableValue(credential));
+  },
 };
 
 // validating generic credential
