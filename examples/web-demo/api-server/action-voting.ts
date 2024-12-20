@@ -17,6 +17,7 @@ import { HOSTNAME, SERVER_ID } from './config.ts';
 import { Nullifier } from './nullifier-store.ts';
 import { z } from 'zod';
 import { createJsonStore } from './json-store.ts';
+import { queuePromise } from './async-queue.ts';
 
 export { requestVote, verifyVote, getVotes };
 
@@ -90,12 +91,9 @@ const votingSpec = Spec(
 );
 
 // set off compiling of the request -- this promise is needed when verifying
-// TODO this is ill-typed and brittle, implement async queue
-let compiledRequestPromise = new Promise<any>((resolve) => {
-  setTimeout(() => resolve(Presentation.precompile(votingSpec)), 5000);
-});
-// let compiledRequestPromise = Presentation.precompile(votingSpec);
-
+let compiledRequestPromise = queuePromise(() =>
+  Presentation.precompile(votingSpec)
+);
 compiledRequestPromise.then(() =>
   console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
 );

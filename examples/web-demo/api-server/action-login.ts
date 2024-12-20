@@ -11,6 +11,7 @@ import {
 } from '../../../src/index.ts';
 import { getPublicKey } from './keys.ts';
 import { HOSTNAME, SERVER_ID } from './config.ts';
+import { queuePromise } from './async-queue.ts';
 
 export { requestLogin, verifyLogin };
 
@@ -44,8 +45,9 @@ const authenticationSpec = Spec(
 );
 
 // set off compiling of the request -- this promise is needed when verifying
-let compiledRequestPromise = Presentation.precompile(authenticationSpec);
-
+let compiledRequestPromise = queuePromise(() =>
+  Presentation.precompile(authenticationSpec)
+);
 compiledRequestPromise.then(() =>
   console.log(`Compiled request after ${performance.now().toFixed(2)}ms`)
 );
