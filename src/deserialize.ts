@@ -66,7 +66,7 @@ function deserializeInput(input: any): Input {
     case 'constant':
       return Constant(
         deserializeProvableType(input.data),
-        deserializeProvable({ _type: input.data._type, value: input.value })
+        deserializeProvable({ ...input.data, value: input.value })
       );
     case 'claim':
       return Claim(deserializeNestedProvablePure(input.data));
