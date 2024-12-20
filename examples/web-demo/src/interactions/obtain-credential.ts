@@ -3,26 +3,26 @@ import { API_URL } from '../config';
 
 export { getProvider, getPublicKey, obtainCredential };
 
-// const store = createStore();
-// const providers = store.getProviders();
-// const provider = providers.find((p) => p.info.slug === 'pallad')?.provider;
-
-const providers: any[] = [];
-window.addEventListener('mina:announceProvider', (event: any) => {
-  providers.push(event.detail);
-});
-window.dispatchEvent(new Event('mina:requestProvider'));
-const provider = providers.find((provider) => {
-  console.log(provider.info);
-  return provider.info.slug === 'pallad';
-})?.provider;
-
 type Provider = {
   request<M>(params: { method: M; params?: any; context?: any }): Promise<any>;
 };
+let provider: Provider | undefined;
 
 function getProvider(): Provider {
-  if (!provider) throw Error('Provider not found');
+  if (provider !== undefined) return provider;
+
+  // find pallad provider
+  // TODO: use mina-js for this once it's compatible
+  let providers: any[] = [];
+  window.addEventListener('mina:announceProvider', (event: any) => {
+    providers.push(event.detail);
+  });
+  window.dispatchEvent(new Event('mina:requestProvider'));
+  provider = providers.find((provider) => {
+    console.log(provider.info);
+    return provider.info.slug === 'pallad';
+  })?.provider;
+  if (provider === undefined) throw Error('Provider not found');
   return provider;
 }
 
