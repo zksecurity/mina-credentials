@@ -3,13 +3,13 @@
   "compilerOptions": {
     "outDir": "./build",
     "rootDir": ".",
+    "baseUrl": ".",
 
     // compile to modern JS
     "target": "ESNext",
 
-    // TODO: make this NodeNext when we get past the "inferred type cannot be named" errors
-    "module": "ES2022",
-    "moduleResolution": "Node10",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
 
     "lib": ["dom", "esnext"],
 
