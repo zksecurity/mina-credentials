@@ -30,7 +30,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    let url = new URL(req.url!);
+    let url = new URL(req.url!, `https://${req.headers.host}`);
     let path = removeOptionalPathPrefix(url.pathname, '/api');
 
     // Add CORS headers to all responses
