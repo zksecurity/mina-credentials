@@ -30,7 +30,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    const url = new URL(req.url!, `http://${req.headers.host}`);
+    let url = new URL(req.url!);
+    let path = removeOptionalPathPrefix(url.pathname, '/api');
 
     // Add CORS headers to all responses
     Object.entries(corsHeaders).forEach(([key, value]) => {
@@ -39,7 +40,7 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
 
     // issue credential endpoint
-    if (url.pathname === '/issue-credential' && req.method === 'POST') {
+    if (path === '/issue-credential' && req.method === 'POST') {
       let body = await readBody(req);
       console.log('/issue-credential', body);
 
@@ -51,7 +52,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // login endpoints
-    if (url.pathname === '/login-request' && req.method === 'GET') {
+    if (path === '/login-request' && req.method === 'GET') {
       console.log('/login-request');
 
       let request = await requestLogin();
@@ -60,7 +61,7 @@ const server = http.createServer(async (req, res) => {
       res.end(request);
       return;
     }
-    if (url.pathname === '/login' && req.method === 'POST') {
+    if (path === '/login' && req.method === 'POST') {
       let body = await readBody(req);
       console.log('/login', body.slice(0, 1000));
 
@@ -72,7 +73,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // polling endpoints
-    if (url.pathname === '/poll-request' && req.method === 'GET') {
+    if (path === '/poll-request' && req.method === 'GET') {
       let vote = url.searchParams.get('vote');
       console.log('/voting-request', vote);
 
@@ -82,7 +83,7 @@ const server = http.createServer(async (req, res) => {
       res.end(request);
       return;
     }
-    if (url.pathname === '/poll' && req.method === 'POST') {
+    if (path === '/poll' && req.method === 'POST') {
       let body = await readBody(req);
       console.log('/poll', body.slice(0, 1000));
 
@@ -114,3 +115,11 @@ const PORT = 3000;
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+
+function removeOptionalPathPrefix(path: string, prefix: string): string {
+  // normalize
+  if (!path.startsWith('/')) path = '/' + path;
+  if (!prefix.startsWith('/')) prefix = '/' + prefix;
+  // remove prefix
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
