@@ -60,14 +60,14 @@ test('Deserialize Spec', async (t) => {
     await t.test('Bool', () => {
       const deserializedTrue = deserializeProvable({
         _type: 'Bool',
-        value: 'true',
+        value: true,
       });
       assert(deserializedTrue instanceof Bool, 'Should be instance of Bool');
       assert.strictEqual(deserializedTrue.toBoolean(), true, 'Should be true');
 
       const deserializedFalse = deserializeProvable({
         _type: 'Bool',
-        value: 'false',
+        value: false,
       });
       assert(deserializedFalse instanceof Bool, 'Should be instance of Bool');
       assert.strictEqual(
@@ -588,7 +588,7 @@ test('deserializeSpec', async (t) => {
           isAdmin: Claim(Bool),
           maxAge: Constant(Field, Field(100)),
           name: Claim(Bytes(32)),
-          constantName: Constant(Bytes(32), Bytes.fromString('hello')),
+          constantName: Constant(Bytes(32), Bytes(32).fromString('hello')),
         },
         ({ age, isAdmin, maxAge }) => ({
           assert: Operation.and(Operation.lessThan(age, maxAge), isAdmin),

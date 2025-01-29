@@ -5,6 +5,7 @@ export type {
   ExcludeFromTuple,
   ExcludeFromRecord,
   Constructor,
+  JSONValue,
 };
 
 type Tuple<T = any> = [T, ...T[]] | [];
@@ -37,3 +38,11 @@ type ExcludeFromRecord<T, E> = {
 };
 
 type Constructor<T> = new (...args: any) => T;
+
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | { [key: string]: JSONValue };
