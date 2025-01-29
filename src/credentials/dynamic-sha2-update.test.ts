@@ -78,13 +78,13 @@ console.log(mapObject(await sha2Finalize.analyzeMethods(), (m) => m.summary()));
 
 // split up string into chunks to be hashed
 
-let longString = String.from('hello world!'.repeat(Math.floor(850 / 12)));
-console.log('string length', longString.toString().length);
+let longString = 'hello world!'.repeat(Math.floor(850 / 12));
+console.log('string length', longString.length);
 
 let { iterations, final } = DynamicSHA2.split(
   256,
   BLOCKS_PER_ITERATION,
-  longString
+  String.from(longString)
 );
 
 console.log('number of iterations (including final):', iterations.length + 1);
@@ -107,10 +107,17 @@ for (let iteration of rest) {
 console.timeEnd(`proof (recursive ${rest.length}x)`);
 
 console.time('proof (finalize)');
-let { proof: finalProof } = await sha2Finalize.run(longString, proof, final);
+let { proof: finalProof } = await sha2Finalize.run(
+  String.from(longString),
+  proof,
+  final
+);
 console.timeEnd('proof (finalize)');
 
 console.log('public output:\n', finalProof.publicOutput.toHex());
 
 // compare with expected hash
-console.log('expected hash:\n', DynamicSHA2.hash(256, longString).toHex());
+console.log(
+  'expected hash:\n',
+  DynamicSHA2.hash(256, String.from(longString)).toHex()
+);
