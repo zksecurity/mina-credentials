@@ -55,7 +55,7 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
-    "o1js": "2.2.0"
+    "o1js": "https://pkg.pr.new/o1-labs/o1js@53f3bb0"
   },
   "engines": {
     "node": ">=22.0"
