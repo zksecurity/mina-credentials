@@ -7,6 +7,7 @@ import {
   Proof,
   Poseidon,
   verify,
+  Cache,
 } from 'o1js';
 import {
   assertPure,
@@ -143,24 +144,27 @@ async function RecursiveFromProgram<
   InputType extends ProvablePure<any>,
   Data extends InferNestedProvable<DataType>,
   Input extends InferProvable<InputType>,
-  AllInputs
->(
-  programWrapper: {
-    program: {
-      publicInputType: InputType;
-      publicOutputType: ProvablePure<Credential<Data>>;
-      analyzeMethods(): Promise<{
-        [I in keyof any]: any;
-      }>;
-    };
-    compile(): Promise<VerificationKey>;
-    run(inputs: AllInputs): Promise<Proof<Input, Credential<Data>>>;
-  },
-  // TODO this needs to be exposed on the program!!
-  maxProofsVerified: 0 | 1 | 2 = 0
-) {
-  let { program } = programWrapper;
+  AllInputs extends any[]
+>(program: {
+  publicInputType: InputType;
+  publicOutputType: ProvablePure<Credential<Data>>;
+  analyzeMethods(): Promise<{
+    [I in keyof any]: any;
+  }>;
+  maxProofsVerified(): Promise<0 | 1 | 2>;
+  compile: (options?: {
+    cache?: Cache;
+    forceRecompile?: boolean;
+    proofsEnabled?: boolean;
+  }) => Promise<{ verificationKey: VerificationKey }>;
+
+  run(...inputs: AllInputs): Promise<{
+    proof: Proof<Input, Credential<Data>>;
+    auxiliaryOutput: undefined;
+  }>;
+}) {
   const featureFlags = await FeatureFlags.fromZkProgram(program);
+  const maxProofsVerified = await program.maxProofsVerified();
 
   class InputProof extends DynamicProof<Input, Credential<Data>> {
     static publicInputType = program.publicInputType;
@@ -181,9 +185,10 @@ async function RecursiveFromProgram<
     {
       program,
 
-      async create(inputs: AllInputs): Promise<Recursive<Data, Input>> {
+      async create(...inputs: AllInputs): Promise<Recursive<Data, Input>> {
         let vk = await this.compile();
-        let proof = InputProof.fromProof(await programWrapper.run(inputs));
+        let result = await program.run(...inputs);
+        let proof = InputProof.fromProof(result.proof);
         return {
           version: 'v0',
           metadata: undefined,
@@ -192,9 +197,14 @@ async function RecursiveFromProgram<
         };
       },
 
-      async compile() {
+      async compile(options?: {
+        cache?: Cache;
+        forceRecompile?: boolean;
+        proofsEnabled?: boolean;
+      }) {
         if (isCompiled) return vk!;
-        vk = await programWrapper.compile();
+        let result = await program.compile(options);
+        vk = result.verificationKey;
         isCompiled = true;
         return vk;
       },

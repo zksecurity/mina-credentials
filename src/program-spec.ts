@@ -28,6 +28,7 @@ import { Node, Operation, root, type GetData } from './operation.ts';
 
 export type {
   PublicInputs,
+  PrivateInputs,
   UserInputs,
   DataInputs,
   ToCredential,

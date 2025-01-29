@@ -3,6 +3,7 @@ import {
   Field,
   Hash,
   Proof,
+  ProvableType,
   Signature,
   VerificationKey,
   ZkProgram,
@@ -18,6 +19,7 @@ import {
   extractCredentialInputs,
   type PublicInputs,
   type UserInputs,
+  type PrivateInputs,
 } from './program-spec.ts';
 import { Node } from './operation.ts';
 import { NestedProvable } from './nested.ts';
@@ -36,7 +38,15 @@ type Program<Output, Inputs extends Record<string, Input>> = {
     {
       publicInput: ProvablePureType<PublicInputs<Inputs>>;
       publicOutput: ProvablePureType<Output>;
-      methods: any;
+      methods: {
+        run: {
+          privateInputs: [ProvableType<PrivateInputs<Inputs>>];
+          method(
+            publicInput: PublicInputs<Inputs>,
+            privateInput: PrivateInputs<Inputs>
+          ): Promise<{ publicOutput: Output }>;
+        };
+      };
     },
     any
   >;

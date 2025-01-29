@@ -23,15 +23,19 @@ const inputProofSpec = Spec(
 
 // create recursive credential
 const Recursive = await Credential.Recursive.fromProgram(
-  createProgram(inputProofSpec)
+  createProgram(inputProofSpec).program
 );
 let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-let provedData = await Recursive.create({
-  claims: { inputOwner: owner, data },
-  credentials: {},
-  context: Field(0), // dummy context
-  ownerSignature: Signature.empty(), // no credential => no signature verification
-});
+let provedData = await Recursive.create(
+  {
+    context: Field(0), // dummy context
+    claims: { inputOwner: owner, data },
+  },
+  {
+    credentials: {},
+    ownerSignature: Signature.empty(), // no credential => no signature verification
+  }
+);
 let credentialJson = Credential.toJSON(provedData);
 let storedCredential = await Credential.fromJSON(credentialJson);
 await Credential.validate(storedCredential);
