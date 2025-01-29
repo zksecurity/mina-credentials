@@ -107,7 +107,11 @@ for (let iteration of rest) {
 console.timeEnd(`proof (recursive ${rest.length}x)`);
 
 console.time('proof (finalize)');
-let { proof: finalProof } = await sha2Finalize.run(longString, proof, final);
+let { proof: finalProof } = await sha2Finalize.run(
+  String.from(longString),
+  proof,
+  final
+);
 console.timeEnd('proof (finalize)');
 
 console.log('public output:\n', finalProof.publicOutput.toHex());
