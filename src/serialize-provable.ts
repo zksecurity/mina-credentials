@@ -17,14 +17,17 @@ import {
   VerificationKey,
   Struct,
   type ProvablePure,
+  type JsonProof,
 } from 'o1js';
-import { assert } from './util.ts';
+import { assert, assertHasMethod, defined } from './util.ts';
 import { ProvableFactory, type SerializedFactory } from './provable-factory.ts';
+import type { JSONValue } from './types.ts';
 
 export {
   type O1jsTypeName,
   type SerializedType,
   type SerializedValue,
+  type SerializedNestedType,
   supportedTypes,
   serializeProvableType,
   serializeProvable,
@@ -62,7 +65,7 @@ type SerializedType =
   | { _type: O1jsTypeName }
   | { _type: 'Struct'; properties: SerializedNestedType }
   | { _type: 'Array'; inner: SerializedType; size: number }
-  | { _type: 'Constant'; value: unknown }
+  | { _type: 'Constant'; value: JSONValue }
   | { _type: 'Bytes'; size: number }
   | { _type: 'Proof'; proof: Record<string, any> }
   | { _type: 'String' }
@@ -114,34 +117,49 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   return { _type };
 }
 
-type SerializedValue = { _type: string; properties?: any; value: any };
+type SerializedValue = SerializedType & { value: any };
 
-function serializeProvable(value: any): SerializedValue {
-  let serialized = ProvableFactory.tryValueToJSON(value);
-  if (serialized !== undefined) return serialized;
-
+function serializeProvable(value: any): SerializedType & { value: JSONValue } {
   let typeClass = ProvableType.fromValue(value);
-  let { _type } = serializeProvableType(typeClass);
-  if (_type === 'Bytes') {
-    return { _type, value: (value as Bytes).toHex() };
+  let serializedType = serializeProvableType(typeClass);
+
+  if (ProvableFactory.isSerialized(serializedType)) {
+    let serialized = ProvableFactory.tryValueToJSON(value);
+    return defined(serialized);
   }
-  if (_type === 'Array') {
-    return { _type, value: value.map((x: any) => serializeProvable(x)) };
-  }
-  if (_type === 'Struct') {
-    let structType = serializeStruct(typeClass as Struct<any>);
-    return { ...structType, value: (typeClass as Struct<any>).toJSON(value) };
-  }
-  switch (typeClass) {
-    case Bool: {
-      return { _type, value: value.toJSON().toString() };
+
+  switch (serializedType._type) {
+    case 'Bytes':
+      return { ...serializedType, value: (value as Bytes).toHex() };
+    case 'Proof':
+      let json = (value as DynamicProof<any, any>).toJSON();
+      return { ...serializedType, value: json };
+    case 'Array': {
+      return {
+        ...serializedType,
+        value: value.map((x: any) => serializeProvable(x)),
+      };
     }
-    case UInt8: {
-      return { _type, value: (value as UInt8).toString() };
-    }
-    default: {
-      return { _type, value: value.toJSON() };
-    }
+    case 'Struct':
+      return {
+        ...serializedType,
+        value: (typeClass as Struct<any>).toJSON(value),
+      };
+    case 'Undefined':
+      return { ...serializedType, value: null };
+    case 'Constant':
+      return serializedType;
+    case 'String':
+      return { ...serializedType, value };
+    case 'UInt8':
+      return { ...serializedType, value: (value as UInt8).toString() };
+    default:
+      assertHasMethod(
+        value,
+        'toJSON',
+        `Missing toJSON method for ${serializedType._type}`
+      );
+      return { ...serializedType, value: value.toJSON() };
   }
 }
 
@@ -245,12 +263,12 @@ function deserializeProvable(json: SerializedValue): any {
   if (ProvableFactory.isSerialized(json))
     return ProvableFactory.valueFromJSON(json);
 
-  let { _type, value, properties } = json;
-  switch (_type) {
+  let { _type, value } = json;
+  switch (json._type) {
     case 'Field':
       return Field.fromJSON(value);
     case 'Bool':
-      return Bool(value === 'true');
+      return Bool.fromJSON(value);
     case 'UInt8':
       return UInt8.fromJSON({ value });
     case 'UInt32':
@@ -261,16 +279,51 @@ function deserializeProvable(json: SerializedValue): any {
       return PublicKey.fromJSON(value);
     case 'Signature':
       return Signature.fromJSON(value);
+    case 'Undefined':
+      return undefined;
+    case 'VerificationKey':
+      return VerificationKey.fromJSON(value);
     case 'Bytes':
-      return Bytes.fromHex(value);
+      let BytesN = deserializeProvableType(json) as typeof Bytes.Base;
+      return BytesN.fromHex(value);
+    case 'Proof':
+      return proofFromJSONSync(json);
     case 'Array':
-      return (value as any[]).map((v: any) => deserializeProvable(v));
+      return (value as any[]).map((v) => deserializeProvable(v));
     case 'Struct':
-      let type = deserializeProvableType({ _type, properties }) as Struct<any>;
+      let type = deserializeProvableType(json) as Struct<any>;
       return type.fromJSON(value);
+    case 'Constant':
+      return value;
+    case 'String':
+      return value;
     default:
+      json satisfies never;
       throw Error(`Unsupported provable type: ${_type}`);
   }
+}
+
+// this only works if `await initializeBindings()` from o1js has been called before
+// but this implicit dependency seems better than making every `fromJSON` method async
+function proofFromJSONSync(json: {
+  _type: 'Proof';
+  proof: Record<string, any>;
+  value: JsonProof;
+}) {
+  let Proof = deserializeProvableType(json) as typeof DynamicProof;
+  let {
+    maxProofsVerified,
+    proof: proofString,
+    publicInput,
+    publicOutput,
+  } = json.value;
+  let proof = Proof._proofFromBase64(proofString, maxProofsVerified);
+  let fields = publicInput.map(Field).concat(publicOutput.map(Field));
+  return Proof.provable.fromFields(fields, [
+    [],
+    [],
+    [proof, maxProofsVerified],
+  ]);
 }
 
 function deserializeProvablePureType(type: {

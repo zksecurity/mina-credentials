@@ -32,7 +32,9 @@ let provedData = await Recursive.create({
   context: Field(0), // dummy context
   ownerSignature: Signature.empty(), // no credential => no signature verification
 });
-await Credential.validate(provedData);
+let credentialJson = Credential.toJSON(provedData);
+let storedCredential = await Credential.fromJSON(credentialJson);
+await Credential.validate(storedCredential);
 
 // define presentation spec
 const spec = Spec(
