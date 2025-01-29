@@ -13,10 +13,10 @@
     "url": "https://github.com/zksecurity/mina-attestations"
   },
   "keywords": [
-    "mina-zkapp",
-    "mina-zk-app",
-    "mina-dapp",
-    "zkapp"
+    "mina",
+    "zkapp",
+    "anonymous-credentials",
+    "zero-knowledge"
   ],
   "type": "module",
   "main": "build/src/index.js",
@@ -39,8 +39,6 @@
     "test": "node --test --experimental-strip-types --no-warnings {tests,src}/**/*.test.ts",
     "test-one": "node --enable-source-maps --test --experimental-strip-types --no-warnings",
     "examples": "node --test --experimental-strip-types --no-warnings examples/*.eg.ts",
-    "extension:dev": "vite build --config browser-extension/vite.config.js --watch",
-    "extension:build": "vite build --config browser-extension/vite.config.js",
     "prepublishOnly": "rm -rf build && npm run build"
   },
   "files": [
@@ -53,9 +51,8 @@
     "@types/chrome": "^0.0.272",
     "@types/node": "^22.5.5",
     "prettier": "^2.3.2",
-    "typescript": "^5.7.0-beta",
-    "vite": "^4.3.9",
-    "zod": "3.23.8"
+    "typescript": "^5.7.3",
+    "zod": "^3.24.1"
   },
   "peerDependencies": {
     "o1js": "2.2.0"
