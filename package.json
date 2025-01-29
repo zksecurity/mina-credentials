@@ -5,7 +5,7 @@
     "examples/web-demo",
     "examples/web-demo/api-server"
   ],
-  "description": "Private Credentials on Mina",
+  "description": "Private Attestations on Mina",
   "author": "zksecurity <hello@zksecurity.xyz>",
   "license": "Apache-2.0",
   "repository": {
