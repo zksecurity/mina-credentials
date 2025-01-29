@@ -6,6 +6,7 @@ import { parseRSASubjectPublicKeyInfo } from './der-parse.ts';
 import { fromBase64 } from './base64.ts';
 import { bytesToBigintBE } from '../rsa/utils.ts';
 import {
+  Experimental,
   MerkleList,
   Option,
   Proof,
@@ -303,6 +304,7 @@ let headerAndBodyProgram = ZkProgram({
     },
   },
 });
+let headerAndBodyRecursive = Experimental.Recursive(headerAndBodyProgram);
 
 async function verifyEmail(
   email: ProvableEmail,
@@ -336,11 +338,10 @@ async function verifyEmail(
   hashProgram.setProofsEnabled(proofsEnabled);
   headerAndBodyProgram.setProofsEnabled(proofsEnabled);
 
-  let { headerState, bodyState } =
-    await headerAndBodyProgram.proveRecursively.run({
-      headerBlocks: headerBlocksInner,
-      bodyBlocks,
-    });
+  let { headerState, bodyState } = await headerAndBodyRecursive.run({
+    headerBlocks: headerBlocksInner,
+    bodyBlocks,
+  });
   hashProgram.setProofsEnabled(originalProofsEnabled1);
   headerAndBodyProgram.setProofsEnabled(originalProofsEnabled2);
 
