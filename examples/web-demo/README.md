@@ -18,7 +18,7 @@ The server is a plain Node.js server located in `/api-server`. The web app is co
 ## Try it out locally
 
 ```bash
-# build `mina-credentials`, from repo root
+# build `mina-attestations`, from repo root
 npm i && npm run build 
 
 # start the vite dev server

@@ -1,5 +1,5 @@
 {
-  "name": "mina-credentials",
+  "name": "mina-attestations",
   "version": "0.2.7",
   "workspaces": [
     "examples/web-demo",
@@ -10,7 +10,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zksecurity/mina-credentials"
+    "url": "https://github.com/zksecurity/mina-attestations"
   },
   "keywords": [
     "mina-zkapp",

@@ -51,7 +51,7 @@ Example of SHA-512-hashing a dynamic-length string:
 
 ```ts
 import { Bytes, ZkProgram } from 'o1js';
-import { DynamicSHA2, DynamicString } from 'mina-credentials/dynamic';
+import { DynamicSHA2, DynamicString } from 'mina-attestations/dynamic';
 
 // allow strings up to length 100 as input
 const String = DynamicString({ maxLength: 100 });
