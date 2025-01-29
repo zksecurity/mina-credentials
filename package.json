@@ -1,6 +1,10 @@
 {
   "name": "mina-credentials",
-  "version": "0.2.3",
+  "version": "0.2.7",
+  "workspaces": [
+    "examples/web-demo",
+    "examples/web-demo/api-server"
+  ],
   "description": "Private Credentials on Mina",
   "author": "zksecurity <hello@zksecurity.xyz>",
   "license": "Apache-2.0",
@@ -23,6 +27,9 @@
     },
     "./dynamic": {
       "import": "./build/src/dynamic.js"
+    },
+    "./validation": {
+      "import": "./build/src/validation.js"
     }
   },
   "scripts": {
@@ -48,10 +55,10 @@
     "prettier": "^2.3.2",
     "typescript": "^5.7.0-beta",
     "vite": "^4.3.9",
-    "zod": "^3.23.8"
+    "zod": "3.23.8"
   },
   "peerDependencies": {
-    "o1js": "file:../../o1/o1js"
+    "o1js": "2.2.0"
   },
   "engines": {
     "node": ">=22.0"
