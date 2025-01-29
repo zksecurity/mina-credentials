@@ -12,6 +12,7 @@ export {
   chunk,
   pad,
   fill,
+  arrayEqual,
   mapObject,
   mapEntries,
   zipObjects,
@@ -134,6 +135,20 @@ function fill<T>(size: number, value: T | (() => T)): T[] {
   let cb: () => T =
     typeof value === 'function' ? (value as () => T) : () => value;
   return Array.from({ length: size }, cb);
+}
+
+function arrayEqual(
+  aI: unknown[] | Uint8Array | ArrayBuffer,
+  bI: unknown[] | Uint8Array | ArrayBuffer
+): boolean {
+  let a = aI instanceof ArrayBuffer ? new Uint8Array(aI) : aI;
+  let b = bI instanceof ArrayBuffer ? new Uint8Array(bI) : bI;
+  let n = a.length;
+  if (n !== b.length) return false;
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 function mapObject<
