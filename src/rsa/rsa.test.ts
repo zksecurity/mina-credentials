@@ -2,10 +2,10 @@
 import assert from 'node:assert';
 import { Bigint2048, rsaVerify65537 } from './rsa.ts';
 import {
-  sha256Bigint,
   generateRsaParams,
   rsaSign,
   randomPrime,
+  bytesToBigint,
 } from './utils.ts';
 import { it, describe } from 'node:test';
 
@@ -136,3 +136,16 @@ describe('RSA65537 verification tests', () => {
     assert.throws(() => rsaVerify65537(message, signature, modulus));
   });
 });
+
+// helper
+
+/**
+ * Generates a SHA-256 digest of the input message and returns the hash as a native bigint.
+ */
+async function sha256Bigint(message: string) {
+  let messageBytes = new TextEncoder().encode(message);
+  let digestBytes = new Uint8Array(
+    await crypto.subtle.digest('SHA-256', messageBytes)
+  );
+  return bytesToBigint(digestBytes);
+}
