@@ -101,7 +101,7 @@ function serializeProvableType(type: ProvableType<any>): SerializedType {
   }
   let _type = mapProvableTypeToName.get(type);
   if (_type === undefined && (type as any)._isStruct) {
-    return serializeStruct(type as Struct<any>);
+    return serializeStructType(type as Struct<any>);
   }
   if (_type === undefined && (type as any)._isArray) {
     return {
@@ -141,10 +141,11 @@ function serializeProvable(value: any): SerializedType & { value: JSONValue } {
       };
     }
     case 'Struct':
-      return {
-        ...serializedType,
-        value: (typeClass as Struct<any>).toJSON(value),
-      };
+      let result: Record<string, any> = {};
+      for (let key in serializedType.properties) {
+        result[key] = serializeNestedProvableValue(value[key]);
+      }
+      return { ...serializedType, value: result };
     case 'Undefined':
       return { ...serializedType, value: null };
     case 'Constant':
@@ -163,7 +164,7 @@ function serializeProvable(value: any): SerializedType & { value: JSONValue } {
   }
 }
 
-function serializeStruct(type: Struct<any>): SerializedType {
+function serializeStructType(type: Struct<any>): SerializedType {
   let value = type.empty();
   let properties: SerializedNestedType = {};
 
@@ -292,7 +293,11 @@ function deserializeProvable(json: SerializedValue): any {
       return (value as any[]).map((v) => deserializeProvable(v));
     case 'Struct':
       let type = deserializeProvableType(json) as Struct<any>;
-      return type.fromJSON(value);
+      let result: Record<string, any> = {};
+      for (let key in json.properties) {
+        result[key] = deserializeNestedProvableValue(value[key]);
+      }
+      return new type(result);
     case 'Constant':
       return value;
     case 'String':
