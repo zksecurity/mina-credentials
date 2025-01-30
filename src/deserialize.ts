@@ -96,9 +96,22 @@ function deserializeNode(
   node: { type: Node['type'] } & Record<string, any>
 ): Node {
   switch (node.type) {
+    case 'constant':
+      return {
+        type: 'constant',
+        data: deserializeProvable(node.data),
+      };
+    case 'root':
+      return { type: 'root', input: root };
     case 'owner': {
       return {
         type: 'owner',
+      };
+    }
+    case 'credential': {
+      return {
+        type: 'credential',
+        credentialKey: node.credentialKey,
       };
     }
     case 'issuer': {
@@ -107,13 +120,7 @@ function deserializeNode(
         credentialKey: node.credentialKey,
       };
     }
-    case 'constant':
-      return {
-        type: 'constant',
-        data: deserializeProvable(node.data),
-      };
-    case 'root':
-      return { type: 'root', input: root };
+
     case 'property':
       return {
         type: 'property',
@@ -180,6 +187,8 @@ function deserializeNode(
         type: 'record',
         data: deserializedData,
       };
+    case 'compute':
+      throw Error('Not implemented');
     default:
       throw Error(`Invalid node type: ${node.type}`);
   }

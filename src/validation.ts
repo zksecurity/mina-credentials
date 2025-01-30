@@ -138,6 +138,7 @@ const SerializedSignatureSchema = z
 type Node =
   | { type: 'owner' }
   | { type: 'issuer'; credentialKey: string }
+  | { type: 'credential'; credentialKey: string }
   | { type: 'constant'; data: z.infer<typeof SerializedValueSchema> }
   | { type: 'root' }
   | { type: 'property'; key: string; inner: Node }
@@ -159,30 +160,14 @@ type Node =
 const NodeSchema: z.ZodType<Node> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z
-      .object({
-        type: z.literal('owner'),
-      })
+      .object({ type: z.literal('constant'), data: SerializedValueSchema })
       .strict(),
-
+    z.object({ type: z.literal('root') }).strict(),
+    z.object({ type: z.literal('owner') }).strict(),
     z
-      .object({
-        type: z.literal('issuer'),
-        credentialKey: z.string(),
-      })
+      .object({ type: z.literal('credential'), credentialKey: z.string() })
       .strict(),
-
-    z
-      .object({
-        type: z.literal('constant'),
-        data: SerializedValueSchema,
-      })
-      .strict(),
-
-    z
-      .object({
-        type: z.literal('root'),
-      })
-      .strict(),
+    z.object({ type: z.literal('issuer'), credentialKey: z.string() }).strict(),
 
     z
       .object({
@@ -193,10 +178,7 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
       .strict(),
 
     z
-      .object({
-        type: z.literal('record'),
-        data: z.record(NodeSchema),
-      })
+      .object({ type: z.literal('record'), data: z.record(NodeSchema) })
       .strict(),
 
     z
@@ -448,7 +430,10 @@ const StructCredentialSchema = z
       .strict(),
     value: z
       .object({
-        owner: PublicKeySchema,
+        owner: z.object({
+          _type: z.literal('PublicKey'),
+          value: PublicKeySchema,
+        }),
         data: JsonSchema,
       })
       .strict(),

@@ -253,7 +253,7 @@ function recombineDataInputs<S extends Spec>(
 function recombineDataInputs<S extends Spec>(
   spec: S,
   { claims }: PublicInputs<any>,
-  { credentials }: PrivateInputs<any>,
+  _: PrivateInputs<any>,
   credentialOutputs: CredentialOutputs
 ): Record<string, any> {
   let result: Record<string, any> = {};
@@ -262,11 +262,7 @@ function recombineDataInputs<S extends Spec>(
 
   Object.entries(spec.inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = {
-        credential: (credentials[key] as any).credential,
-        issuer: credentialOutputs.credentials[i]!.issuer,
-        witness: credentialOutputs.credentials[i]!.witness,
-      };
+      result[key] = credentialOutputs.credentials[i];
       i++;
     }
     if (input.type === 'claim') {
@@ -336,10 +332,10 @@ type ToCredential<T extends Input> = T extends CredentialSpec<
 
 type ToDataInput<T extends Input> = T extends CredentialSpec<
   CredentialType,
-  any,
+  infer Witness,
   infer Data
 >
-  ? Credential<Data>
+  ? { credential: Credential<Data>; witness: Witness; issuer: Field }
   : T extends Input<infer Data>
   ? Data
   : never;

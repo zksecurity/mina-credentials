@@ -109,22 +109,14 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
       return (root as any).owner;
     case 'credential':
       assertHasProperty(root, node.credentialKey);
-      return (root as any)[node.credentialKey].data;
+      assertHasProperty(root[node.credentialKey], 'credential');
+      return (root as any)[node.credentialKey].credential.data;
     case 'issuer':
       assertHasProperty(root, node.credentialKey);
       return (root as any)[node.credentialKey].issuer;
     case 'property': {
       let inner = evalNode<unknown>(root, node.inner);
-      if (
-        inner &&
-        typeof inner === 'object' &&
-        'credential' in inner &&
-        'issuer' in inner
-      ) {
-        return extractProperty(inner.credential, node.key) as Data;
-      } else {
-        return extractProperty(inner, node.key) as Data;
-      }
+      return extractProperty(inner, node.key) as Data;
     }
     case 'record': {
       let result: Record<string, any> = {};
