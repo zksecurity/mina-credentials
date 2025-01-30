@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
-import { Field, Bytes, PublicKey, Signature } from 'o1js';
+import { Field, Bytes } from 'o1js';
 import { createProgram } from '../src/program.ts';
 import { Claim, Constant, Spec } from '../src/program-spec.ts';
 import { Credential } from '../src/credential-index.ts';
@@ -12,30 +12,19 @@ import { Operation } from '../src/operation.ts';
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
 
-// simple spec to create a proof credential that's used recursively
+// create recursive credential
 // TODO create a more interesting input proof
-const inputProofSpec = Spec(
-  { inputOwner: Claim(PublicKey), data: Claim(InputData) },
-  ({ inputOwner, data }) => ({
-    outputClaim: Operation.record({ owner: inputOwner, data }),
-  })
+const Recursive = await Credential.Recursive.fromMethod(
+  { name: 'dummy', private: InputData, data: InputData },
+  async ({ private: data }) => data
 );
 
-// create recursive credential
-const Recursive = await Credential.Recursive.fromProgram(
-  createProgram(inputProofSpec).program
-);
 let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-let provedData = await Recursive.create(
-  {
-    context: Field(0), // dummy context
-    claims: { inputOwner: owner, data },
-  },
-  {
-    credentials: {},
-    ownerSignature: Signature.empty(), // no credential => no signature verification
-  }
-);
+let provedData = await Recursive.create({
+  owner,
+  private: data,
+  public: undefined,
+});
 let credentialJson = Credential.toJSON(provedData);
 let storedCredential = await Credential.fromJSON(credentialJson);
 await Credential.validate(storedCredential);

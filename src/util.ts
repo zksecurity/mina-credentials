@@ -14,6 +14,7 @@ export {
   fill,
   arrayEqual,
   mapObject,
+  mapToObject,
   mapEntries,
   zipObjects,
   assertExtendsShape,
@@ -160,6 +161,17 @@ function mapObject<
     result[key] = fn(obj[key], key);
   }
   return result;
+}
+
+function mapToObject<
+  Key extends string | number | symbol,
+  F extends <K extends Key>(key: K, i: number) => any
+>(keys: Key[], fn: F) {
+  let s = {} as { [K in Key]: ReturnType<F> };
+  keys.forEach((key, i) => {
+    s[key] = fn(key, i);
+  });
+  return s;
 }
 
 function zipObjects<
