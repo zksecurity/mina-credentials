@@ -50,7 +50,7 @@ type Spec<
   Inputs extends Record<string, Input> = Record<string, Input>
 > = {
   inputs: Inputs;
-  logic: Required<OutputNode<Output>>;
+  logic: OutputNode<Output>;
 };
 
 /**
@@ -61,7 +61,7 @@ function Spec<Output, Inputs extends Record<string, Input>>(
   spec: (inputs: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => {
-    assert?: Node<Bool>;
+    assert?: Node<Bool> | Node<Bool>[];
     outputClaim: Node<Output>;
   }
 ): Spec<Output, Inputs>;
@@ -72,7 +72,7 @@ function Spec<Inputs extends Record<string, Input>>(
   spec: (inputs: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
   }) => {
-    assert?: Node<Bool>;
+    assert?: Node<Bool> | Node<Bool>[];
   }
 ): Spec<undefined, Inputs>;
 
@@ -81,7 +81,10 @@ function Spec<Output, Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
     [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
-  }) => OutputNode<Output>
+  }) => {
+    assert?: Node<Bool> | Node<Bool>[];
+    outputClaim?: Node<Output>;
+  }
 ): Spec<Output, Inputs> {
   let rootNode = root(inputs);
   let inputNodes: {
@@ -102,9 +105,11 @@ function Spec<Output, Inputs extends Record<string, Input>>(
     }
   }
   let logic = spec(inputNodes);
-  let assertNode = logic.assert ?? Node.constant(Bool(true));
+  let assertNode = logic.assert ?? Operation.constant(Bool(true));
+  if (Array.isArray(assertNode)) assertNode = Operation.and(...assertNode);
+
   let outputClaim: Node<Output> =
-    logic.outputClaim ?? (Node.constant(undefined) as any);
+    logic.outputClaim ?? (Operation.constant(undefined) as any);
 
   return { inputs, logic: { assert: assertNode, outputClaim } };
 }
@@ -121,9 +126,9 @@ type Input<Data = any> =
   | Constant<Data>
   | Claim<Data>;
 
-type OutputNode<Data = any> = {
-  assert?: Node<Bool>;
-  outputClaim?: Node<Data>;
+type OutputNode<Data> = {
+  assert: Node<Bool>;
+  outputClaim: Node<Data>;
 };
 
 function Constant<DataType extends ProvableType>(

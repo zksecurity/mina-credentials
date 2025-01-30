@@ -15,6 +15,9 @@ export { type GetData, root };
 
 const Operation = {
   owner: { type: 'owner' } as Node<PublicKey>,
+  constant<Data>(data: Data): Node<Data> {
+    return { type: 'constant', data };
+  },
   issuer,
   property,
   record,
@@ -76,10 +79,6 @@ type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 const Node = {
   eval: evalNode,
   evalType: evalNodeType,
-
-  constant<Data>(data: Data): Node<Data> {
-    return { type: 'constant', data };
-  },
 };
 
 function evalNode<Data>(root: object, node: Node<Data>): Data {

@@ -411,7 +411,7 @@ test(' Spec and Node operations', async (t) => {
         zero: Constant(Field, Field(0)),
       },
       ({ data, threshold, zero }) => ({
-        assert: Node.constant(Bool(true)),
+        assert: Operation.constant(Bool(true)),
         outputClaim: Operation.ifThenElse(
           Operation.lessThan(Operation.property(data, 'value'), threshold),
           zero,
