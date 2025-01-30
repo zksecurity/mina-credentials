@@ -77,7 +77,7 @@ await describe('program with proof credential', async () => {
   await test('run program with valid inputs', async () => {
     let presentation = await Presentation.create(ownerKey, {
       request,
-      credentials: [provedData],
+      credentials: [storedCredential],
       context: undefined,
     });
     let outputClaim = await Presentation.verify(

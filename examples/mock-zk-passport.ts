@@ -6,15 +6,16 @@ import {
   Presentation,
   PresentationRequest,
   PresentationSpec,
-} from 'mina-attestations';
+} from '../src/index.ts';
 import { owner, ownerKey } from '../tests/test-utils.ts';
-import { UInt64 } from 'o1js';
+import { Field, UInt64 } from 'o1js';
 
 const String = DynamicString({ maxLength: 30 });
 
 let PassportCredential = await Credential.Recursive.fromMethod(
   {
     name: 'passport',
+    publicInput: { something: Field },
     privateInput: { nationality: String, expiresAt: UInt64 },
     data: { nationality: String, expiresAt: UInt64 },
   },
@@ -25,12 +26,16 @@ let PassportCredential = await Credential.Recursive.fromMethod(
 // create (dummy) passport credential
 let cred = await PassportCredential.create({
   owner,
-  publicInput: undefined,
+  publicInput: {
+    something: Field(0),
+  },
   privateInput: {
     expiresAt: UInt64.from(Date.UTC(2027, 1, 1)),
     nationality: 'Austria',
   },
 });
+let credJson = Credential.toJSON(cred);
+let credRecovered = await Credential.fromJSON(credJson);
 
 let spec = PresentationSpec(
   { passport: PassportCredential.type, createdAt: Claim(UInt64) },
@@ -59,16 +64,22 @@ let request = PresentationRequest.httpsFromCompiled(
   { createdAt: UInt64.from(Date.now()) },
   { action: 'verify-citizenship' }
 );
+let requestJson = PresentationRequest.toJSON(request);
 
 let presentation = await Presentation.create(ownerKey, {
-  request,
-  credentials: [cred],
+  request: PresentationRequest.fromJSON('https', requestJson),
+  credentials: [credRecovered],
   context: { verifierIdentity: 'crypto-exchange.com' },
 });
+let presentationJson = Presentation.toJSON(presentation);
 
-let output = await Presentation.verify(request, presentation, {
-  verifierIdentity: 'crypto-exchange.com',
-});
+let output = await Presentation.verify(
+  request,
+  Presentation.fromJSON(presentationJson),
+  {
+    verifierIdentity: 'crypto-exchange.com',
+  }
+);
 
 // TODO verify issuer
 console.log('issuer', output);

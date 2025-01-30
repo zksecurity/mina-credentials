@@ -11,7 +11,7 @@ import {
   Provable,
   PublicKey,
   Undefined,
-  From,
+  type From,
 } from 'o1js';
 import { ProvableType } from './o1js-missing.ts';
 import {
