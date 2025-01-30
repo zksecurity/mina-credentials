@@ -1,20 +1,18 @@
 import {
   Bool,
   Field,
-  type ProvablePure,
   Signature,
   PublicKey,
   type InferProvable,
+  Provable,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
-import { assertPure, ProvableType } from './o1js-missing.ts';
+import { ProvableType } from './o1js-missing.ts';
 import { assert } from './util.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
   type NestedProvableFor,
-  type NestedProvablePure,
-  type NestedProvablePureFor,
 } from './nested.ts';
 import {
   type CredentialSpec,
@@ -116,7 +114,7 @@ type Constant<Data> = {
   data: ProvableType<Data>;
   value: Data;
 };
-type Claim<Data> = { type: 'claim'; data: NestedProvablePureFor<Data> };
+type Claim<Data> = { type: 'claim'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
   | CredentialSpec<CredentialType, any, Data>
@@ -135,7 +133,7 @@ function Constant<DataType extends ProvableType>(
   return { type: 'constant', data, value };
 }
 
-function Claim<DataType extends NestedProvablePure>(
+function Claim<DataType extends NestedProvable>(
   data: DataType
 ): Claim<InferNestedProvable<DataType>> {
   return { type: 'claim', data: data as any };
@@ -143,11 +141,11 @@ function Claim<DataType extends NestedProvablePure>(
 
 // helpers to extract/recombine portions of the spec inputs
 
-function publicInputTypes({ inputs }: Spec): NestedProvablePureFor<{
+function publicInputTypes({ inputs }: Spec): NestedProvableFor<{
   context: Field;
   claims: Record<string, any>;
 }> {
-  let claims: Record<string, NestedProvablePure> = {};
+  let claims: Record<string, NestedProvable> = {};
 
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'claim') {
@@ -179,12 +177,10 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
   return { ownerSignature: Signature, credentials };
 }
 
-function publicOutputType(spec: Spec): ProvablePure<any> {
+function publicOutputType(spec: Spec): Provable<any> {
   let root = dataInputTypes(spec);
   let outputTypeNested = Node.evalType(root, spec.logic.outputClaim);
-  let outputType = NestedProvable.get(outputTypeNested);
-  assertPure(outputType);
-  return outputType;
+  return NestedProvable.get(outputTypeNested);
 }
 
 function dataInputTypes({ inputs }: Spec): NestedProvable {
