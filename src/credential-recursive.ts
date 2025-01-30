@@ -238,40 +238,40 @@ async function recursiveFromProgram<
   );
 }
 
-type PublicInput<Config> = InferProvableOrUndefined<Get<Config, 'public'>>;
-type PrivateInput<Config> = InferProvable<Get<Config, 'private'>>;
+type PublicInput<Config> = InferProvableOrUndefined<Get<Config, 'publicInput'>>;
+type PrivateInput<Config> = InferProvable<Get<Config, 'privateInput'>>;
 type Data<Config> = InferProvable<Get<Config, 'data'>>;
 
 async function recursiveFromMethod<
   Config extends {
     name: string;
-    public?: NestedProvable;
-    private?: NestedProvable;
+    publicInput?: NestedProvable;
+    privateInput?: NestedProvable;
     data: NestedProvable;
   }
 >(
   spec: Config,
   method: (inputs: {
-    public: PublicInput<Config>;
-    private: PrivateInput<Config>;
+    publicInput: PublicInput<Config>;
+    privateInput: PrivateInput<Config>;
     owner: PublicKey;
   }) => Promise<Data<Config>>
 ) {
-  type PublicInput = InferProvableOrUndefined<Get<Config, 'public'>>;
-  type PrivateInput = InferProvable<Get<Config, 'private'>>;
+  type PublicInput = InferProvableOrUndefined<Get<Config, 'publicInput'>>;
+  type PrivateInput = InferProvable<Get<Config, 'privateInput'>>;
   type Data = InferProvable<Get<Config, 'data'>>;
 
   let publicInput =
-    spec.public === undefined
+    spec.publicInput === undefined
       ? undefined
       : NestedProvable.get<PublicInput>(
-          spec.public as NestedProvableFor<PublicInput>
+          spec.publicInput as NestedProvableFor<PublicInput>
         );
   let privateInput =
-    spec.private === undefined
+    spec.privateInput === undefined
       ? Undefined
       : NestedProvable.get<PrivateInput>(
-          spec.private as NestedProvableFor<PrivateInput>
+          spec.privateInput as NestedProvableFor<PrivateInput>
         );
   let publicOutput = NestedProvable.get(withOwner(spec.data));
 
@@ -280,7 +280,7 @@ async function recursiveFromMethod<
     priv: PrivateInput,
     owner: PublicKey
   ): Promise<{ publicOutput: Credential<Data> }> {
-    let data = await method({ public: pub, private: priv, owner });
+    let data = await method({ publicInput: pub, privateInput: priv, owner });
     return { publicOutput: { owner, data } };
   }
 
@@ -312,18 +312,21 @@ async function recursiveFromMethod<
     ...credentialSpec2,
 
     async create(inputs: {
-      public: PublicInput;
-      private: PrivateInput;
+      publicInput: PublicInput;
+      privateInput: PrivateInput;
       owner: PublicKey;
     }) {
       let vk = await this.compile();
       let proof: Proof<PublicInput, Credential<Data>>;
       if (publicInput === undefined) {
-        ({ proof } = await (program.run as any)(inputs.private, inputs.owner));
+        ({ proof } = await (program.run as any)(
+          inputs.privateInput,
+          inputs.owner
+        ));
       } else {
         ({ proof } = await (program.run as any)(
-          inputs.public,
-          inputs.private,
+          inputs.publicInput,
+          inputs.privateInput,
           inputs.owner
         ));
       }
@@ -343,19 +346,3 @@ type InferProvableOrUndefined<A> = A extends undefined
   : A extends ProvableType
   ? InferProvable<A>
   : InferProvable<A> | undefined;
-
-type MethodWithOwner<PublicInput, PublicOutput, PrivateInput> =
-  PublicInput extends undefined
-    ? {
-        method(
-          privateInput: PrivateInput,
-          owner: PublicKey
-        ): Promise<Credential<PublicOutput>>;
-      }
-    : {
-        method(
-          publicInput: PublicInput,
-          privateInput: PrivateInput,
-          owner: PublicKey
-        ): Promise<Credential<PublicOutput>>;
-      };

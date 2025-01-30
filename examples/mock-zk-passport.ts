@@ -4,42 +4,29 @@ import {
   PresentationRequest,
   Spec,
 } from 'mina-attestations';
-import { PublicKey, Struct, ZkProgram } from 'o1js';
+import { owner, ownerKey } from '../tests/test-utils.ts';
 
 const String = DynamicString({ maxLength: 30 });
 
-class Output extends Struct({
-  owner: PublicKey,
-  data: { nationality: String },
-}) {}
-
-let passportProgram = ZkProgram({
-  name: 'passport',
-  publicOutput: Output,
-  methods: {
-    run: {
-      privateInputs: [],
-      async method() {
-        return {
-          publicOutput: {
-            owner: PublicKey.empty(),
-            data: { nationality: String.from('test') },
-          },
-        };
-      },
-    },
+let passportCredentialSpec = await Credential.Recursive.fromMethod(
+  {
+    name: 'passport',
+    public: { nationality: String },
+    data: { nationality: String },
   },
-});
-
-let passportCredential = await Credential.Recursive.fromProgram(
-  passportProgram
+  async () => {
+    return { nationality: String.from('Austria') };
+  }
 );
-
-passportCredential.create();
+passportCredentialSpec.create({
+  owner,
+  privateInput: undefined,
+  publicInput: undefined,
+});
 
 let spec = Spec(
   {
-    passport: passportCredential,
+    passport: passportCredentialSpec,
   },
   ({ passport }) => ({})
 );

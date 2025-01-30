@@ -15,15 +15,15 @@ const InputData = { age: Field, name: Bytes32 };
 // create recursive credential
 // TODO create a more interesting input proof
 const Recursive = await Credential.Recursive.fromMethod(
-  { name: 'dummy', private: InputData, data: InputData },
-  async ({ private: data }) => data
+  { name: 'dummy', privateInput: InputData, data: InputData },
+  async ({ privateInput: data }) => data
 );
 
 let data = { age: Field(18), name: Bytes32.fromString('Alice') };
 let provedData = await Recursive.create({
   owner,
-  private: data,
-  public: undefined,
+  privateInput: data,
+  publicInput: undefined,
 });
 let credentialJson = Credential.toJSON(provedData);
 let storedCredential = await Credential.fromJSON(credentialJson);
