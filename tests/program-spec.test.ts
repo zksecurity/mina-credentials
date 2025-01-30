@@ -789,6 +789,7 @@ test(' Spec and Node operations', async (t) => {
         {
           credential: { owner, data },
           issuer: Field(1234),
+          witness: undefined,
         },
       ],
     };
