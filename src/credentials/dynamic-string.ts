@@ -78,6 +78,12 @@ function DynamicString({ maxLength }: { maxLength: number }) {
 
   return DynamicString;
 }
+
+DynamicString.from = function (s: string | DynamicStringBase) {
+  if (typeof s !== 'string') return s;
+  return DynamicString({ maxLength: stringLength(s) }).from(s);
+};
+
 BaseType.DynamicString = DynamicString;
 
 const enc = new TextEncoder();
@@ -220,15 +226,24 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
     super.assertEquals(other);
   }
 
+  splitAt(index: number): [DynamicString, DynamicString] {
+    let [a, b] = super.splitAt(index);
+    let StringA = DynamicString({ maxLength: a.maxLength });
+    let StringB = DynamicString({ maxLength: b.maxLength });
+    return [new StringA(a.array, a.length), new StringB(b.array, b.length)];
+  }
+
   assertContains(
-    substring: StaticArray<UInt8, UInt8V> | DynamicArray<UInt8, UInt8V> | string
+    substring:
+      | StaticArray<UInt8, UInt8V>
+      | DynamicArray<UInt8, UInt8V>
+      | string,
+    message?: string
   ): Field {
     if (typeof substring === 'string') {
-      substring = DynamicString({ maxLength: stringLength(substring) }).from(
-        substring
-      );
+      substring = DynamicString.from(substring);
     }
-    return super.assertContains(substring);
+    return super.assertContains(substring, message);
   }
 
   growMaxLengthTo(maxLength: number): DynamicStringBase {

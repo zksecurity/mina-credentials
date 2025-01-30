@@ -17,7 +17,20 @@ import { hashSafe } from './dynamic-hash.ts';
 import { ProvableType, toFieldsPacked } from '../o1js-missing.ts';
 import type { Constructor } from '../types.ts';
 
-export { DynamicSHA2, Sha2IterationState, Sha2Iteration, Sha2FinalIteration };
+export {
+  DynamicSHA2,
+  Sha2IterationState,
+  Sha2Iteration,
+  Sha2FinalIteration,
+  State32,
+  State64,
+  Block32,
+  Block64,
+  Bytes28,
+  Bytes32,
+  Bytes48,
+  Bytes64,
+};
 
 const DynamicSHA2 = {
   /**
@@ -92,8 +105,16 @@ const DynamicSHA2 = {
    */
   finalize,
 
+  // low-level API
+
   padding256,
   padding512,
+  commitBlock256,
+  commitBlock512,
+  hashBlock256,
+  hashBlock512,
+  initialState256: (l: 224 | 256) => State32.from(SHA2.initialState256(l)),
+  initialState512: (l: 384 | 512) => State64.from(SHA2.initialState512(l)),
 };
 
 function sha2(len: 224 | 256 | 384 | 512, bytes: DynamicArray<UInt8>): Bytes {
@@ -396,7 +417,7 @@ function update(
 
     // update hash state and commitment
     let { state, commitment } = iterState;
-    state = iteration.blocks.reduce(state, processBlock256);
+    state = iteration.blocks.reduce(state, hashBlock256);
     commitment = iteration.blocks.reduce(commitment, commitBlock256);
 
     return { len: iterState.len, state, commitment };
@@ -406,7 +427,7 @@ function update(
 
     // update hash state and commitment
     let { state, commitment } = iterState;
-    state = iteration.blocks.reduce(state, processBlock512);
+    state = iteration.blocks.reduce(state, hashBlock512);
     commitment = iteration.blocks.reduce(commitment, commitBlock512);
 
     return { len: iterState.len, state, commitment };
@@ -423,7 +444,7 @@ function finalize(
 
     // update hash state and commitment
     let { state, commitment } = iterState;
-    state = final.blocks.reduce(State32, state, processBlock256);
+    state = final.blocks.reduce(State32, state, hashBlock256);
     commitment = final.blocks.reduce(Field, commitment, commitBlock256);
 
     // recompute commitment from scratch to confirm we really hashed the input bytes
@@ -439,7 +460,7 @@ function finalize(
 
     // update hash state and commitment
     let { state, commitment } = iterState;
-    state = final.blocks.reduce(State64, state, processBlock512);
+    state = final.blocks.reduce(State64, state, hashBlock512);
     commitment = final.blocks.reduce(Field, commitment, commitBlock512);
 
     // recompute commitment from scratch to confirm we really hashed the input bytes
@@ -496,11 +517,11 @@ function Sha2FinalIteration<L extends Length>(
 
 // helpers for update API
 
-function processBlock256(state: State32, block: Block32): State32 {
+function hashBlock256(state: State32, block: Block32): State32 {
   let W = SHA2.messageSchedule256(block.array);
   return State32.from(SHA2.compression256(state.array, W));
 }
-function processBlock512(state: State64, block: Block64): State64 {
+function hashBlock512(state: State64, block: Block64): State64 {
   let W = SHA2.messageSchedule512(block.array);
   return State64.from(SHA2.compression512(state.array, W));
 }

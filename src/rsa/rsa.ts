@@ -3,10 +3,13 @@
  *
  * This is copied and modified from an example in the o1js repo: https://github.com/o1-labs/o1js/tree/main/src/examples/crypto/rsa
  */
-import { Field, Gadgets, Provable, Struct, Unconstrained } from 'o1js';
+import { Bytes, Field, Gadgets, Provable, Struct, Unconstrained } from 'o1js';
 import { TypeBuilder } from '../provable-type-builder.ts';
+import { assert, chunk, fill } from '../util.ts';
+import { pack, packBytes, unpack } from '../credentials/gadgets.ts';
+import { power } from './utils.ts';
 
-export { Bigint2048, rsaVerify65537 };
+export { Bigint2048, rsaVerify65537, rsaSign };
 
 const mask = (1n << 116n) - 1n;
 
@@ -38,6 +41,19 @@ class Bigint2048 {
 
   static from(x: bigint | Bigint2048) {
     return Bigint2048.provable.fromValue(x);
+  }
+
+  static unsafeFromLimbs(fields: Field[]) {
+    assert(fields.length === 18, 'expected 18 limbs');
+    let value = Unconstrained.witness(() => {
+      let x = 0n;
+      for (let i = 17; i >= 0; i--) {
+        x <<= 116n;
+        x += fields[i]!.toBigInt();
+      }
+      return x;
+    });
+    return new Bigint2048({ fields, value });
   }
 
   static provable = TypeBuilder.shape({
@@ -140,28 +156,107 @@ function multiply(
 }
 
 /**
- * RSA signature verification
+ * RSA signature verification,
+ * assuming a public exponent of e = 65537
  *
- * TODO this is a bit simplistic; according to RSA spec, message must be 256 bits
- * and the remaining bits must follow a specific pattern.
+ * Scheme: RSASSA-PKCS1-v1.5
+ *
+ * Spec:
+ * https://datatracker.ietf.org/doc/html/rfc3447#section-8.2
  */
 function rsaVerify65537(
-  message: Bigint2048,
+  message: Bytes,
   signature: Bigint2048,
   modulus: Bigint2048
 ) {
+  // e = 65537 = 2^16 + 1
   // compute signature^(2^16 + 1) mod modulus
-  // square 16 times
+  // => square 16 times
   let x = signature;
   for (let i = 0; i < 16; i++) {
     x = modulus.modSquare(x);
   }
-  // multiply by signature
+  // multiply by signature once more
   x = modulus.modMul(x, signature);
 
-  // check that x == message
-  Provable.assertEqual(Bigint2048, message, x);
+  // check that x == padded message
+  // TODO: need an error message here, this is where a wrong signature would be detected
+  Provable.assertEqual(Bigint2048, x, rsaPadding(message));
 }
+
+/**
+ * Pad 32-byte message to 2048-bit RSA bigint
+ *
+ * Scheme: EMSA-PKCS1-v1.5
+ *
+ * Spec:
+ * https://datatracker.ietf.org/doc/html/rfc3447#section-9.2
+ */
+function rsaPadding(message: Bytes) {
+  assert(message.length === 32, 'message must be 32 bytes');
+
+  // reverse DER encoding of `DigestInfo` for message
+  // EM = 0x00 || 0x01 || PS || 0x00 || T
+  // reverse everything because the RFC views integers big-endian
+
+  // SHA-256: T= (0x)30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20 || H
+  let derPadding = 0x30_31_30_0d_06_09_60_86_48_01_65_03_04_02_01_05_00_04_20n;
+
+  // first, we encode the 32 message bytes, in reverse order, into the first three 116-bit limbs
+  // because 116 / 8 = 14.5, one byte has to be split into two halves:
+  // 32 = (14 + 0.5) + (0.5 + 14) + 3
+  let bytes = message.bytes.toReversed(); // reverse so we can use little-endian encoding
+
+  // TODO: I think we might have to reverse the bits within each byte as well :/
+
+  let l0 = packBytes(bytes.slice(0, 14));
+  let [l0half, l1half] = unpack(bytes[14]!.value, 4, 2);
+  l0 = l0.add(l0half.mul(1n << 112n)).seal();
+  let l1 = packBytes(bytes.slice(15, 29));
+  l1 = l1half.add(l1.mul(1n << 4n)).seal();
+  let l2 = packBytes(bytes.slice(29, 32));
+
+  // l2 is filled up with 14.5 - 3 = 11.5 bytes = 92 bits of constant padding
+  let l2Padding = derPadding & ((1n << 92n) - 1n); // lower 92 bits of DER padding
+  l2 = l2.add(l2Padding << 24n).seal();
+
+  // construct the entire remaining padding as 4-bit pieces
+
+  // PS fills up the remaining space with 0xf pieces
+  let psSize = 2048 / 4 - 6 - 64 - 38; // -38 comes from the DER padding
+
+  // prettier-ignore
+  let remaining = [
+    // remaining DER padding
+    ...unpack(derPadding >> 92n, 4, (19 - 11.5)*2).map((x) => Number(x)),
+    // 0x00 || PS || 0x01 || 0x00
+    0, 0, ...fill(psSize, 0xf), 1, 0, 0, 0,
+    // additional 40 bits of 0-padding to fill up from 2048 bits to 116 * 18 = 2088 bits
+    ...fill(10, 0x0)
+  ];
+  let remainingLimbs = chunk(remaining, 116 / 4).map((limb) =>
+    pack(limb.map(Field), 4)
+  );
+  return Bigint2048.unsafeFromLimbs([l0, l1, l2, ...remainingLimbs]);
+}
+
+/**
+ * Generates an RSA signature for the given message using the private key d and modulus n,
+ * according to RSASSA-PKCS1-v1.5
+ *
+ * Returns the signature as a bigint.
+ *
+ * Notes:
+ * - Expects an already hashed input, rather than performing the sha256 hash itself
+ * - This method is not provable!
+ */
+function rsaSign(message: Bytes, keys: { d: bigint; n: bigint }): bigint {
+  let paddedMessage = rsaPadding(message).toBigint();
+  // Calculate the signature using modular exponentiation
+  return power(paddedMessage, keys.d, keys.n);
+}
+
+// helpers
 
 /**
  * Custom range check for a single limb, x in [0, 2^116)
