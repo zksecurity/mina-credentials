@@ -9,9 +9,10 @@ import {
 } from './credentials/dynamic-record.ts';
 import { hashDynamicWithPrefix } from './credentials/dynamic-hash.ts';
 import type { Input } from './program-spec.ts';
+import type { CredentialSpec } from './credential.ts';
 
 export { Node, Operation };
-export { type GetData, root };
+export { type CredentialNode, type InputToNode, root };
 
 const Operation = {
   owner: { type: 'owner' } as Node<PublicKey>,
@@ -38,11 +39,20 @@ const Operation = {
   compute,
 };
 
+type CredentialNode<Data = any, Witness = any> = {
+  type: 'credential';
+  credentialKey: string;
+  // phantom data
+  data?: Data;
+  witness?: Witness;
+};
+
 type Node<Data = any> =
-  | { type: 'owner' }
-  | { type: 'issuer'; credentialKey: string }
   | { type: 'constant'; data: Data }
   | { type: 'root'; input: Record<string, Input> }
+  | { type: 'owner' }
+  | CredentialNode<Data, any>
+  | { type: 'issuer'; credentialKey: string }
   | { type: 'property'; key: string; inner: Node }
   | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
@@ -76,6 +86,14 @@ type Node<Data = any> =
 
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
+type InputToNode<T extends Input> = T extends CredentialSpec<
+  any,
+  infer Witness,
+  infer Data
+>
+  ? CredentialNode<Data, Witness>
+  : Node<GetData<T>>;
+
 const Node = {
   eval: evalNode,
   evalType: evalNodeType,
@@ -83,16 +101,18 @@ const Node = {
 
 function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
-    case 'owner':
-      return (root as any).owner;
-    case 'issuer':
-      assertHasProperty(root, node.credentialKey);
-      const credential = (root as any)[node.credentialKey];
-      return credential.issuer;
     case 'constant':
       return node.data;
     case 'root':
       return root as any;
+    case 'owner':
+      return (root as any).owner;
+    case 'credential':
+      assertHasProperty(root, node.credentialKey);
+      return (root as any)[node.credentialKey].data;
+    case 'issuer':
+      assertHasProperty(root, node.credentialKey);
+      return (root as any)[node.credentialKey].issuer;
     case 'property': {
       let inner = evalNode<unknown>(root, node.inner);
       if (
@@ -255,6 +275,9 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
       return ProvableType.fromValue(node.data);
     case 'root':
       return rootType;
+    case 'credential':
+      assertHasProperty(rootType, node.credentialKey);
+      return (rootType as any)[node.credentialKey].data;
     case 'property': {
       // TODO would be nice to get inner types of structs more easily
       let inner = evalNodeType(rootType, node.inner);
@@ -414,12 +437,8 @@ function hashWithPrefix(prefix: string, ...inputs: Node[]): Node<Field> {
   return { type: 'hash', inputs, prefix };
 }
 
-function issuer(credential: Node): Node<Field> {
-  let msg = 'Can only get issuer for a credential';
-  assert(credential.type === 'property', msg);
-  assert(credential.key === 'data', msg);
-  assert(credential.inner.type === 'property', msg);
-  return { type: 'issuer', credentialKey: credential.inner.key };
+function issuer(credential: CredentialNode): Node<Field> {
+  return { type: 'issuer', credentialKey: credential.credentialKey };
 }
 
 function ifThenElse<Data>(

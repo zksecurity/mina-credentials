@@ -130,6 +130,7 @@ type CredentialOutputs = {
   credentials: {
     credential: Credential<any>;
     issuer: Field;
+    witness: any;
   }[];
 };
 
@@ -174,10 +175,13 @@ function verifyCredentials({
     owner: owner ?? PublicKey.empty(), // use a (0,0) public key in case there are no credentials
 
     // credential-issuer pairs
-    credentials: zip(credentials, issuers).map(([{ credential }, issuer]) => ({
-      credential,
-      issuer,
-    })),
+    credentials: zip(credentials, issuers).map(
+      ([{ credential, witness }, issuer]) => ({
+        credential,
+        issuer,
+        witness,
+      })
+    ),
   };
 }
 

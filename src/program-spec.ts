@@ -22,7 +22,13 @@ import {
   withOwner,
   type CredentialOutputs,
 } from './credential.ts';
-import { Node, Operation, root, type GetData } from './operation.ts';
+import {
+  type CredentialNode,
+  type InputToNode,
+  Node,
+  Operation,
+  root,
+} from './operation.ts';
 
 export type {
   PublicInputs,
@@ -59,7 +65,7 @@ type Spec<
 function Spec<Output, Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
-    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+    [K in keyof Inputs]: InputToNode<Inputs[K]>;
   }) => {
     assert?: Node<Bool> | Node<Bool>[];
     outputClaim: Node<Output>;
@@ -70,7 +76,7 @@ function Spec<Output, Inputs extends Record<string, Input>>(
 function Spec<Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
-    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+    [K in keyof Inputs]: InputToNode<Inputs[K]>;
   }) => {
     assert?: Node<Bool> | Node<Bool>[];
   }
@@ -80,7 +86,7 @@ function Spec<Inputs extends Record<string, Input>>(
 function Spec<Output, Inputs extends Record<string, Input>>(
   inputs: Inputs,
   spec: (inputs: {
-    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+    [K in keyof Inputs]: InputToNode<Inputs[K]>;
   }) => {
     assert?: Node<Bool> | Node<Bool>[];
     outputClaim?: Node<Output>;
@@ -88,7 +94,7 @@ function Spec<Output, Inputs extends Record<string, Input>>(
 ): Spec<Output, Inputs> {
   let rootNode = root(inputs);
   let inputNodes: {
-    [K in keyof Inputs]: Node<GetData<Inputs[K]>>;
+    [K in keyof Inputs]: InputToNode<Inputs[K]>;
   } = {} as any;
   // some special keys are used internally and must not be used as input keys
   ['owner'].forEach((key) =>
@@ -97,9 +103,8 @@ function Spec<Output, Inputs extends Record<string, Input>>(
 
   for (let key in inputs) {
     if (inputs[key]!.type === 'credential') {
-      let credential = Operation.property(rootNode, key) as any;
-      let data = Operation.property(credential, 'data') as any;
-      inputNodes[key] = data;
+      let node: CredentialNode = { type: 'credential', credentialKey: key };
+      inputNodes[key] = node as any;
     } else {
       inputNodes[key] = Operation.property(rootNode, key) as any;
     }
@@ -183,16 +188,16 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
 }
 
 function publicOutputType(spec: Spec): Provable<any> {
-  let root = dataInputTypes(spec);
+  let root = rootType(spec);
   let outputTypeNested = Node.evalType(root, spec.logic.outputClaim);
   return NestedProvable.get(outputTypeNested);
 }
 
-function dataInputTypes({ inputs }: Spec): NestedProvable {
+function rootType({ inputs }: Spec): NestedProvable {
   let result: Record<string, NestedProvable> = {};
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = withOwner(input.data);
+      result[key] = { data: input.data, witness: input.witness };
     } else {
       result[key] = input.data;
     }
@@ -260,6 +265,7 @@ function recombineDataInputs<S extends Spec>(
       result[key] = {
         credential: (credentials[key] as any).credential,
         issuer: credentialOutputs.credentials[i]!.issuer,
+        witness: credentialOutputs.credentials[i]!.witness,
       };
       i++;
     }
