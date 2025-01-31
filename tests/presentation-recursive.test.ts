@@ -32,7 +32,7 @@ await Credential.validate(storedCredential);
 // define presentation spec
 const spec = Spec(
   {
-    provedData: Recursive.type,
+    provedData: Recursive.spec,
     targetAge: Claim(Field),
     targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
   },
@@ -120,7 +120,7 @@ await describe('program with proof credential', async () => {
     let invalidContext = Field(1);
     let ownerSignature = signCredentials(ownerKey, actualContext, {
       ...provedData,
-      credentialType: Recursive.type,
+      credentialType: Recursive.spec,
     });
 
     await assert.rejects(

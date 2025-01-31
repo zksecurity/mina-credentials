@@ -199,7 +199,7 @@ async function recursiveFromProgram<
   let vk: VerificationKey | undefined;
 
   let self = {
-    type: Recursive<Provable<Data>, InputType, Data, Input>(
+    spec: Recursive<Provable<Data>, InputType, Data, Input>(
       InputProof,
       dataType
     ),

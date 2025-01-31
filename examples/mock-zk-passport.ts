@@ -39,33 +39,32 @@ let credJson = Credential.toJSON(cred);
 let credRecovered = await Credential.fromJSON(credJson);
 
 let spec = PresentationSpec(
-  { passport: PassportCredential.type, createdAt: Claim(UInt64) },
-  ({ passport, createdAt }) => {
-    let nationality = Operation.property(passport, 'nationality');
-    let expiresAt = Operation.property(passport, 'expiresAt');
-
-    return {
-      assert: [
-        Operation.not(
-          Operation.equals(
-            nationality,
-            Operation.constant(String.from('United States'))
-          )
-        ),
-
-        // passport is not expired
-        Operation.lessThanEq(createdAt, expiresAt),
-
-        // hard-code passport verification key
+  { passport: PassportCredential.spec, createdAt: Claim(UInt64) },
+  ({ passport, createdAt }) => ({
+    assert: [
+      // not from the United States
+      Operation.not(
         Operation.equals(
-          Operation.verificationKeyHash(passport),
-          Operation.constant(vk.hash)
-        ),
-      ],
-      // return public input (passport issuer hash) for verification
-      outputClaim: Operation.publicInput(passport),
-    };
-  }
+          Operation.property(passport, 'nationality'),
+          Operation.constant(String.from('United States'))
+        )
+      ),
+
+      // passport is not expired
+      Operation.lessThanEq(
+        createdAt,
+        Operation.property(passport, 'expiresAt')
+      ),
+
+      // hard-code passport verification key
+      Operation.equals(
+        Operation.verificationKeyHash(passport),
+        Operation.constant(vk.hash)
+      ),
+    ],
+    // return public input (passport issuer hash) for verification
+    outputClaim: Operation.publicInput(passport),
+  })
 );
 let compiledSpec = await Presentation.precompile(spec);
 
