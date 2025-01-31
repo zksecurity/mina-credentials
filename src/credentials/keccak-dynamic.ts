@@ -54,34 +54,28 @@ function hash(
   let rate = 25 - capacity; // 25 - 8 = 17
 
   // apply padding, convert to words, and hash
-  const paddedBytes = pad(message.bytes, rate * 8, nistVersion);
-  const paddedMessage = bytesToWords(paddedBytes);
+  let paddedBytes = pad(message.bytes, rate * 8, nistVersion);
+  let paddedMessage = bytesToWords(paddedBytes);
 
   // absorb
   let state = State.zeros();
 
-  // array of capacity zero words
-  const zeros = Array(capacity).fill(Field.from(0));
+  let zeros = Array(capacity).fill(Field.from(0));
+  let blocks = chunk(paddedMessage, rate);
 
-  for (let idx = 0; idx < paddedMessage.length; idx += rate) {
-    // split into blocks of rate words
-    const block = paddedMessage.slice(idx, idx + rate);
-    // pad the block with 0s to up to 25 words
-    const paddedBlock = block.concat(zeros);
-    // convert the padded block to a Keccak state
-    const blockState = State.fromWords(paddedBlock);
-    // xor the state with the padded block
-    const stateXor = State.xor(state, blockState);
-    // apply the permutation function to the xored state
+  for (let block of blocks) {
+    let paddedBlock = block.concat(zeros);
+    let blockState = State.fromWords(paddedBlock);
+    let stateXor = State.xor(state, blockState);
     state = permutation(stateXor, ROUND_CONSTANTS);
   }
 
   // squeeze once
-  // obtain the hash selecting the first `length` words of the output array
+  // hash == first `length` words of the state
   assert(length < rate, 'length should be less than rate');
-  const hash = State.toWords(state).slice(0, length);
+  let hash = State.toWords(state).slice(0, length);
 
-  const hashBytes = wordsToBytes(hash);
+  let hashBytes = wordsToBytes(hash);
   return hashBytes;
 }
 
