@@ -29,7 +29,7 @@ import {
   hashCredentialInCircuit,
   withOwner,
 } from './credential.ts';
-import { assert } from './util.ts';
+import { assert, assertHasProperty } from './util.ts';
 
 export { Recursive, type Witness };
 
@@ -96,6 +96,23 @@ function Recursive<
     },
   };
 }
+
+Recursive.publicInputType = function publicInputType<
+  Spec extends CredentialSpec
+>(
+  credentialSpec: Spec
+): Spec extends CredentialSpec<'recursive', Witness<any, infer Input>>
+  ? ProvableType<Input>
+  : never {
+  assert(credentialSpec.credentialType === 'recursive');
+  assertHasProperty(credentialSpec.witness, 'proof');
+  let witness = credentialSpec.witness as {
+    type: Provable<'recursive'>;
+    vk: typeof VerificationKey;
+    proof: typeof DynamicProof;
+  };
+  return witness.proof.publicInputType as any;
+};
 
 const genericRecursive = defineCredential({
   credentialType: 'recursive',

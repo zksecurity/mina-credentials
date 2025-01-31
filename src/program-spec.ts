@@ -38,6 +38,7 @@ export type {
   ToCredential,
   Input,
   Claims,
+  RootType,
 };
 export {
   Spec,
@@ -102,8 +103,13 @@ function Spec<Output, Inputs extends Record<string, Input>>(
   );
 
   for (let key in inputs) {
-    if (inputs[key]!.type === 'credential') {
-      let node: CredentialNode = { type: 'credential', credentialKey: key };
+    if (inputs[key]?.type === 'credential') {
+      let credentialType = inputs[key].credentialType;
+      let node: CredentialNode = {
+        type: 'credential',
+        credentialKey: key,
+        credentialType,
+      };
       inputNodes[key] = node as any;
     } else {
       inputNodes[key] = Operation.property(rootNode, key) as any;
@@ -193,11 +199,13 @@ function publicOutputType(spec: Spec): Provable<any> {
   return NestedProvable.get(outputTypeNested);
 }
 
-function rootType({ inputs }: Spec): NestedProvable {
-  let result: Record<string, NestedProvable> = {};
+type RootType = Record<string, NestedProvable | CredentialSpec>;
+
+function rootType({ inputs }: Spec): RootType {
+  let result: Record<string, NestedProvable | CredentialSpec> = {};
   Object.entries(inputs).forEach(([key, input]) => {
     if (input.type === 'credential') {
-      result[key] = { data: input.data, witness: input.witness };
+      result[key] = input;
     } else {
       result[key] = input.data;
     }
