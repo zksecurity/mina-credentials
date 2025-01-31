@@ -808,13 +808,9 @@ test('convertSpecToSerializable', async (t) => {
             {
               type: 'lessThan',
               left: {
-                type: 'property',
-                key: 'data',
-                inner: {
-                  type: 'property',
-                  key: 'age',
-                  inner: { type: 'root' },
-                },
+                type: 'credential',
+                credentialKey: 'age',
+                credentialType: 'unsigned',
               },
               right: {
                 type: 'property',
@@ -830,13 +826,9 @@ test('convertSpecToSerializable', async (t) => {
           ],
         },
         outputClaim: {
-          type: 'property',
-          key: 'data',
-          inner: {
-            type: 'property',
-            key: 'age',
-            inner: { type: 'root' },
-          },
+          type: 'credential',
+          credentialKey: 'age',
+          credentialType: 'unsigned',
         },
       },
     };
@@ -883,13 +875,9 @@ test('convertSpecToSerializable', async (t) => {
             type: 'property',
             key: 'field',
             inner: {
-              type: 'property',
-              key: 'data',
-              inner: {
-                type: 'property',
-                key: 'signedData',
-                inner: { type: 'root' },
-              },
+              type: 'credential',
+              credentialKey: 'signedData',
+              credentialType: 'simple',
             },
           },
           right: {
@@ -899,13 +887,9 @@ test('convertSpecToSerializable', async (t) => {
           },
         },
         outputClaim: {
-          type: 'property',
-          key: 'data',
-          inner: {
-            type: 'property',
-            key: 'signedData',
-            inner: { type: 'root' },
-          },
+          type: 'credential',
+          credentialKey: 'signedData',
+          credentialType: 'simple',
         },
       },
     };
@@ -952,34 +936,22 @@ test('convertSpecToSerializable', async (t) => {
             {
               type: 'lessThan',
               left: {
-                type: 'property',
-                key: 'data',
-                inner: {
-                  type: 'property',
-                  key: 'field1',
-                  inner: { type: 'root' },
-                },
+                type: 'credential',
+                credentialKey: 'field1',
+                credentialType: 'unsigned',
               },
               right: {
-                type: 'property',
-                key: 'data',
-                inner: {
-                  type: 'property',
-                  key: 'field2',
-                  inner: { type: 'root' },
-                },
+                type: 'credential',
+                credentialKey: 'field2',
+                credentialType: 'unsigned',
               },
             },
             {
               type: 'equals',
               left: {
-                type: 'property',
-                key: 'data',
-                inner: {
-                  type: 'property',
-                  key: 'field1',
-                  inner: { type: 'root' },
-                },
+                type: 'credential',
+                credentialKey: 'field1',
+                credentialType: 'unsigned',
               },
               right: {
                 type: 'property',
@@ -990,13 +962,9 @@ test('convertSpecToSerializable', async (t) => {
           ],
         },
         outputClaim: {
-          type: 'property',
-          key: 'data',
-          inner: {
-            type: 'property',
-            key: 'field2',
-            inner: { type: 'root' },
-          },
+          type: 'credential',
+          credentialKey: 'field2',
+          credentialType: 'unsigned',
         },
       },
     };

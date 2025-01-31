@@ -3,6 +3,7 @@ import {
   Field,
   Hash,
   Proof,
+  ProvableType,
   Signature,
   VerificationKey,
   ZkProgram,
@@ -18,10 +19,10 @@ import {
   extractCredentialInputs,
   type PublicInputs,
   type UserInputs,
+  type PrivateInputs,
 } from './program-spec.ts';
 import { Node } from './operation.ts';
 import { NestedProvable } from './nested.ts';
-import { type ProvablePureType } from './o1js-missing.ts';
 import { verifyCredentials } from './credential.ts';
 import { convertSpecToSerializable } from './serialize.ts';
 
@@ -34,9 +35,17 @@ type Program<Output, Inputs extends Record<string, Input>> = {
 
   program: ZkProgram<
     {
-      publicInput: ProvablePureType<PublicInputs<Inputs>>;
-      publicOutput: ProvablePureType<Output>;
-      methods: any;
+      publicInput: ProvableType<PublicInputs<Inputs>>;
+      publicOutput: ProvableType<Output>;
+      methods: {
+        run: {
+          privateInputs: [ProvableType<PrivateInputs<Inputs>>];
+          method(
+            publicInput: PublicInputs<Inputs>,
+            privateInput: PrivateInputs<Inputs>
+          ): Promise<{ publicOutput: Output }>;
+        };
+      };
     },
     any
   >;

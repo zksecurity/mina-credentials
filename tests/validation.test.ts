@@ -40,15 +40,16 @@ test('StoredCredentialSchema validation', async (t) => {
 
     // create recursive credential
     const Recursive = await Credential.Recursive.fromProgram(
-      createProgram(inputProofSpec)
+      createProgram(inputProofSpec).program
     );
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    let provedData = await Recursive.create({
-      claims: { inputOwner: owner, data },
-      credentials: {},
-      context: Field(0), // dummy context
-      ownerSignature: Signature.empty(), // no credential => no signature verification
-    });
+    let provedData = await Recursive.create(
+      { context: Field(0), claims: { inputOwner: owner, data } },
+      {
+        credentials: {},
+        ownerSignature: Signature.empty(), // no credential => no signature verification
+      }
+    );
 
     const serialized = Credential.toJSON(provedData);
     const parsed = JSON.parse(serialized);

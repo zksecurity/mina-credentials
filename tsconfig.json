@@ -8,8 +8,8 @@
     // compile to modern JS
     "target": "ESNext",
 
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
 
     "lib": ["dom", "esnext"],
 

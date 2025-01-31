@@ -12,7 +12,7 @@ import {
   DynamicRecord,
   Schema,
   hashDynamic,
-} from '../src/index.ts';
+} from 'mina-attestations';
 import {
   issuer,
   issuerKey,

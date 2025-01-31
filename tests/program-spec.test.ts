@@ -16,8 +16,8 @@ import { Credential } from '../src/credential-index.ts';
 import { hashDynamic, Operation } from '../src/index.ts';
 import { Node } from '../src/operation.ts';
 
-function cred<D>(data: D): Credential<D> {
-  return { owner, data };
+function cred<D>(data: D) {
+  return { credential: { owner, data }, issuer: Field(0), witness: undefined };
 }
 
 test(' Spec and Node operations', async (t) => {
@@ -411,7 +411,7 @@ test(' Spec and Node operations', async (t) => {
         zero: Constant(Field, Field(0)),
       },
       ({ data, threshold, zero }) => ({
-        assert: Node.constant(Bool(true)),
+        assert: Operation.constant(Bool(true)),
         outputClaim: Operation.ifThenElse(
           Operation.lessThan(Operation.property(data, 'value'), threshold),
           zero,
@@ -789,6 +789,7 @@ test(' Spec and Node operations', async (t) => {
         {
           credential: { owner, data },
           issuer: Field(1234),
+          witness: undefined,
         },
       ],
     };
@@ -800,7 +801,11 @@ test(' Spec and Node operations', async (t) => {
     );
 
     assert.deepStrictEqual(root, {
-      signedData: { credential: cred(data), issuer: Field(1234) },
+      signedData: {
+        credential: { owner, data },
+        issuer: Field(1234),
+        witness: undefined,
+      },
       targetAge: Field(30),
       targetName: Bytes32.fromString('David'),
       owner: owner,

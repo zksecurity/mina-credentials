@@ -8,14 +8,32 @@ import {
   extractProperty,
 } from './credentials/dynamic-record.ts';
 import { hashDynamicWithPrefix } from './credentials/dynamic-hash.ts';
-import type { Input } from './program-spec.ts';
+import type { Input, RootType } from './program-spec.ts';
+import type {
+  Credential,
+  CredentialSpec,
+  CredentialType,
+} from './credential.ts';
+import type { Witness as WitnessSigned } from './credential-signed.ts';
+import {
+  Recursive,
+  type Witness as WitnessRecursive,
+} from './credential-recursive.ts';
 
 export { Node, Operation };
-export { type GetData, root };
+export { type CredentialNode, type InputToNode, root };
 
 const Operation = {
   owner: { type: 'owner' } as Node<PublicKey>,
+  constant<Data>(data: Data): Node<Data> {
+    return { type: 'constant', data };
+  },
+
   issuer,
+  issuerPublicKey,
+  verificationKeyHash,
+  publicInput,
+
   property,
   record,
   equals,
@@ -35,11 +53,28 @@ const Operation = {
   compute,
 };
 
+type CredentialNode<Data = any, Witness = WitnessAny> = {
+  type: 'credential';
+  credentialKey: string;
+  credentialType: CredentialType;
+  // phantom data
+  data?: Data;
+  witness?: Witness;
+};
+
 type Node<Data = any> =
-  | { type: 'owner' }
-  | { type: 'issuer'; credentialKey: string }
   | { type: 'constant'; data: Data }
   | { type: 'root'; input: Record<string, Input> }
+
+  // operations to extract credential information
+  | { type: 'owner' }
+  | CredentialNode<Data>
+  | { type: 'issuer'; credentialKey: string }
+  | { type: 'issuerPublicKey'; credentialKey: string }
+  | { type: 'verificationKeyHash'; credentialKey: string }
+  | { type: 'publicInput'; credentialKey: string }
+
+  //
   | { type: 'property'; key: string; inner: Node }
   | { type: 'record'; data: Record<string, Node> }
   | { type: 'equals'; left: Node; right: Node }
@@ -73,39 +108,44 @@ type Node<Data = any> =
 
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
+type InputToNode<T extends Input> = T extends CredentialSpec<
+  any,
+  infer Witness,
+  infer Data
+>
+  ? CredentialNode<Data, Witness>
+  : Node<GetData<T>>;
+
 const Node = {
   eval: evalNode,
   evalType: evalNodeType,
-
-  constant<Data>(data: Data): Node<Data> {
-    return { type: 'constant', data };
-  },
 };
 
 function evalNode<Data>(root: object, node: Node<Data>): Data {
   switch (node.type) {
-    case 'owner':
-      return (root as any).owner;
-    case 'issuer':
-      assertHasProperty(root, node.credentialKey);
-      const credential = (root as any)[node.credentialKey];
-      return credential.issuer;
     case 'constant':
       return node.data;
     case 'root':
       return root as any;
+
+    // credential operations
+    case 'owner':
+      return (root as any).owner;
+    case 'credential':
+      return assertCredential(root, node).credential.data;
+    case 'issuer':
+      return assertCredential(root, node).issuer as any;
+    case 'issuerPublicKey':
+      return assertSignedCredential(root, node).witness.issuer as Data;
+    case 'verificationKeyHash':
+      return assertRecursiveCredential(root, node).witness.vk.hash as Data;
+    case 'publicInput':
+      return assertRecursiveCredential(root, node).witness.proof
+        .publicInput as Data;
+
     case 'property': {
       let inner = evalNode<unknown>(root, node.inner);
-      if (
-        inner &&
-        typeof inner === 'object' &&
-        'credential' in inner &&
-        'issuer' in inner
-      ) {
-        return extractProperty(inner.credential, node.key) as Data;
-      } else {
-        return extractProperty(inner, node.key) as Data;
-      }
+      return extractProperty(inner, node.key) as Data;
     }
     case 'record': {
       let result: Record<string, any> = {};
@@ -250,12 +290,29 @@ function convertNodes(left: any, right: any): [NumericType, NumericType] {
   return [leftConverted, rightConverted];
 }
 
-function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
+function evalNodeType(rootType: RootType, node: Node): NestedProvable {
   switch (node.type) {
     case 'constant':
       return ProvableType.fromValue(node.data);
     case 'root':
-      return rootType;
+      return rootType as NestedProvable;
+
+    // credential operations
+    case 'owner':
+      return PublicKey;
+    case 'credential':
+      return assertCredentialType(rootType, node).data;
+    case 'issuer':
+      return Field;
+    case 'issuerPublicKey':
+      return PublicKey;
+    case 'verificationKeyHash':
+      return Field;
+    case 'publicInput': {
+      let spec = assertCredentialType(rootType, node);
+      return Recursive.publicInputType(spec);
+    }
+
     case 'property': {
       // TODO would be nice to get inner types of structs more easily
       let inner = evalNodeType(rootType, node.inner);
@@ -278,10 +335,7 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
     case 'or':
     case 'not':
       return Bool;
-    case 'owner':
-      return PublicKey;
     case 'hash':
-    case 'issuer':
       return Field;
     case 'add':
     case 'sub':
@@ -304,7 +358,7 @@ function evalNodeType(rootType: NestedProvable, node: Node): NestedProvable {
 }
 
 function ArithmeticOperationType(
-  rootType: NestedProvable,
+  rootType: RootType,
   node: { left: Node<NumericType>; right: Node<NumericType> }
 ): NestedProvable {
   const leftType = evalNodeType(rootType, node.left);
@@ -415,14 +469,6 @@ function hashWithPrefix(prefix: string, ...inputs: Node[]): Node<Field> {
   return { type: 'hash', inputs, prefix };
 }
 
-function issuer(credential: Node): Node<Field> {
-  let msg = 'Can only get issuer for a credential';
-  assert(credential.type === 'property', msg);
-  assert(credential.key === 'data', msg);
-  assert(credential.inner.type === 'property', msg);
-  return { type: 'issuer', credentialKey: credential.inner.key };
-}
-
 function ifThenElse<Data>(
   condition: Node<Bool>,
   thenNode: Node<Data>,
@@ -446,4 +492,97 @@ function compute<Inputs extends readonly Node[], Output>(
     computation: computation as (inputs: any[]) => Output,
     outputType,
   };
+}
+
+// credential operations
+
+function issuer(credential: CredentialNode): Node<Field> {
+  return { type: 'issuer', credentialKey: credential.credentialKey };
+}
+
+function issuerPublicKey({
+  credentialType,
+  credentialKey,
+}: CredentialNode<any, WitnessSigned>): Node<PublicKey> {
+  assert(
+    credentialType === 'simple',
+    '`issuerPublicKey` is only available on signed credentials'
+  );
+  return { type: 'issuerPublicKey', credentialKey };
+}
+
+function verificationKeyHash({
+  credentialType,
+  credentialKey,
+}: CredentialNode<any, WitnessRecursive>): Node<Field> {
+  assert(
+    credentialType === 'recursive',
+    '`verificationKeyHash` is only available on recursive credentials'
+  );
+  return { type: 'verificationKeyHash', credentialKey };
+}
+
+function publicInput<Input>({
+  credentialType,
+  credentialKey,
+}: CredentialNode<any, WitnessRecursive<any, Input>>): Node<Input> {
+  assert(
+    credentialType === 'recursive',
+    '`publicInput` is only available on recursive credentials'
+  );
+  return { type: 'publicInput', credentialKey };
+}
+
+type WitnessAny = WitnessSigned | WitnessRecursive | undefined;
+
+type CredentialOutput<Data = any, Witness extends WitnessAny = WitnessAny> = {
+  credential: Credential<Data>;
+  issuer: Field;
+  witness: Witness;
+};
+type CredentialOutputSigned<Data = any> = CredentialOutput<Data, WitnessSigned>;
+type CredentialOutputRecursive<Data = any> = CredentialOutput<
+  Data,
+  WitnessRecursive
+>;
+
+type CredentialNodeType =
+  | 'credential'
+  | 'issuer'
+  | 'issuerPublicKey'
+  | 'verificationKeyHash'
+  | 'publicInput';
+
+function assertCredential<Data>(
+  root: object,
+  credential: Node<Data> & { type: CredentialNodeType }
+) {
+  assertHasProperty(root, credential.credentialKey);
+  return root[credential.credentialKey] as CredentialOutput<Data>;
+}
+
+function assertCredentialType<Data>(
+  rootType: Record<string, NestedProvable | CredentialSpec>,
+  credential: Node<Data> & { type: CredentialNodeType }
+) {
+  assertHasProperty(rootType, credential.credentialKey);
+  return rootType[credential.credentialKey] as CredentialSpec;
+}
+
+function assertSignedCredential<Data>(
+  root: object,
+  credential: Node<Data> & { type: CredentialNodeType }
+) {
+  let cred = assertCredential(root, credential);
+  assert(cred.witness?.type === 'simple');
+  return cred as CredentialOutputSigned<Data>;
+}
+
+function assertRecursiveCredential<Data>(
+  root: object,
+  credential: Node<Data> & { type: CredentialNodeType }
+) {
+  let cred = assertCredential(root, credential);
+  assert(cred.witness?.type === 'recursive');
+  return cred as CredentialOutputRecursive<Data>;
 }

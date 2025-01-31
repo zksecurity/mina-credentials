@@ -1,23 +1,23 @@
 import {
   VerificationKey,
-  type ProvablePure,
   DynamicProof,
   type InferProvable,
   FeatureFlags,
   Proof,
   Poseidon,
   verify,
+  Cache,
+  ZkProgram,
+  Provable,
+  PublicKey,
+  Undefined,
+  type From,
 } from 'o1js';
-import {
-  assertPure,
-  ProvableType,
-  type ProvablePureType,
-} from './o1js-missing.ts';
+import { ProvableType } from './o1js-missing.ts';
 import {
   type InferNestedProvable,
   NestedProvable,
-  type NestedProvablePure,
-  type NestedProvablePureFor,
+  type NestedProvableFor,
 } from './nested.ts';
 import { prefixes } from './constants.ts';
 import {
@@ -27,8 +27,9 @@ import {
   defineCredential,
   credentialHash,
   hashCredentialInCircuit,
+  withOwner,
 } from './credential.ts';
-import { assert } from './util.ts';
+import { assert, assertHasProperty } from './util.ts';
 
 export { Recursive, type Witness };
 
@@ -45,8 +46,8 @@ type Recursive<Data, Input> = StoredCredential<
 >;
 
 function Recursive<
-  DataType extends NestedProvablePure,
-  InputType extends ProvablePureType,
+  DataType extends NestedProvable,
+  InputType extends ProvableType,
   Data extends InferNestedProvable<DataType>,
   Input extends InferProvable<InputType>
 >(
@@ -54,13 +55,13 @@ function Recursive<
   dataType: DataType
 ): CredentialSpec<'recursive', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
-  const data: NestedProvablePureFor<Data> = dataType as any;
+  const data: NestedProvableFor<Data> = dataType as any;
 
   return {
     type: 'credential',
     credentialType: 'recursive',
     witness: {
-      type: ProvableType.constant('recursive' as const),
+      type: ProvableType.constant('recursive'),
       vk: VerificationKey,
       proof: Proof,
     },
@@ -96,7 +97,24 @@ function Recursive<
   };
 }
 
-const GenericRecursive = defineCredential({
+Recursive.publicInputType = function publicInputType<
+  Spec extends CredentialSpec
+>(
+  credentialSpec: Spec
+): Spec extends CredentialSpec<'recursive', Witness<any, infer Input>>
+  ? ProvableType<Input>
+  : never {
+  assert(credentialSpec.credentialType === 'recursive');
+  assertHasProperty(credentialSpec.witness, 'proof');
+  let witness = credentialSpec.witness as {
+    type: Provable<'recursive'>;
+    vk: typeof VerificationKey;
+    proof: typeof DynamicProof;
+  };
+  return witness.proof.publicInputType as any;
+};
+
+const genericRecursive = defineCredential({
   credentialType: 'recursive',
   witness: {
     type: ProvableType.constant('recursive'),
@@ -135,94 +153,215 @@ const GenericRecursive = defineCredential({
   },
 });
 
-Recursive.fromProgram = RecursiveFromProgram;
-Recursive.Generic = GenericRecursive;
+Recursive.Generic = genericRecursive;
 
-async function RecursiveFromProgram<
-  DataType extends ProvablePure<any>,
-  InputType extends ProvablePure<any>,
-  Data extends InferNestedProvable<DataType>,
+Recursive.fromProgram = recursiveFromProgram;
+Recursive.fromMethod = recursiveFromMethod;
+
+async function recursiveFromProgram<
+  DataType extends ProvableType,
+  InputType extends ProvableType,
+  Data extends InferProvable<DataType>,
   Input extends InferProvable<InputType>,
-  AllInputs
->(
-  programWrapper: {
-    program: {
-      publicInputType: InputType;
-      publicOutputType: ProvablePure<Credential<Data>>;
-      analyzeMethods(): Promise<{
-        [I in keyof any]: any;
-      }>;
-    };
-    compile(): Promise<VerificationKey>;
-    run(inputs: AllInputs): Promise<Proof<Input, Credential<Data>>>;
-  },
-  // TODO this needs to be exposed on the program!!
-  maxProofsVerified: 0 | 1 | 2 = 0
-) {
-  let { program } = programWrapper;
+  AllInputs extends any[]
+>(program: {
+  publicInputType: InputType;
+  publicOutputType: ProvableType<Credential<Data>>;
+  analyzeMethods(): Promise<Record<string, any>>;
+  maxProofsVerified(): Promise<0 | 1 | 2>;
+  compile: (options?: {
+    cache?: Cache;
+    forceRecompile?: boolean;
+    proofsEnabled?: boolean;
+  }) => Promise<{ verificationKey: VerificationKey }>;
+
+  run(...inputs: AllInputs): Promise<{
+    proof: Proof<Input, Credential<Data>>;
+    auxiliaryOutput: undefined;
+  }>;
+}) {
   const featureFlags = await FeatureFlags.fromZkProgram(program);
+  const maxProofsVerified = await program.maxProofsVerified();
 
   class InputProof extends DynamicProof<Input, Credential<Data>> {
-    static publicInputType = program.publicInputType;
-    static publicOutputType = program.publicOutputType;
+    static publicInputType: Provable<Input> = ProvableType.get(
+      program.publicInputType
+    );
+    static publicOutputType = ProvableType.get(program.publicOutputType);
     static maxProofsVerified = maxProofsVerified;
     static featureFlags = featureFlags;
   }
 
   let data = ProvableType.synthesize(program.publicOutputType).data;
   let dataType = NestedProvable.get(NestedProvable.fromValue(data));
-  assertPure(dataType);
 
   let isCompiled = false;
   let vk: VerificationKey | undefined;
 
-  return Object.assign(
-    Recursive<ProvablePure<Data>, InputType, Data, Input>(InputProof, dataType),
-    {
-      program,
+  let self = {
+    spec: Recursive<Provable<Data>, InputType, Data, Input>(
+      InputProof,
+      dataType
+    ),
 
-      async create(inputs: AllInputs): Promise<Recursive<Data, Input>> {
-        let vk = await this.compile();
-        let proof = InputProof.fromProof(await programWrapper.run(inputs));
-        return {
-          version: 'v0',
-          metadata: undefined,
-          credential: proof.publicOutput,
-          witness: { type: 'recursive', vk, proof },
-        };
-      },
+    program,
 
-      async compile() {
-        if (isCompiled) return vk!;
-        vk = await programWrapper.compile();
-        isCompiled = true;
-        return vk;
-      },
+    async create(...inputs: AllInputs) {
+      let vk = await self.compile();
+      let { proof } = await program.run(...inputs);
+      return self.fromProof(proof, vk);
+    },
 
-      fromProof(
-        proof: Proof<Input, Credential<Data>>
-      ): DynamicProof<Input, Credential<Data>> {
-        return InputProof.fromProof(proof as any);
-      },
+    async fromProof(
+      proof: Proof<Input, Credential<Data>>,
+      vk: VerificationKey
+    ): Promise<Recursive<Data, Input>> {
+      let dynProof = InputProof.fromProof(proof);
+      return {
+        version: 'v0',
+        metadata: undefined,
+        credential: proof.publicOutput,
+        witness: { type: 'recursive', vk, proof: dynProof },
+      };
+    },
 
-      async dummy(
-        credential: Credential<Data>
-      ): Promise<Recursive<Data, Input>> {
-        let input = ProvableType.synthesize(program.publicInputType);
-        let vk = await this.compile();
+    async compile(options?: {
+      cache?: Cache;
+      forceRecompile?: boolean;
+      proofsEnabled?: boolean;
+    }) {
+      if (isCompiled) return vk!;
+      let result = await program.compile(options);
+      vk = result.verificationKey;
+      isCompiled = true;
+      return vk;
+    },
 
-        let dummyProof = await InputProof.dummy(
-          input,
-          credential,
-          maxProofsVerified
-        );
-        return {
-          version: 'v0',
-          metadata: undefined,
-          credential,
-          witness: { type: 'recursive', vk, proof: dummyProof },
-        };
-      },
-    }
-  );
+    async dummy(credential: Credential<Data>): Promise<Recursive<Data, Input>> {
+      let input = ProvableType.synthesize(program.publicInputType);
+      let vk = await self.compile();
+
+      let dummyProof = await InputProof.dummy(
+        input,
+        credential,
+        maxProofsVerified
+      );
+      return {
+        version: 'v0',
+        metadata: undefined,
+        credential,
+        witness: { type: 'recursive', vk, proof: dummyProof },
+      };
+    },
+  };
+
+  return self;
 }
+
+type PublicInput<Config> = InferProvableOrUndefined<Get<Config, 'publicInput'>>;
+type PrivateInput<Config> = InferProvable<Get<Config, 'privateInput'>>;
+type Data<Config> = InferProvable<Get<Config, 'data'>>;
+
+async function recursiveFromMethod<
+  Config extends {
+    name: string;
+    publicInput?: NestedProvable;
+    privateInput?: NestedProvable;
+    data: NestedProvable;
+  }
+>(
+  spec: Config,
+  method: (inputs: {
+    publicInput: PublicInput<Config>;
+    privateInput: PrivateInput<Config>;
+    owner: PublicKey;
+  }) => Promise<Data<Config>>
+) {
+  type PublicInputType = Get<Config, 'publicInput'>;
+  type PublicInput = InferProvableOrUndefined<PublicInputType>;
+  type PrivateInputType = Get<Config, 'privateInput'>;
+  type PrivateInput = InferProvable<PrivateInputType>;
+  type Data = InferProvable<Get<Config, 'data'>>;
+
+  let publicInput =
+    spec.publicInput === undefined
+      ? undefined
+      : NestedProvable.get<PublicInput>(
+          spec.publicInput as NestedProvableFor<PublicInput>
+        );
+  let privateInput =
+    spec.privateInput === undefined
+      ? Undefined
+      : NestedProvable.get<PrivateInput>(
+          spec.privateInput as NestedProvableFor<PrivateInput>
+        );
+  let publicOutput = NestedProvable.get(withOwner(spec.data));
+
+  async function wrappedMethod(
+    pub: PublicInput,
+    priv: PrivateInput,
+    owner: PublicKey
+  ): Promise<{ publicOutput: Credential<Data> }> {
+    let data = await method({ publicInput: pub, privateInput: priv, owner });
+    return { publicOutput: { owner, data } };
+  }
+
+  let program = ZkProgram({
+    name: spec.name,
+    publicInput,
+    publicOutput,
+    methods: {
+      run: {
+        privateInputs: [privateInput, PublicKey],
+        method:
+          publicInput === undefined
+            ? (privateInput: PrivateInput, owner: PublicKey) =>
+                wrappedMethod(undefined as any, privateInput, owner)
+            : wrappedMethod,
+      } as any, // ZkProgram's generics are too stupid
+    },
+  });
+
+  let credentialSpec = await recursiveFromProgram<
+    Provable<Data>,
+    Provable<PublicInput>,
+    Data,
+    PublicInput,
+    any
+  >(program as any);
+  return {
+    ...(credentialSpec as Omit<typeof credentialSpec, 'create'>),
+
+    async create(inputs: {
+      publicInput: From<PublicInputType>;
+      privateInput: From<PrivateInputType>;
+      owner: PublicKey;
+    }) {
+      let vk = await this.compile();
+      let proof: Proof<PublicInput, Credential<Data>>;
+      if (publicInput === undefined) {
+        ({ proof } = await (program.run as any)(
+          privateInput.fromValue(inputs.privateInput),
+          inputs.owner
+        ));
+      } else {
+        ({ proof } = await (program.run as any)(
+          publicInput.fromValue(inputs.publicInput),
+          privateInput.fromValue(inputs.privateInput),
+          inputs.owner
+        ));
+      }
+      return credentialSpec.fromProof(proof, vk);
+    },
+  };
+}
+
+type Get<T, Key extends string> = T extends {
+  [K in Key]: infer Value;
+}
+  ? Value
+  : undefined;
+
+type InferProvableOrUndefined<A> = A extends undefined
+  ? undefined
+  : InferProvable<A>;

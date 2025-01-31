@@ -305,7 +305,7 @@ const App: React.FC = () => {
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-semibold text-gray-900">
-                Private Credentials Demo
+                Mina Attestations Demo
               </h1>
 
               <div className="flex items-center space-x-2">
