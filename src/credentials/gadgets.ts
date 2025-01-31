@@ -50,7 +50,8 @@ function pack(chunks: Field[], chunkSize: number): Field {
  * Unpack a field into a list of fields of bit size `chunkSize` each.
  * Uses little-endian encoding.
  *
- * Proves that the output fields have at most `chunkSize` bits.
+ * Proves that the output fields have at most `chunkSize` bits,
+ * and that the input has at most `chunkSize * numChunks` bits.
  */
 function unpack<N extends number>(
   word: Field | bigint,
