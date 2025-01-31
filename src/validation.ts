@@ -137,8 +137,11 @@ const SerializedSignatureSchema = z
 // Node schemas
 type Node =
   | { type: 'owner' }
-  | { type: 'issuer'; credentialKey: string }
   | { type: 'credential'; credentialKey: string }
+  | { type: 'issuer'; credentialKey: string }
+  | { type: 'issuerPublicKey'; credentialKey: string }
+  | { type: 'verificationKeyHash'; credentialKey: string }
+  | { type: 'publicInput'; credentialKey: string }
   | { type: 'constant'; data: z.infer<typeof SerializedValueSchema> }
   | { type: 'root' }
   | { type: 'property'; key: string; inner: Node }
@@ -165,9 +168,25 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
     z.object({ type: z.literal('root') }).strict(),
     z.object({ type: z.literal('owner') }).strict(),
     z
-      .object({ type: z.literal('credential'), credentialKey: z.string() })
+      .object({
+        type: z.literal('credential'),
+        credentialKey: z.string(),
+        credentialType: z.string(),
+      })
       .strict(),
     z.object({ type: z.literal('issuer'), credentialKey: z.string() }).strict(),
+    z
+      .object({ type: z.literal('issuerPublicKey'), credentialKey: z.string() })
+      .strict(),
+    z
+      .object({
+        type: z.literal('verificationKeyHash'),
+        credentialKey: z.string(),
+      })
+      .strict(),
+    z
+      .object({ type: z.literal('publicInput'), credentialKey: z.string() })
+      .strict(),
 
     z
       .object({
