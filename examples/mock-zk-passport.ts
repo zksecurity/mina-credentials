@@ -2,6 +2,7 @@ import {
   Claim,
   Credential,
   DynamicString,
+  log,
   Operation,
   Presentation,
   PresentationRequest,
@@ -15,7 +16,7 @@ const String = DynamicString({ maxLength: 30 });
 let PassportCredential = await Credential.Recursive.fromMethod(
   {
     name: 'passport',
-    publicInput: { something: Field },
+    publicInput: { issuer: Field },
     privateInput: { nationality: String, expiresAt: UInt64 },
     data: { nationality: String, expiresAt: UInt64 },
   },
@@ -23,12 +24,12 @@ let PassportCredential = await Credential.Recursive.fromMethod(
     return privateInput;
   }
 );
+let vk = await PassportCredential.compile();
+
 // create (dummy) passport credential
 let cred = await PassportCredential.create({
   owner,
-  publicInput: {
-    something: Field(0),
-  },
+  publicInput: { issuer: 1001 },
   privateInput: {
     expiresAt: UInt64.from(Date.UTC(2027, 1, 1)),
     nationality: 'Austria',
@@ -40,20 +41,29 @@ let credRecovered = await Credential.fromJSON(credJson);
 let spec = PresentationSpec(
   { passport: PassportCredential.type, createdAt: Claim(UInt64) },
   ({ passport, createdAt }) => {
-    const { issuer, property, not, equals, constant, record, lessThanEq } =
-      Operation;
-
-    let nationality = property(passport, 'nationality');
-    let expiresAt = property(passport, 'expiresAt');
+    let nationality = Operation.property(passport, 'nationality');
+    let expiresAt = Operation.property(passport, 'expiresAt');
 
     return {
       assert: [
-        not(equals(nationality, constant(String.from('United States')))),
-        lessThanEq(createdAt, expiresAt),
+        Operation.not(
+          Operation.equals(
+            nationality,
+            Operation.constant(String.from('United States'))
+          )
+        ),
+
+        // passport is not expired
+        Operation.lessThanEq(createdAt, expiresAt),
+
+        // hard-code passport verification key
+        Operation.equals(
+          Operation.verificationKeyHash(passport),
+          Operation.constant(vk.hash)
+        ),
       ],
-      outputClaim: record({
-        issuer: issuer(passport),
-      }),
+      // return public input (passport issuer hash) for verification
+      outputClaim: Operation.publicInput(passport),
     };
   }
 );
@@ -82,4 +92,4 @@ let output = await Presentation.verify(
 );
 
 // TODO verify issuer
-console.log('issuer', output);
+log('issuer', output);
