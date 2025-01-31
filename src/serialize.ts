@@ -85,23 +85,13 @@ function serializeNode(node: Node): object {
     case 'root': {
       return { type: 'root' };
     }
-    case 'owner': {
-      return {
-        type: 'owner',
-      };
-    }
-    case 'credential': {
-      return {
-        type: 'credential',
-        credentialKey: node.credentialKey,
-      };
-    }
-    case 'issuer': {
-      return {
-        type: 'issuer',
-        credentialKey: node.credentialKey,
-      };
-    }
+    case 'owner':
+    case 'credential':
+    case 'issuer':
+    case 'issuerPublicKey':
+    case 'verificationKeyHash':
+    case 'publicInput':
+      return node;
 
     case 'property': {
       return {
@@ -168,6 +158,7 @@ function serializeNode(node: Node): object {
     case 'compute':
       throw Error('Cannot serialize compute node');
     default:
+      node satisfies never;
       throw Error(`Invalid node type: ${(node as Node).type}`);
   }
 }
