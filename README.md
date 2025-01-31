@@ -25,6 +25,7 @@ The attestation flow usually involves three parties:
 3. you, the _user_, who controls your own credentials. You can decide to create privacy-preserving _presentations_ of a credential, disclosing just the information that a verifier needs to know.
 
 - Example: Prompted by the crypto exchange's request, you create a presentation about your passport, proving that it comes from a non-US country.
+- The crypto exchange never learns any other information contained in your passport, and can still trust your presentation.
 
 <!-- TODO: add diagram -->
 
@@ -64,9 +65,9 @@ let spec = PresentationSpec(
 );
 ```
 
-> Note: This is a simplified example, see [our code example](https://github.com/zksecurity/mina-attestations/blob/main/examples/unique-hash.eg.ts) for more details.
+> Note: This example is simplified, see [our code example](https://github.com/zksecurity/mina-attestations/blob/main/examples/mock-zk-passport.eg.ts) for more details.
 
-The Attestation DSL is, essentially, a radically simplified language for specifying custom zk circuits, tailored to the use case of making statements about user data. It has several advantages of a general-purpose circuit framework like o1js:
+The Attestation DSL is, essentially, a radically simplified language for specifying custom zk circuits, tailored to the use case of making statements about user data. It has several advantages over a general-purpose circuit framework like o1js:
 
 - Simple enough to be readable by a user (in pretty-printed form), who wants to understand what private information is shared
 - Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet
