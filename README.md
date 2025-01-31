@@ -29,7 +29,7 @@ The attestation flow usually involves three parties:
 
 <!-- TODO: add diagram -->
 
-Mina Attestations helps you implement all parts of the flow described above. It unifies the required interfaces and data types.
+Mina Attestations helps you implement all parts of the flow described above.
 
 Under the hood, private attestations rely on [zero-knowledge proofs](https://en.wikipedia.org/wiki/Zero-knowledge_proof).
 Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript.
