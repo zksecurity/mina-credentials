@@ -1,8 +1,8 @@
 import {
+  assert,
   Claim,
   Credential,
   DynamicString,
-  log,
   Operation,
   Presentation,
   PresentationRequest,
@@ -13,6 +13,9 @@ import { Field, UInt64 } from 'o1js';
 
 const String = DynamicString({ maxLength: 30 });
 
+// dummy passport credential, which just takes in some data and returns it
+// TODO: in place of this, we'd want a real proof of passport verification
+// (implementation in progress at the time of writing)
 let PassportCredential = await Credential.Recursive.fromMethod(
   {
     name: 'passport',
@@ -26,7 +29,7 @@ let PassportCredential = await Credential.Recursive.fromMethod(
 );
 let vk = await PassportCredential.compile();
 
-// create (dummy) passport credential
+// user "imports" their passport into a credential, by creating a PassportCredential proof
 let cred = await PassportCredential.create({
   owner,
   publicInput: { issuer: 1001 },
@@ -35,9 +38,13 @@ let cred = await PassportCredential.create({
     nationality: 'Austria',
   },
 });
+await Credential.validate(cred);
 let credJson = Credential.toJSON(cred);
-let credRecovered = await Credential.fromJSON(credJson);
 
+/**
+ * Presentation spec for using a passport credential to verify
+ * that the user is a citizen from a country other than the United States.
+ */
 let spec = PresentationSpec(
   { passport: PassportCredential.spec, createdAt: Claim(UInt64) },
   ({ passport, createdAt }) => ({
@@ -68,6 +75,7 @@ let spec = PresentationSpec(
 );
 let compiledSpec = await Presentation.precompile(spec);
 
+// based on the (precompiled) spec, the verifier creates a presentation request
 let request = PresentationRequest.httpsFromCompiled(
   compiledSpec,
   { createdAt: UInt64.from(Date.now()) },
@@ -75,20 +83,24 @@ let request = PresentationRequest.httpsFromCompiled(
 );
 let requestJson = PresentationRequest.toJSON(request);
 
+// the user answers the request by creating a presentation from their passport credential
+let recoveredCredential = await Credential.fromJSON(credJson);
+let recoveredRequest = PresentationRequest.fromJSON('https', requestJson);
+
 let presentation = await Presentation.create(ownerKey, {
-  request: PresentationRequest.fromJSON('https', requestJson),
-  credentials: [credRecovered],
+  request: recoveredRequest,
+  credentials: [recoveredCredential],
   context: { verifierIdentity: 'crypto-exchange.com' },
 });
 let presentationJson = Presentation.toJSON(presentation);
 
+// the verifier verifies the presentation, against their own (stored) request
 let output = await Presentation.verify(
   request,
   Presentation.fromJSON(presentationJson),
-  {
-    verifierIdentity: 'crypto-exchange.com',
-  }
+  { verifierIdentity: 'crypto-exchange.com' }
 );
-
-// TODO verify issuer
-log('issuer', output);
+// verified also needs to verify that the passport was issued by a legitimate authority.
+// to enable this, the passport presentation exposed the `issuer` (public input of the passport credential)
+let acceptedIssuers = [1001n, 1203981n, 21380123n]; // mocked list of accepted issuers
+assert(acceptedIssuers.includes(output.issuer.toBigInt()), 'Invalid issuer');
