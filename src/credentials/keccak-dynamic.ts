@@ -28,9 +28,12 @@ type FlexibleBytes = (UInt8 | bigint | number)[] | Uint8Array | Bytes;
  * ```
  */
 function keccak256(message: FlexibleBytes): Bytes {
-  const len = 256;
-  let bytes = hash(Bytes.from(message), len / 8, len / 4, false);
-  return BytesOfBitlength[len].from(bytes);
+  let bytes = hash(Bytes.from(message), {
+    lengthWords: 4, // 256 = 4*64 bits
+    capacityWords: 8, // 512 = 8*64 bits
+    nistVersion: false,
+  });
+  return BytesOfBitlength[256].from(bytes);
 }
 
 // KECCAK HASH FUNCTION
@@ -42,39 +45,22 @@ function keccak256(message: FlexibleBytes): Bytes {
 // - then, {0} pad will take place to finish the 200 bytes of the state.
 function hash(
   message: Bytes,
-  length: number,
-  capacity: number,
-  nistVersion: boolean
+  {
+    lengthWords,
+    capacityWords,
+    nistVersion,
+  }: { lengthWords: number; capacityWords: number; nistVersion: boolean }
 ): UInt8[] {
-  // Throw errors if used improperly
-  assert(capacity > 0, 'capacity must be positive');
-  assert(
-    capacity < STATE_LENGTH_BYTES,
-    `capacity must be less than ${STATE_LENGTH_BYTES}`
-  );
-  assert(length > 0, 'length must be positive');
-
-  // convert capacity and length to word units
-  assert(capacity % 8 === 0, 'length must be a multiple of 8');
-  capacity /= 8;
-  assert(length % 8 === 0, 'length must be a multiple of 8');
-  length /= 8;
-
-  const rate = STATE_LENGTH_WORDS - capacity;
+  let rateWords = 25 - capacityWords; // 25 - 8 = 17
 
   // apply padding, convert to words, and hash
-  const paddedBytes = pad(message.bytes, rate * 8, nistVersion);
+  const paddedBytes = pad(message.bytes, rateWords * 8, nistVersion);
   const padded = bytesToWords(paddedBytes);
 
-  const hash = sponge(padded, length, capacity, rate);
+  const hash = sponge(padded, lengthWords, capacityWords, rateWords);
   const hashBytes = wordsToBytes(hash);
 
   return hashBytes;
-}
-
-// Computes the number of required extra bytes to pad a message of length bytes
-function bytesToPad(rate: number, length: number): number {
-  return rate - (length % rate);
 }
 
 // Pads a message M as:
@@ -82,10 +68,10 @@ function bytesToPad(rate: number, length: number): number {
 // The padded message will start with the message argument followed by the padding rule (below) to fulfill a length that is a multiple of rate (in bytes).
 // If nist is true, then the padding rule is 0x06 ..0*..1.
 // If nist is false, then the padding rule is 10*1.
-function pad(message: UInt8[], rate: number, nist: boolean): UInt8[] {
+function pad(message: UInt8[], rateBytes: number, nist: boolean): UInt8[] {
   // Find out desired length of the padding in bytes
   // If message is already rate bits, need to pad full rate again
-  const extraBytes = bytesToPad(rate, message.length);
+  const extraBytes = rateBytes - (message.length % rateBytes);
 
   // 0x06 0x00 ... 0x00 0x80 or 0x86
   const first = nist ? 0x06n : 0x01n;
@@ -128,8 +114,8 @@ function absorb(
   rc: bigint[]
 ): State {
   assert(
-    rate + capacity === STATE_LENGTH_WORDS,
-    `invalid rate or capacity (rate + capacity should be ${STATE_LENGTH_WORDS})`
+    rate + capacity === 25,
+    `rate + capacity should be equal to the state length`
   );
   assert(
     paddedMessage.length % rate === 0,
@@ -169,12 +155,6 @@ function squeeze(state: State, length: number, rate: number): Field[] {
 }
 
 // UTILITY FUNCTIONS
-
-// Length of the state in words, 5x5 = 25
-const STATE_LENGTH_WORDS = 25;
-
-// Length of the state in bytes, meaning the 5x5 matrix of words in bytes (200)
-const STATE_LENGTH_BYTES = STATE_LENGTH_WORDS * 8;
 
 /**
  * Convert an array of 64-bit Fields to an array of UInt8.
