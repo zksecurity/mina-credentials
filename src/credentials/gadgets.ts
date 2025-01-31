@@ -1,7 +1,16 @@
 /**
  * Misc gadgets for attestation contracts.
  */
-import { Bool, Field, Gadgets, Provable, UInt32, UInt64, UInt8 } from 'o1js';
+import {
+  Bool,
+  Field,
+  Gadgets,
+  Provable,
+  TupleN,
+  UInt32,
+  UInt64,
+  UInt8,
+} from 'o1js';
 import { assert } from '../util.ts';
 
 export {
@@ -24,7 +33,7 @@ export {
  *
  * **Warning**: Assumes, but doesn't prove, that each chunk fits in the chunk size.
  */
-function pack(chunks: Field[], chunkSize: number) {
+function pack(chunks: Field[], chunkSize: number): Field {
   let p = chunks.length * chunkSize;
   assert(
     chunks.length <= 1 || p < Field.sizeInBits,
@@ -43,15 +52,25 @@ function pack(chunks: Field[], chunkSize: number) {
  *
  * Proves that the output fields have at most `chunkSize` bits.
  */
-function unpack(word: Field, chunkSize: 8 | 16 | 32 | 64, numChunks: number) {
-  let chunks = Provable.witnessFields(numChunks, () => {
-    let x = word.toBigInt();
+function unpack<N extends number>(
+  word: Field | bigint,
+  chunkSize: 1 | 4 | 8 | 16 | 32 | 64,
+  numChunks: N
+) {
+  function computeChunks() {
+    let x = Field.from(word).toBigInt();
     let mask = (1n << BigInt(chunkSize)) - 1n;
-    return Array.from(
-      { length: numChunks },
-      (_, i) => (x >> BigInt(i * chunkSize)) & mask
+    return TupleN.fromArray(
+      numChunks,
+      Array.from({ length: numChunks }, (_, i) =>
+        Field((x >> BigInt(i * chunkSize)) & mask)
+      )
     );
-  });
+  }
+  let chunks = Field.from(word).isConstant()
+    ? computeChunks()
+    : Provable.witnessFields(numChunks, computeChunks);
+
   // range check fields, so decomposition is unique and outputs are in range
   chunks.forEach((chunk) => rangeCheck(chunk, chunkSize));
 
@@ -80,8 +99,13 @@ function uint64ToBytesBE(x: UInt64) {
   return unpackBytes(x.value, 8).toReversed();
 }
 
-function rangeCheck(x: Field, bits: 8 | 16 | 32 | 64) {
+function rangeCheck(x: Field, bits: 1 | 4 | 8 | 16 | 32 | 64) {
   switch (bits) {
+    case 1:
+      x.assertBool();
+      break;
+    case 4:
+      rangeCheckLessThan16(4, x);
     case 8:
       Gadgets.rangeCheck8(x);
       break;
@@ -169,4 +193,25 @@ function lessThan16(i: Field, x: Field | number): Bool {
       .sub(x)
   );
   return isLessThan;
+}
+
+// copied from o1js
+// https://github.com/o1-labs/o1js/blob/main/src/lib/provable/gadgets/range-check.ts
+function rangeCheckLessThan16(bits: number, x: Field) {
+  assert(bits < 16, `bits must be less than 16, got ${bits}`);
+
+  if (x.isConstant()) {
+    assert(
+      x.toBigInt() < 1n << BigInt(bits),
+      `rangeCheckLessThan16: expected field to fit in ${bits} bits, got ${x}`
+    );
+    return;
+  }
+
+  // check that x fits in 16 bits
+  Gadgets.rangeCheck16(x);
+
+  // check that 2^(16 - bits)*x < 2^16, i.e. x < 2^bits
+  let xM = x.mul(1 << (16 - bits)).seal();
+  Gadgets.rangeCheck16(xM);
 }
