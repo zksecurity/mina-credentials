@@ -36,7 +36,7 @@ Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a ge
 
 ## Attestation DSL
 
-One of the main contributions is an easy-to-use DSL to specify the attestations a verifier wants to make about a user.
+One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user.
 Continuing from the example before, the crypto exchange might specify their conditions on the user's passport as follows:
 
 ```ts

@@ -94,13 +94,13 @@ let presentation = await Presentation.create(ownerKey, {
 });
 let presentationJson = Presentation.toJSON(presentation);
 
-// the verifier verifies the presentation, against their own (stored) request
+// the verifier verifies the presentation against their own (stored) request
 let output = await Presentation.verify(
   request,
   Presentation.fromJSON(presentationJson),
   { verifierIdentity: 'crypto-exchange.com' }
 );
-// verified also needs to verify that the passport was issued by a legitimate authority.
+// also need to verify that the passport was issued by a legitimate authority.
 // to enable this, the passport presentation exposed the `issuer` (public input of the passport credential)
 let acceptedIssuers = [1001n, 1203981n, 21380123n]; // mocked list of accepted issuers
 assert(acceptedIssuers.includes(output.issuer.toBigInt()), 'Invalid issuer');
