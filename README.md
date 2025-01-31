@@ -4,25 +4,73 @@ This is a TypeScript library that implements _private attestations_: A cryptogra
 
 **Try our demo: [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz)**
 
-The attestation flow usually involves three parties:
-1. an _issuer_ that makes a statement about you and hands you a certificate of that statement: a _credential_.
-  * Example: Your passport is a credential issued by a government agency. It contains valuable information about you.
-2. a _verifier_ that is interested in some particular fact about you (that is contained in a credential).
-  * Example: To sign up users, a crypto exchange must check that they are not US citizens. The exchange acts as a verifier.
-3. you, the _user_, who controls your own credentials. You can decide to create privacy-preserving _presentations_ of a credential, disclosing just the information that a verifier needs to know.
-  * Example: Prompted by the crypto exchange's request, you create a presentation about your passport, proving that it comes from a non-US country.
-
-<!-- TODO: add diagram -->
-
-Mina Attestations helps you implement all parts of the flow described above. The main lift is an easy-to-use API to create presentation requests and fulfill them with existing credentials:
+The library is available on npm and designed for all modern JS runtimes.
 
 ```
 npm i mina-attestations
 ```
 
+## What are private attestations?
+
+The attestation flow usually involves three parties:
+
+1. an _issuer_ that makes a statement about you and hands you a certificate of that statement: a _credential_.
+
+- Example: Your passport is a credential issued by a government agency. It contains valuable information about you.
+
+2. a _verifier_ that is interested in some particular fact about you (that is contained in a credential).
+
+- Example: To sign up users, a crypto exchange must check that they are not US citizens. The exchange acts as a verifier.
+
+3. you, the _user_, who controls your own credentials. You can decide to create privacy-preserving _presentations_ of a credential, disclosing just the information that a verifier needs to know.
+
+- Example: Prompted by the crypto exchange's request, you create a presentation about your passport, proving that it comes from a non-US country.
+
+<!-- TODO: add diagram -->
+
+Mina Attestations helps you implement all parts of the flow described above. It unifies the required interfaces and data types.
+
+Under the hood, private attestations rely on [zero-knowledge proofs](https://en.wikipedia.org/wiki/Zero-knowledge_proof).
+Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript.
+
+## Attestation DSL
+
+One of the main contributions is an easy-to-use DSL to specify the attestations a verifier wants to make about a user.
+Continuing from the example before, the crypto exchange might specify their conditions on the user's passport as follows:
+
 ```ts
-// TODO simple example showing presentation request + create
+import { PresentationSpec, Claim, Operation } from 'mina-attestations';
+import { UInt64 } from 'o1js';
+import { PassportCredential } from './credential-specs.ts';
+
+let spec = PresentationSpec(
+  { passport: PassportCredential.spec, createdAt: Claim(UInt64) },
+  ({ passport, createdAt }) => ({
+    assert: [
+      // not from the United States
+      Operation.not(
+        Operation.equals(
+          Operation.property(passport, 'nationality'),
+          Operation.constant(String.from('United States'))
+        )
+      ),
+      // passport is not expired
+      Operation.lessThanEq(
+        createdAt,
+        Operation.property(passport, 'expiresAt')
+      ),
+    ],
+  })
+);
 ```
+
+> Note: This is a simplified example, see [our code example](https://github.com/zksecurity/mina-attestations/blob/main/examples/unique-hash.eg.ts) for more details.
+
+The Attestation DSL is, essentially, a radically simplified language for specifying custom zk circuits, tailored to the use case of making statements about user data. It has several advantages of a general-purpose circuit framework like o1js:
+
+- Simple enough to be readable by a user (in pretty-printed form), who wants to understand what private information is shared
+- Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet
+- Easier to write and harder to mess up for developers
 
 ## Resources and background
 
