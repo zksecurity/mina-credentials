@@ -12,8 +12,8 @@ import { assert } from '../util.ts';
 export { Keccak, KeccakState };
 
 // Keccak permutation function with a constant number of rounds
-function permutation(state: Field[][], rcs: bigint[]): Field[][] {
-  return rcs.reduce((state, rc) => round(state, rc), state);
+function permutation(state: Field[][]): Field[][] {
+  return ROUND_CONSTANTS.reduce((state, rc) => round(state, rc), state);
 }
 
 // One round of the Keccak permutation function.
@@ -261,5 +261,5 @@ function xor(x: Field, y: Field): Field {
 
 const Keccak = {
   permutation,
-  ROUND_CONSTANTS,
+  State: KeccakState,
 };

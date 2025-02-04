@@ -3,7 +3,7 @@
 import { Bytes, Field, Provable, UInt32, UInt8 } from 'o1js';
 import { assert, chunk, pad } from '../util.ts';
 import { packBytes, unpackBytes } from './gadgets.ts';
-import { Keccak, KeccakState } from './keccak-permutation.ts';
+import { Keccak } from './keccak-permutation.ts'; // TODO: import this from o1js once it's exported
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 
@@ -60,18 +60,18 @@ function hash(
 
   // absorb
   let state = blocks.reduce(
-    KeccakState,
-    KeccakState.zeros(),
+    Keccak.State,
+    Keccak.State.zeros(),
     (state, block) => {
-      state = KeccakState.xor(state, block);
-      return Keccak.permutation(state, Keccak.ROUND_CONSTANTS);
+      state = Keccak.State.xor(state, block);
+      return Keccak.permutation(state);
     }
   );
 
   // squeeze once
   // hash == first `length` words of the state
   assert(options.length < rate, 'length should be less than rate');
-  let hash = KeccakState.toWords(state).slice(0, options.length);
+  let hash = Keccak.State.toWords(state).slice(0, options.length);
 
   let hashBytes = wordsToBytes(hash);
   return hashBytes;
@@ -88,7 +88,7 @@ function padding(
   message: DynamicArray<UInt8>,
   rate: number,
   isNist: boolean
-): DynamicArray<KeccakState> {
+): DynamicArray<Field[][]> {
   let rateBytes = rate * 8;
 
   // convert message to blocks of `rate` 64-bit words each
@@ -134,13 +134,13 @@ function padding(
   blocks.setOrDoNothing(lastBlockIndex.value, lastBlock);
 
   // pack UInt8 x rateBytes => UInt64 x rate
-  return blocks.map(KeccakState, (blockBytes) => {
+  return blocks.map(Keccak.State, (blockBytes) => {
     let block = bytesToWords(blockBytes.array);
 
     // for convenience, each block is brought into the same shape as
     // the state, by appending `capacity` zeros
     let fullBlock = pad(block, 25, Field(0));
-    return KeccakState.fromWords(fullBlock);
+    return Keccak.State.fromWords(fullBlock);
   });
 }
 
