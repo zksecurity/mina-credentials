@@ -4,15 +4,15 @@ import {
   createForeignCurve,
   Crypto,
   Field,
-  Gadgets,
   Provable,
+  Struct,
   UInt8,
 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
-import { fill, notImplemented } from '../util.ts';
+import { assert, notImplemented, pad } from '../util.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { DynamicSHA3 } from './dynamic-sha3.ts';
-import { assertInRange16, assertLessThan16 } from './gadgets.ts';
+import { assertInRange16 } from './gadgets.ts';
 import { log } from './dynamic-hash.ts';
 
 export { EcdsaEthereum, toDigits };
@@ -56,54 +56,62 @@ function verifyEthereumSignature(
 }
 
 function toDigits(value: Field, maxDigits: number): DynamicString {
-  let digits = toBase10(value, maxDigits);
-  let length = Provable.witness(Field, () =>
-    Number(value) === 0 ? 0 : value.toString().length
-  );
-  assertInRange16(length, maxDigits); // length <= maxDigits
+  let digits = toBase10BE(value, maxDigits);
 
-  // prove that length is correct, by showing that all digits beyond the length are 0 and the last one before is not
-  let afterLast = length.equals(0);
-  digits.forEach((digit, i) => {
-    let isLast = length.equals(i + 1);
-    let isZero = digit.equals(0);
+  // map the digits to ASCII characters
+  let asciiDigits = digits.map(UInt8, digitToAscii);
 
-    isLast.and(isZero).assertFalse('last digit must not be 0');
-    afterLast.implies(isZero).assertTrue('digits beyond length must be 0');
-
-    afterLast = afterLast.or(isLast);
-  });
-
-  // we map the digits to ASCII characters
-  // and reverse them, because we computed them in little-endian order
+  // convert to string
   const String = DynamicString({ maxLength: maxDigits });
-  let reverseAsciiDigits = digits.map(digitToAscii);
-  return new String(reverseAsciiDigits, length).reverse();
+  return new String(asciiDigits.array, asciiDigits.length);
 }
 
 function digitToAscii(digit: Field) {
   return UInt8.Unsafe.fromField(digit.add(48n).seal());
 }
 
-function toBase10(value: Field, maxDigits: number): Field[] {
-  let digits = Provable.witnessFields(maxDigits, () => {
-    let remaining = value.toBigInt();
-    let result = Array<bigint>(maxDigits);
-    for (let i = 0; i < maxDigits; i++) {
-      result[i] = remaining % 10n;
-      remaining /= 10n;
+function toBase10BE(value: Field, maxDigits: number): DynamicArray<Field> {
+  let digits = Provable.witness(
+    DynamicArray(Field, { maxLength: maxDigits }),
+    () => {
+      let remaining = value.toBigInt();
+      let digitsLE: bigint[] = [];
+      while (remaining > 0) {
+        digitsLE.push(remaining % 10n);
+        remaining /= 10n;
+      }
+      return digitsLE.reverse();
     }
-    return result;
-  });
-  digits.forEach(assertDigit);
-  fromBase10(digits).assertEquals(value);
+  );
+  // all digits are in range
+  digits.array.forEach((d) => assertDigit(d));
+
+  // the digits correctly represent the value
+  fromBase10BE(digits).assertEquals(value);
+
+  // the most significant digit is not 0, except if the value is 0
+  if (maxDigits > 0) {
+    digits.array[0]!.equals(0)
+      .implies(value.equals(0))
+      .assertTrue('most significant digit must not be 0');
+  }
   return digits;
 }
 
-function fromBase10(digits: Field[]): Field {
+function fromBase10BE(digits: DynamicArray<Field>): Field {
+  // compute powers to multiply digits with
+  // 10^3, 10^2, 10^1, 10^0, 0, 0, ..., 0
+  //                         ^ length
+  let power = Field(1);
+  let powers: Field[] = Array(digits.maxLength);
+  digits.forEachReverse((_, isPadding, i) => {
+    powers[i] = Provable.if(isPadding.not(), power, Field(0));
+    if (i > 0) power = Provable.if(isPadding.not(), power.mul(10), power);
+  });
+
   let sum = Field(0);
-  digits.forEach((digit, i) => {
-    sum = sum.add(digit.mul(10n ** BigInt(i)));
+  digits.forEach((digit, _, i) => {
+    sum = sum.add(digit.mul(powers[i]!));
   });
   return sum.seal();
 }

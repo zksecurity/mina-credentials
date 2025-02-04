@@ -282,6 +282,21 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Iterate over all elements of the array, in reverse order.
+   *
+   * The callback will be passed an element and a boolean `isDummy` indicating whether the value is part of the actual array.
+   *
+   * Note: the indices are also passed in reverse order, i.e. we always have `t = this.array[i]`.
+   */
+  forEachReverse(f: (t: T, isDummy: Bool, i: number) => void) {
+    zip(this.array, this._dummyMask())
+      .toReversed()
+      .forEach(([t, isDummy], i) => {
+        f(t, isDummy, this.maxLength - 1 - i);
+      });
+  }
+
+  /**
    * Reduce the array to a single value.
    *
    * The callback will be passed the current state, an element, and a boolean `isDummy` indicating whether the value is part of the actual array.
