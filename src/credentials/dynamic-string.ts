@@ -234,6 +234,18 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
     return [new StringA(a.array, a.length), new StringB(b.array, b.length)];
   }
 
+  slice(start: number | UInt32) {
+    let slice = super.slice(start);
+    let String = DynamicString({ maxLength: this.maxLength });
+    return new String(slice.array, slice.length);
+  }
+
+  reverse() {
+    let reversed = super.reverse();
+    let String = DynamicString({ maxLength: this.maxLength });
+    return new String(reversed.array, reversed.length);
+  }
+
   assertContains(
     substring:
       | StaticArray<UInt8, UInt8V>

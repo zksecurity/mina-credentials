@@ -326,6 +326,39 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
+   * Equivalent to `Array.slice(start)`. Supports variable start index.
+   */
+  slice(start: number | UInt32): DynamicArray<T, V> {
+    if (typeof start === 'number') return this.splitAt(start)[1];
+
+    let Array = DynamicArray(this.innerType, { maxLength: this.maxLength });
+    let length = this.length.sub(start.value).seal();
+    Gadgets.rangeCheck16(length);
+    // note: these values are constrained if the index is in the new range
+    // i < length - start => start + i < length
+    let array = this.array.map((_, i) =>
+      this.getOrUnconstrained(start.value.add(i))
+    );
+    return new Array(array, length);
+  }
+
+  /**
+   * Returns a new array with the elements reversed.
+   */
+  reverse(): DynamicArray<T, V> {
+    let Array = DynamicArray(this.innerType, { maxLength: this.maxLength });
+    // first, reverse the full array
+    let array = this.array.toReversed();
+
+    // `array` is not yet what we need, since it has all the padding at the beginning
+    // so, slice off the padding
+    let maxLength = Field(this.maxLength);
+    return new Array(array, maxLength).slice(
+      UInt32.Unsafe.fromField(maxLength.sub(this.length).seal())
+    );
+  }
+
+  /**
    * Dynamic array hash that only depends on the actual values (not the padding).
    *
    * Avoids hash collisions by encoding the number of actual elements at the beginning of the hash input.
@@ -394,6 +427,9 @@ class DynamicArrayBase<T = any, V = any> {
     return state[0];
   }
 
+  /**
+   * Convert the array to a MerkleList.
+   */
   merkelize(listHash?: (hash: Field, t: T) => Field): MerkleList<T> {
     let type = this.innerType;
     listHash ??= (h, t) => Poseidon.hash([h, packToField(t, type)]);

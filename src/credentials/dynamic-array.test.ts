@@ -1,6 +1,7 @@
-import { Provable, UInt8 } from 'o1js';
+import { Field, Provable, UInt8 } from 'o1js';
 import { DynamicArray, DynamicString } from '../dynamic.ts';
 import assert from 'assert';
+import { toDigits } from './dynamic-ecdsa.ts';
 
 // concatenation of two strings
 
@@ -139,6 +140,23 @@ console.log(
 
   // can run while checking constraints
   console.log(`splitAt`, await runAndConstraints(main));
+}
+
+// test for `toDigits()`
+
+{
+  function main() {
+    let value = Provable.witness(Field, () => 1234);
+
+    let digits = toDigits(value, Field.ORDER.toString().length);
+    digits.assertEquals('1234');
+  }
+
+  // can run normally
+  main();
+
+  // can run while checking constraints
+  console.log(`toDigits`, await runAndConstraints(main));
 }
 
 // helper
