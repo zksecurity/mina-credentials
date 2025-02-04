@@ -1,15 +1,13 @@
 import {
-  Bool,
   createEcdsa,
   createForeignCurve,
   Crypto,
   Field,
   Provable,
-  Struct,
   UInt8,
 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
-import { assert, notImplemented, pad } from '../util.ts';
+import { notImplemented } from '../util.ts';
 import { DynamicString } from './dynamic-string.ts';
 import { DynamicSHA3 } from './dynamic-sha3.ts';
 import { assertInRange16 } from './gadgets.ts';

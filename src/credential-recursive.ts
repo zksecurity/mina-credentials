@@ -12,6 +12,7 @@ import {
   PublicKey,
   Undefined,
   type From,
+  type InferValue,
 } from 'o1js';
 import { ProvableType } from './o1js-missing.ts';
 import {
@@ -237,9 +238,13 @@ async function recursiveFromProgram<
       return vk;
     },
 
-    async dummy(credential: Credential<Data>): Promise<Recursive<Data, Input>> {
+    async dummy({
+      owner,
+      data,
+    }: Credential<From<DataType>>): Promise<Recursive<Data, Input>> {
       let input = ProvableType.synthesize(program.publicInputType);
       let vk = await self.compile();
+      let credential = { owner, data: dataType.fromValue(data) };
 
       let dummyProof = await InputProof.dummy(
         input,
@@ -281,6 +286,7 @@ async function recursiveFromMethod<
   type PublicInput = InferProvableOrUndefined<PublicInputType>;
   type PrivateInputType = Get<Config, 'privateInput'>;
   type PrivateInput = InferProvable<PrivateInputType>;
+  type DataType = Get<Config, 'data'>;
   type Data = InferProvable<Get<Config, 'data'>>;
 
   let publicInput =
@@ -323,8 +329,8 @@ async function recursiveFromMethod<
   });
 
   let credentialSpec = await recursiveFromProgram<
-    Provable<Data>,
-    Provable<PublicInput>,
+    Provable<Data, InferValue<DataType>>,
+    Provable<PublicInput, InferValue<PublicInputType>>,
     Data,
     PublicInput,
     any
