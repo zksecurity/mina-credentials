@@ -6,7 +6,7 @@
  * the code in this file was copied and modified from o1js
  * https://github.com/o1-labs/o1js
  */
-import { Field, Gadgets } from 'o1js';
+import { Field, Gadgets, Provable } from 'o1js';
 import { assert } from '../util.ts';
 
 export { permutation, State, ROUND_CONSTANTS };
@@ -192,6 +192,8 @@ const State = {
     // Calls xor() on each pair (i,j) of the states input1 and input2 and outputs the output Fields as a new matrix
     return a.map((row, i) => row.map((x, j) => xor(x, b[i]![j]!)));
   },
+
+  provable: Provable.Array(Provable.Array(Field, 5), 5),
 };
 
 // KECCAK CONSTANTS

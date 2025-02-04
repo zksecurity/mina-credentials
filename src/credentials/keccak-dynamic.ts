@@ -1,9 +1,11 @@
 // the code in this file was copied and modified from o1js
 // https://github.com/o1-labs/o1js
-import { Bytes, Field, UInt8 } from 'o1js';
+import { Bytes, Field, Provable, UInt32, UInt64, UInt8 } from 'o1js';
 import { assert, chunk, pad } from '../util.ts';
 import { packBytes, unpackBytes } from './gadgets.ts';
 import { permutation, ROUND_CONSTANTS, State } from './keccak-permutation.ts';
+import { DynamicArray } from './dynamic-array.ts';
+import { StaticArray } from './static-array.ts';
 
 export { keccak256 };
 
@@ -38,19 +40,27 @@ function keccak256(message: FlexibleBytes): Bytes {
 
 // KECCAK HASH FUNCTION
 
-// Keccak hash function with input message passed as list of Field bytes.
-// The message will be parsed as follows:
-// - the first byte of the message will be the least significant byte of the first word of the state (A[0][0])
-// - the 10*1 pad will take place after the message, until reaching the bit length rate.
-// - then, {0} pad will take place to finish the 200 bytes of the state.
+/**
+ * Keccak hash function with input message passed as list of Field bytes.
+ *
+ * The message will be parsed as follows:
+ * - the first byte of the message will be the least significant byte of the first word of the state (A[0][0])
+ * - the 10*1 pad will take place after the message, until reaching the bit length rate.
+ * - then, {0} pad will take place to finish the 200 bytes of the state.
+ */
 function hash(
-  message: Bytes,
+  messageStatic: Bytes,
   options: { length: number; capacity: number; isNist: boolean }
 ): UInt8[] {
+  // TODO: `message` should be the input
+  let message = DynamicArray(UInt8, { maxLength: messageStatic.length }).from(
+    messageStatic.bytes
+  );
+
   let rate = 25 - options.capacity;
 
   // apply padding, convert to blocks of words
-  let blocks = padding(message.bytes, rate, options.isNist);
+  let blocks = padding(message, rate, options.isNist).array;
 
   // absorb
   let state = State.zeros();
@@ -69,30 +79,66 @@ function hash(
   return hashBytes;
 }
 
-// Pads a message M as:
-// M || pad[x](|M|)
-// The padded message will start with the message argument followed by the padding rule (below) to fulfill a length that is a multiple of rate (in bytes).
-// If nist is true, then the padding rule is 0x06 ..0*..1.
-// If nist is false, then the padding rule is 10*1.
-function padding(message: UInt8[], rate: number, isNist: boolean): State[] {
-  // Find out desired length of the padding in bytes
-  // If message is already rate bits, need to pad full rate again
+/**
+ * Pads a message M as: `M || pad[x](|M|)`
+ *
+ * The padded message will start with the message argument followed by the padding rule (below) to fulfill a length that is a multiple of rate (in bytes).
+ * If nist is true, then the padding rule is 0x06 ..0*..1.
+ * If nist is false, then the padding rule is 10*1.
+ */
+function padding(
+  message: DynamicArray<UInt8>,
+  rate: number,
+  isNist: boolean
+): DynamicArray<State> {
   let rateBytes = rate * 8;
-  let extraBytes = rateBytes - (message.length % rateBytes);
 
-  // 0x06 0x00 ... 0x00 0x80 or 0x86
-  let first = isNist ? 0x06n : 0x01n;
-  let last = 0x80n;
+  // convert message to blocks of `rate` 64-bit words each
+  const maxBlocksBytes = Math.ceil((message.maxLength + 1) / rateBytes);
+  const Block = StaticArray(UInt8, rateBytes);
+  const BlockDynamic = DynamicArray(UInt8, { maxLength: rateBytes });
+  const Blocks = DynamicArray(Block, { maxLength: maxBlocksBytes });
 
-  // Create the padding vector
-  const paddingBytes = Array<UInt8>(extraBytes).fill(UInt8.from(0));
-  paddingBytes[0] = UInt8.from(first);
-  paddingBytes[extraBytes - 1] = paddingBytes[extraBytes - 1]!.add(last);
+  // number of actual blocks: ceil((message.length + 1) / rateBytes)
+  // = floor((message.length + 1 + (rateBytes - 1)) / rateBytes)
+  // = floor(message.length / rateBytes) + 1
 
-  // Return the padded message, converted to blocks of `rate` words
-  let words = bytesToWords([...message, ...paddingBytes]);
-  let blocks = chunk(words, rate);
-  return blocks.map((block) => {
+  // index of last block = blocks.length - 1 = floor(message.length / rate)
+  let { rest: messageLengthInLastBlock, quotient: lastBlockIndex } =
+    UInt32.Unsafe.fromField(message.length).divMod(rateBytes);
+  let numberOfBlocks = lastBlockIndex.value.add(1);
+  let padded = pad(message.array, maxBlocksBytes * rateBytes, UInt8.from(0));
+  let chunked = chunk(padded, rateBytes).map(Block.from);
+  let blocks = new Blocks(chunked, numberOfBlocks);
+
+  // padding is strictly contained the last block, so we operate on that to add padding
+  let lastBlock = blocks.getOrUnconstrained(lastBlockIndex.value);
+  let lastBlockDynamic = new BlockDynamic(
+    lastBlock.array,
+    messageLengthInLastBlock.value
+  );
+
+  // assert that initial padding is all zeroes
+  lastBlockDynamic.forEach((byte, isPadding) => {
+    Provable.assertEqualIf(isPadding, UInt8, byte, UInt8.from(0));
+  });
+
+  // add first padding byte
+  const first = isNist ? 0x06n : 0x01n;
+  lastBlockDynamic.setOrDoNothing(lastBlockDynamic.length, UInt8.from(first));
+
+  // add last padding byte (note: this could be the same as the first, so we use addition)
+  lastBlockDynamic.array[rateBytes - 1] = UInt8.Unsafe.fromField(
+    lastBlockDynamic.array[rateBytes - 1]!.value.add(0x80)
+  );
+
+  // now that we added padding to the last block, set it in the blocks array
+  blocks.setOrDoNothing(lastBlockIndex.value, lastBlock);
+
+  // pack UInt8 x rateBytes => UInt64 x rate
+  return blocks.map(State, (blockBytes) => {
+    let block = bytesToWords(blockBytes.array);
+
     // for convenience, each block is brought into the same shape as
     // the state, by appending `capacity` zeros
     let fullBlock = pad(block, 25, Field(0));
