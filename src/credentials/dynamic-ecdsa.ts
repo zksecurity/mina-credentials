@@ -59,15 +59,13 @@ function toDigits(value: Field, maxDigits: number): DynamicString {
   let digits = toBase10BE(value, maxDigits);
 
   // map the digits to ASCII characters
-  let asciiDigits = digits.map(UInt8, digitToAscii);
+  let asciiDigits = digits.map(UInt8, (digit) =>
+    UInt8.Unsafe.fromField(digit.add(48n).seal())
+  );
 
   // convert to string
   const String = DynamicString({ maxLength: maxDigits });
   return new String(asciiDigits.array, asciiDigits.length);
-}
-
-function digitToAscii(digit: Field) {
-  return UInt8.Unsafe.fromField(digit.add(48n).seal());
 }
 
 function toBase10BE(value: Field, maxDigits: number): DynamicArray<Field> {

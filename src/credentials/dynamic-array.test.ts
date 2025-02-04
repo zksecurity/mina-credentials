@@ -148,7 +148,7 @@ console.log(
   function main() {
     let value = Provable.witness(Field, () => 1234);
 
-    let digits = toDigits(value, Field.ORDER.toString().length);
+    let digits = toDigits(value, 5);
     digits.assertEquals('1234');
   }
 
