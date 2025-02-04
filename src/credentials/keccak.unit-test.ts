@@ -1,6 +1,10 @@
 import { Bytes, Keccak } from 'o1js';
 import { keccak256 } from './keccak-dynamic.ts';
 import { assert } from '../util.ts';
+import { DynamicString } from './dynamic-string.ts';
+
+const ShortString = DynamicString({ maxLength: 32 });
+const LongString = DynamicString({ maxLength: 400 });
 
 let shortMessage = 'hello world';
 let longMessage =
@@ -8,12 +12,12 @@ let longMessage =
 
 assert(
   Keccak.ethereum(Bytes.fromString(shortMessage)).toHex() ===
-    keccak256(Bytes.fromString(shortMessage)).toHex(),
+    keccak256(ShortString.from(shortMessage)).toHex(),
   'hashes are not equal (short message)'
 );
 
 assert(
   Keccak.ethereum(Bytes.fromString(longMessage)).toHex() ===
-    keccak256(Bytes.fromString(longMessage)).toHex(),
+    keccak256(LongString.from(longMessage)).toHex(),
   'hashes are not equal (long message)'
 );

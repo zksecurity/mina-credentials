@@ -1,6 +1,6 @@
 // the code in this file was copied and modified from o1js
 // https://github.com/o1-labs/o1js
-import { Bytes, Field, Provable, UInt32, UInt64, UInt8 } from 'o1js';
+import { Bytes, Field, Provable, UInt32, UInt8 } from 'o1js';
 import { assert, chunk, pad } from '../util.ts';
 import { packBytes, unpackBytes } from './gadgets.ts';
 import { permutation, ROUND_CONSTANTS, State } from './keccak-permutation.ts';
@@ -8,8 +8,6 @@ import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 
 export { keccak256 };
-
-type FlexibleBytes = (UInt8 | bigint | number)[] | Uint8Array | Bytes;
 
 /**
  * Ethereum-Compatible Keccak-256 Hash Function.
@@ -29,8 +27,8 @@ type FlexibleBytes = (UInt8 | bigint | number)[] | Uint8Array | Bytes;
  * let digest = Keccak.ethereum(preimage);
  * ```
  */
-function keccak256(message: FlexibleBytes): Bytes {
-  let bytes = hash(Bytes.from(message), {
+function keccak256(message: DynamicArray<UInt8>): Bytes {
+  let bytes = hash(message, {
     length: 4, // 256 = 4*64 bits
     capacity: 8, // 512 = 8*64 bits
     isNist: false,
@@ -49,26 +47,19 @@ function keccak256(message: FlexibleBytes): Bytes {
  * - then, {0} pad will take place to finish the 200 bytes of the state.
  */
 function hash(
-  messageStatic: Bytes,
+  message: DynamicArray<UInt8>,
   options: { length: number; capacity: number; isNist: boolean }
 ): UInt8[] {
-  // TODO: `message` should be the input
-  let message = DynamicArray(UInt8, { maxLength: messageStatic.length }).from(
-    messageStatic.bytes
-  );
-
   let rate = 25 - options.capacity;
 
   // apply padding, convert to blocks of words
-  let blocks = padding(message, rate, options.isNist).array;
+  let blocks = padding(message, rate, options.isNist);
 
   // absorb
-  let state = State.zeros();
-
-  for (let block of blocks) {
+  let state = blocks.reduce(State, State.zeros(), (state, block) => {
     state = State.xor(state, block);
-    state = permutation(state, ROUND_CONSTANTS);
-  }
+    return permutation(state, ROUND_CONSTANTS);
+  });
 
   // squeeze once
   // hash == first `length` words of the state
