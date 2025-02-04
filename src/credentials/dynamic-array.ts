@@ -629,7 +629,7 @@ class DynamicArrayBase<T = any, V = any> {
    *
    * **Note**: this doesn't cost constraints, but currently doesn't preserve any cached constraints.
    */
-  growMaxLengthTo(maxLength: number): DynamicArray<T> {
+  growMaxLengthTo(maxLength: number): DynamicArray<T, V> {
     assert(
       maxLength >= this.maxLength,
       'new maxLength must be greater or equal'
@@ -648,8 +648,18 @@ class DynamicArrayBase<T = any, V = any> {
    *
    * **Note**: this doesn't cost constraints, but currently doesn't preserve any cached constraints.
    */
-  growMaxLengthBy(maxLength: number): DynamicArray<T> {
+  growMaxLengthBy(maxLength: number): DynamicArray<T, V> {
     return this.growMaxLengthTo(this.maxLength + maxLength);
+  }
+
+  /**
+   * Mutate this array such that all elements beyond the actual length are set to an empty value.
+   */
+  normalize() {
+    let NULL = ProvableType.synthesize(this.innerType);
+    this.forEach((t, isPadding, i) => {
+      this.array[i] = Provable.if(isPadding, this.innerType, NULL, t);
+    });
   }
 
   // cached variables to not duplicate constraints if we do something like array.get(i), array.set(i, ..) on the same index

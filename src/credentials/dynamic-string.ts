@@ -158,6 +158,7 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
 
     // the trailing block of the second string is combined with the final trailing block
     let combined = trailing.concatTransposed(bTrailingBlock);
+    combined.normalize(); // needed to not hash non-zero padding bytes
     let firstHalf = combined.array.slice(0, CHARS_PER_BLOCK);
     let secondHalf = combined.array.slice(CHARS_PER_BLOCK);
 
