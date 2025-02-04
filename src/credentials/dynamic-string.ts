@@ -125,7 +125,7 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
    * Note: This overrides the naive `concat()` implementation in `DynamicArray`.
    * It's much more efficient than the base method and than both `concatTransposed()` and `concatByHashing()`.
    */
-  concat(other: DynamicString): DynamicString {
+  concat(other: DynamicArray<UInt8>): DynamicString {
     const CHARS_PER_BLOCK = 8; // hand-fitted to optimize constraints for (100, 100) and (100, 20) concat
 
     // divide both strings into smaller blocks of chars
