@@ -115,11 +115,8 @@ function padding(
     lastBlock.array,
     messageLengthInLastBlock.value
   );
-
-  // assert that initial padding is all zeroes
-  lastBlockDynamic.forEach((byte, isPadding) => {
-    Provable.assertEqualIf(isPadding, UInt8, byte, UInt8.from(0));
-  });
+  // ensure that initial padding is all zeroes
+  lastBlockDynamic.normalize();
 
   // add first padding byte
   const first = isNist ? 0x06n : 0x01n;

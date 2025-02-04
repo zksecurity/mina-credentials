@@ -300,7 +300,7 @@ class DynamicArrayBase<T = any, V = any> {
   }
 
   /**
-   * Split the array at index i, i.e. returns `[splice(0, i), splice(i)]`.
+   * Split the array at index i, i.e. returns `[slice(0, i), slice(i)]`.
    *
    * If i is 0, the first array will be empty.
    * If i it >= the length, the second array will be empty.
@@ -659,6 +659,20 @@ class DynamicArrayBase<T = any, V = any> {
     let NULL = ProvableType.synthesize(this.innerType);
     this.forEach((t, isPadding, i) => {
       this.array[i] = Provable.if(isPadding, this.innerType, NULL, t);
+    });
+  }
+
+  /**
+   * Assert that the array is normalized, i.e. all padding elements are empty.
+   *
+   * Note: For completeness, it is probably better to use `normalize()` which uses the same amount
+   * of constraints and comes with the same guarantee.
+   */
+  assertNormalized() {
+    let NULL = ProvableType.synthesize(this.innerType);
+    this.forEach((t, isPadding) => {
+      // TODO this needs a message argument!
+      Provable.assertEqualIf(isPadding, this.innerType, t, NULL);
     });
   }
 
