@@ -1,7 +1,7 @@
 // the code in this file was copied and modified from o1js
 // https://github.com/o1-labs/o1js
 import { Bytes, Field, UInt8 } from 'o1js';
-import { assert, chunk } from '../util.ts';
+import { assert, chunk, pad } from '../util.ts';
 import { packBytes, unpackBytes } from './gadgets.ts';
 import { permutation, ROUND_CONSTANTS, State } from './keccak-permutation.ts';
 
@@ -31,9 +31,9 @@ function keccak256(message: FlexibleBytes): Bytes {
   let bytes = hash(Bytes.from(message), {
     length: 4, // 256 = 4*64 bits
     capacity: 8, // 512 = 8*64 bits
-    nistVersion: false,
+    isNist: false,
   });
-  return BytesOfBitlength[256].from(bytes);
+  return Bytes32.from(bytes);
 }
 
 // KECCAK HASH FUNCTION
@@ -45,35 +45,25 @@ function keccak256(message: FlexibleBytes): Bytes {
 // - then, {0} pad will take place to finish the 200 bytes of the state.
 function hash(
   message: Bytes,
-  {
-    length,
-    capacity,
-    nistVersion,
-  }: { length: number; capacity: number; nistVersion: boolean }
+  options: { length: number; capacity: number; isNist: boolean }
 ): UInt8[] {
-  let rate = 25 - capacity; // 25 - 8 = 17
+  let rate = 25 - options.capacity;
 
-  // apply padding, convert to words, and hash
-  let paddedBytes = pad(message.bytes, rate * 8, nistVersion);
-  let paddedMessage = bytesToWords(paddedBytes);
+  // apply padding, convert to blocks of words
+  let blocks = padding(message.bytes, rate, options.isNist);
 
   // absorb
   let state = State.zeros();
 
-  let zeros = Array(capacity).fill(Field.from(0));
-  let blocks = chunk(paddedMessage, rate);
-
   for (let block of blocks) {
-    let paddedBlock = block.concat(zeros);
-    let blockState = State.fromWords(paddedBlock);
-    let stateXor = State.xor(state, blockState);
-    state = permutation(stateXor, ROUND_CONSTANTS);
+    state = State.xor(state, block);
+    state = permutation(state, ROUND_CONSTANTS);
   }
 
   // squeeze once
   // hash == first `length` words of the state
-  assert(length < rate, 'length should be less than rate');
-  let hash = State.toWords(state).slice(0, length);
+  assert(options.length < rate, 'length should be less than rate');
+  let hash = State.toWords(state).slice(0, options.length);
 
   let hashBytes = wordsToBytes(hash);
   return hashBytes;
@@ -84,22 +74,30 @@ function hash(
 // The padded message will start with the message argument followed by the padding rule (below) to fulfill a length that is a multiple of rate (in bytes).
 // If nist is true, then the padding rule is 0x06 ..0*..1.
 // If nist is false, then the padding rule is 10*1.
-function pad(message: UInt8[], rateBytes: number, nist: boolean): UInt8[] {
+function padding(message: UInt8[], rate: number, isNist: boolean): State[] {
   // Find out desired length of the padding in bytes
   // If message is already rate bits, need to pad full rate again
-  const extraBytes = rateBytes - (message.length % rateBytes);
+  let rateBytes = rate * 8;
+  let extraBytes = rateBytes - (message.length % rateBytes);
 
   // 0x06 0x00 ... 0x00 0x80 or 0x86
-  const first = nist ? 0x06n : 0x01n;
-  const last = 0x80n;
+  let first = isNist ? 0x06n : 0x01n;
+  let last = 0x80n;
 
   // Create the padding vector
-  const pad = Array<UInt8>(extraBytes).fill(UInt8.from(0));
-  pad[0] = UInt8.from(first);
-  pad[extraBytes - 1] = pad[extraBytes - 1]!.add(last);
+  const paddingBytes = Array<UInt8>(extraBytes).fill(UInt8.from(0));
+  paddingBytes[0] = UInt8.from(first);
+  paddingBytes[extraBytes - 1] = paddingBytes[extraBytes - 1]!.add(last);
 
-  // Return the padded message
-  return [...message, ...pad];
+  // Return the padded message, converted to blocks of `rate` words
+  let words = bytesToWords([...message, ...paddingBytes]);
+  let blocks = chunk(words, rate);
+  return blocks.map((block) => {
+    // for convenience, each block is brought into the same shape as
+    // the state, by appending `capacity` zeros
+    let fullBlock = pad(block, 25, Field(0));
+    return State.fromWords(fullBlock);
+  });
 }
 
 // UTILITY FUNCTIONS
@@ -120,11 +118,3 @@ function bytesToWords(bytes: UInt8[]): Field[] {
 // AUXILIARY TYPES
 
 class Bytes32 extends Bytes(32) {}
-class Bytes48 extends Bytes(48) {}
-class Bytes64 extends Bytes(64) {}
-
-const BytesOfBitlength = {
-  256: Bytes32,
-  384: Bytes48,
-  512: Bytes64,
-};
