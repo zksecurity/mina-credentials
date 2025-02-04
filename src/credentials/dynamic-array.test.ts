@@ -1,7 +1,6 @@
 import { Provable, UInt8 } from 'o1js';
 import { DynamicArray, DynamicString } from '../dynamic.ts';
 import assert from 'assert';
-import { stringLength } from '../util.ts';
 
 // concatenation of two strings
 
