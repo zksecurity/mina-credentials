@@ -9,7 +9,7 @@
 import { Field, Gadgets, Provable } from 'o1js';
 import { assert } from '../util.ts';
 
-export { permutation, State, ROUND_CONSTANTS };
+export { Keccak, KeccakState };
 
 // Keccak permutation function with a constant number of rounds
 function permutation(state: Field[][], rcs: bigint[]): Field[][] {
@@ -83,7 +83,7 @@ const theta = (state: Field[][]): Field[][] => {
 // We use the first index of the state array as the i coordinate and the second index as the j coordinate.
 function piRho(state: Field[][]): Field[][] {
   const stateE = state;
-  const stateB = State.zeros();
+  const stateB = KeccakState.zeros();
 
   // for all i in {0..4} and j in {0..4}: B[j,2i+3j] = ROT(E[i,j], r[i,j])
   for (let i = 0; i < 5; i++) {
@@ -109,7 +109,7 @@ function piRho(state: Field[][]): Field[][] {
 // end for
 function chi(state: Field[][]): Field[][] {
   const stateB = state;
-  const stateF = State.zeros();
+  const stateF = KeccakState.zeros();
 
   // for all i in {0..4} and j in {0..4}: F[i,j] = B[i,j] xor ((not B[i+1,j]) and B[i+2,j])
   for (let i = 0; i < 5; i++) {
@@ -141,19 +141,23 @@ function iota(state: Field[][], rc: bigint): Field[][] {
 
 // FUNCTIONS ON KECCAK STATE
 
-type State = Field[][];
-const State = {
+/**
+ * The internal state of the Keccak hash function is\
+ * a 5x5 matrix of 64-bit words.
+ */
+type KeccakState = Field[][];
+const KeccakState = {
   /**
    * Create a state of all zeros
    */
-  zeros(): State {
+  zeros(): KeccakState {
     return Array.from(Array(5), (_) => Array(5).fill(Field.from(0)));
   },
 
   /**
    * Flatten state to words
    */
-  toWords(state: State): Field[] {
+  toWords(state: KeccakState): Field[] {
     const words = Array<Field>(25);
     for (let j = 0; j < 5; j++) {
       for (let i = 0; i < 5; i++) {
@@ -166,8 +170,8 @@ const State = {
   /**
    * Compose words to state
    */
-  fromWords(words: Field[]): State {
-    const state = State.zeros();
+  fromWords(words: Field[]): KeccakState {
+    const state = KeccakState.zeros();
     for (let j = 0; j < 5; j++) {
       for (let i = 0; i < 5; i++) {
         state[i]![j] = words[5 * j + i]!;
@@ -179,7 +183,7 @@ const State = {
   /**
    * XOR two states together and return the result
    */
-  xor(a: State, b: State): State {
+  xor(a: KeccakState, b: KeccakState): KeccakState {
     assert(
       a.length === 5 && a[0]!.length === 5,
       `invalid \`a\` dimensions (should be ${5})`
@@ -252,3 +256,10 @@ function xor(x: Field, y: Field): Field {
   if (y.isConstant() && y.toBigInt() === 0n) return x;
   return Gadgets.xor(x, y, 64);
 }
+
+// EXPORT
+
+const Keccak = {
+  permutation,
+  ROUND_CONSTANTS,
+};

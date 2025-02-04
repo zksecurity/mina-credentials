@@ -3,38 +3,41 @@
 import { Bytes, Field, Provable, UInt32, UInt8 } from 'o1js';
 import { assert, chunk, pad } from '../util.ts';
 import { packBytes, unpackBytes } from './gadgets.ts';
-import { permutation, ROUND_CONSTANTS, State } from './keccak-permutation.ts';
+import { Keccak, KeccakState } from './keccak-permutation.ts';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 
-export { keccak256 };
+export { DynamicSHA3 };
 
-/**
- * Ethereum-Compatible Keccak-256 Hash Function.
- * This is a specialized variant of {@link Keccak.preNist} configured for a 256-bit output length.
- *
- * Primarily used in Ethereum for hashing transactions, messages, and other types of payloads.
- *
- * The function accepts {@link Bytes} as the input message, which is a type that represents a static-length list of byte-sized field elements (range-checked using {@link Gadgets.rangeCheck8}).
- * Alternatively, you can pass plain `number[]` of `Uint8Array` to perform a hash outside provable code.
- *
- * Produces an output of {@link Bytes} of length 32. Both input and output bytes are big-endian.
- *
- * @param message - Big-endian {@link Bytes} representing the message to hash.
- *
- * ```ts
- * let preimage = Bytes.fromString("hello world");
- * let digest = Keccak.ethereum(preimage);
- * ```
- */
-function keccak256(message: DynamicArray<UInt8>): Bytes {
-  let bytes = hash(message, {
-    length: 4, // 256 = 4*64 bits
-    capacity: 8, // 512 = 8*64 bits
-    isNist: false,
-  });
-  return Bytes32.from(bytes);
-}
+const DynamicSHA3 = {
+  /**
+   * Hash a dynamic-length byte array using the Ethereum-compatible Keccak-256 hash.
+   *
+   * Primarily used in Ethereum for hashing transactions, messages, and other types of payloads.
+   *
+   * The input type `DynamicArray<UInt8>` is compatible with both `DynamicString` and `DynamicBytes`:
+   *
+   * ```ts
+   * // using DynamicString
+   * const String = DynamicString({ maxLength: 120 });
+   * let string = String.from('hello');
+   * let hash = DynamicSHA3.keccak256(string);
+   *
+   * // using DynamicBytes
+   * const Bytes = DynamicBytes({ maxLength: 120 });
+   * let bytes = Bytes.fromHex('010203');
+   * let hash = DynamicSHA3.keccak256(bytes);
+   * ```
+   */
+  keccak256(message: DynamicArray<UInt8>): Bytes {
+    let bytes = hash(message, {
+      length: 4, // 256 = 4*64 bits
+      capacity: 8, // 512 = 8*64 bits
+      isNist: false,
+    });
+    return Bytes32.from(bytes);
+  },
+};
 
 // KECCAK HASH FUNCTION
 
@@ -56,15 +59,19 @@ function hash(
   let blocks = padding(message, rate, options.isNist);
 
   // absorb
-  let state = blocks.reduce(State, State.zeros(), (state, block) => {
-    state = State.xor(state, block);
-    return permutation(state, ROUND_CONSTANTS);
-  });
+  let state = blocks.reduce(
+    KeccakState,
+    KeccakState.zeros(),
+    (state, block) => {
+      state = KeccakState.xor(state, block);
+      return Keccak.permutation(state, Keccak.ROUND_CONSTANTS);
+    }
+  );
 
   // squeeze once
   // hash == first `length` words of the state
   assert(options.length < rate, 'length should be less than rate');
-  let hash = State.toWords(state).slice(0, options.length);
+  let hash = KeccakState.toWords(state).slice(0, options.length);
 
   let hashBytes = wordsToBytes(hash);
   return hashBytes;
@@ -81,7 +88,7 @@ function padding(
   message: DynamicArray<UInt8>,
   rate: number,
   isNist: boolean
-): DynamicArray<State> {
+): DynamicArray<KeccakState> {
   let rateBytes = rate * 8;
 
   // convert message to blocks of `rate` 64-bit words each
@@ -127,13 +134,13 @@ function padding(
   blocks.setOrDoNothing(lastBlockIndex.value, lastBlock);
 
   // pack UInt8 x rateBytes => UInt64 x rate
-  return blocks.map(State, (blockBytes) => {
+  return blocks.map(KeccakState, (blockBytes) => {
     let block = bytesToWords(blockBytes.array);
 
     // for convenience, each block is brought into the same shape as
     // the state, by appending `capacity` zeros
     let fullBlock = pad(block, 25, Field(0));
-    return State.fromWords(fullBlock);
+    return KeccakState.fromWords(fullBlock);
   });
 }
 

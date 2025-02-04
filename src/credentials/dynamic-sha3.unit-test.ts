@@ -1,5 +1,5 @@
 import { Bytes, Keccak, Provable } from 'o1js';
-import { keccak256 } from './keccak-dynamic.ts';
+import { DynamicSHA3 } from './dynamic-sha3.ts';
 import { stringLength } from '../util.ts';
 import { DynamicString } from './dynamic-string.ts';
 import test from 'node:test';
@@ -44,7 +44,7 @@ console.log(
 
 async function circuit() {
   let message = Provable.witness(String, () => longMessage);
-  let hash = keccak256(message);
+  let hash = DynamicSHA3.keccak256(message);
   Provable.assertEqual(Bytes32, hash, expectedHash);
 }
 
