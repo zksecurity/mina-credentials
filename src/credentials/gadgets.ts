@@ -25,6 +25,7 @@ export {
   lessThan16,
   assertInRange16,
   assertLessThan16,
+  rangeCheck,
 };
 
 /**

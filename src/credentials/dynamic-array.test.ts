@@ -1,7 +1,6 @@
 import { Field, Provable, UInt8 } from 'o1js';
-import { DynamicArray, DynamicString } from '../dynamic.ts';
+import { DynamicArray, DynamicString, toDecimalString } from '../dynamic.ts';
 import assert from 'assert';
-import { toDigits } from './dynamic-ecdsa.ts';
 
 // concatenation of two strings
 
@@ -142,13 +141,14 @@ console.log(
   console.log(`splitAt`, await runAndConstraints(main));
 }
 
-// test for `toDigits()`
+// test for `toDecimalString()`
 
 {
   function main() {
     let value = Provable.witness(Field, () => 1234);
 
-    let digits = toDigits(value, 5);
+    // note: 10 digits are just enough to represent any uint32
+    let digits = toDecimalString(value, 10);
     digits.assertEquals('1234');
   }
 
@@ -156,7 +156,7 @@ console.log(
   main();
 
   // can run while checking constraints
-  console.log(`toDigits`, await runAndConstraints(main));
+  console.log(`toDecimalString`, await runAndConstraints(main));
 }
 
 // helper
