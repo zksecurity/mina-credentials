@@ -119,6 +119,17 @@ let publicKeyBytes = Bytes.concat(
   bigintToBytesBE(publicKey.y, 32)
 );
 
+// sanity check: verify signature
+// (this doesn't say anything because the public key was computed to satisfy these equations)
+let sInv = Scalar.inverse(s);
+assert(sInv !== undefined);
+let R2 = Curve.add(
+  Curve.scale(Curve.one, Scalar.mul(m, sInv)),
+  Curve.scale(publicKey, Scalar.mul(r, sInv))
+);
+assert(Field.equal(R2.x, R.x), 'signature verifies');
+assert(Field.equal(R2.y, R.y), 'signature verifies');
+
 // Convert public key to address
 // The address is the last 20 bytes of the public key's keccak256 hash
 // It is generated from the uncompressed public key
