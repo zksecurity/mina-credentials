@@ -267,6 +267,7 @@ type PublicInput<Config> = InferProvableOrUndefined<Get<Config, 'publicInput'>>;
 type PrivateInput<Config> = InferProvable<Get<Config, 'privateInput'>>;
 type Data<Config> = InferProvable<Get<Config, 'data'>>;
 
+// TODO type returned from this should be annotated
 async function recursiveFromMethod<
   Config extends {
     name: string;
