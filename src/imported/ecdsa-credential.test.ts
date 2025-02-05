@@ -90,6 +90,15 @@ assert(
 //   false
 // );
 
+// Convert public key to address
+// The address is the last 20 bytes of the public key's keccak256 hash
+// It is generated from the uncompressed public key
+// We also have to remove the prefix 0x04 from the public key
+// const pubKeyHash = keccak256(Buffer.from(pubKey.slice(1)));
+// const address = '0x' + pubKeyHash.slice(-40);
+
+// address.toLowerCase() === response.validatorAddress.toLowerCase();
+
 type Type = 'bytes32' | 'address';
 
 // Based on the Solidity ABI encoding we have the following definitions for encoding bytes32 and address
