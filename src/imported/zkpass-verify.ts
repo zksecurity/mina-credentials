@@ -1,8 +1,9 @@
 import { assert } from '../util.ts';
+import { Buffer } from 'buffer';
+import secp256k1 from 'secp256k1';
+import sha3 from 'js-sha3';
 
-const { Buffer } = require('buffer');
-const secp256k1 = require('secp256k1');
-const { keccak256 } = require('js-sha3');
+const { keccak256 } = sha3;
 
 // sample generated using the front-end-JS-SDK
 // TODO why do we care about the publicFieldsHash and uHash? what are they hashes of?
@@ -114,6 +115,8 @@ function verifyECDSASignature({
   const pubKeyHash = keccak256(Buffer.from(pubKey.slice(1)));
   const address = '0x' + pubKeyHash.slice(-40);
 
+  console.log('address (computed)', address);
+  console.log('address (actual)  ', originAddress);
   return address.toLowerCase() === originAddress.toLowerCase();
 }
 
@@ -170,10 +173,3 @@ function hexToUint8Array(hex: string) {
       : []
   );
 }
-
-module.exports = {
-  verifyECDSASignature,
-  stringToHex,
-  encodeParameters,
-  soliditySha3,
-};
