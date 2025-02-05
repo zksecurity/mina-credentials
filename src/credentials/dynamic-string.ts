@@ -18,7 +18,6 @@ import { BaseType } from './dynamic-base-types.ts';
 import { DynamicSHA2 } from './dynamic-sha2.ts';
 import { packBytes } from './gadgets.ts';
 import { StaticArray } from './static-array.ts';
-import { DynamicSHA3 } from './dynamic-sha3.ts';
 
 export { DynamicString };
 
@@ -118,8 +117,8 @@ class DynamicStringBase extends DynamicArrayBase<UInt8, { value: bigint }> {
         return DynamicSHA2.hash(384, this);
       case 'sha2-512':
         return DynamicSHA2.hash(512, this);
-      case 'keccak256':
-        return DynamicSHA3.keccak256(this);
+      // case 'keccak256':
+      //   return DynamicSHA3.keccak256(this);
       default:
         assert(false, 'unsupported hash kind');
     }

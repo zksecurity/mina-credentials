@@ -6,6 +6,8 @@ import { packBytes, unpackBytes } from './gadgets.ts';
 import { Keccak } from './keccak-permutation.ts'; // TODO: import this from o1js once it's exported
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
+import { DynamicString } from './dynamic-string.ts';
+import { DynamicBytes } from './dynamic-bytes.ts';
 
 export { DynamicSHA3 };
 
@@ -29,7 +31,11 @@ const DynamicSHA3 = {
    * let hash = DynamicSHA3.keccak256(bytes);
    * ```
    */
-  keccak256(message: DynamicArray<UInt8>): Bytes {
+  keccak256(message: DynamicArray<UInt8> | Uint8Array | string): Bytes {
+    if (typeof message === 'string') message = DynamicString.from(message);
+    if (message instanceof Uint8Array)
+      message = DynamicBytes.fromBytes(message);
+
     let bytes = hash(message, {
       length: 4, // 256 = 4*64 bits
       capacity: 8, // 512 = 8*64 bits
