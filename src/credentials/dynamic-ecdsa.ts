@@ -33,10 +33,12 @@ const EcdsaEthereum = {
 const messagePrefix = '\x19Ethereum Signed Message:\n';
 
 function verifyEthereumSignature(
-  message: DynamicArray<UInt8>,
+  message: DynamicArray<UInt8> | string,
   signature: EcdsaSignature,
   publicKey: Secp256k1
 ) {
+  message = DynamicString.from(message);
+
   // encode message by prepending Ethereum prefix and encoded message length
   let encodedMessage = DynamicString.from(messagePrefix)
     // note: 5 base10 digits are enough because DynamicString only supports length < 2^16

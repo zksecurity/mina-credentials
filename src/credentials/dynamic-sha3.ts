@@ -1,6 +1,6 @@
 // the code in this file was copied and modified from o1js
 // https://github.com/o1-labs/o1js
-import { Bytes, Field, Provable, UInt32, UInt8 } from 'o1js';
+import { Bytes, Field, UInt32, UInt8 } from 'o1js';
 import { assert, chunk, pad } from '../util.ts';
 import { packBytes, unpackBytes } from './gadgets.ts';
 import { Keccak } from './keccak-permutation.ts'; // TODO: import this from o1js once it's exported
@@ -38,8 +38,6 @@ const DynamicSHA3 = {
     return Bytes32.from(bytes);
   },
 };
-
-// KECCAK HASH FUNCTION
 
 /**
  * Keccak hash function with input message passed as list of Field bytes.
@@ -141,8 +139,6 @@ function padding(
   });
 }
 
-// UTILITY FUNCTIONS
-
 /**
  * Convert an array of 64-bit Fields to an array of UInt8.
  */
@@ -155,7 +151,5 @@ function wordsToBytes(words: Field[]): UInt8[] {
 function bytesToWords(bytes: UInt8[]): Field[] {
   return chunk(bytes, 8).map((chunk) => packBytes(chunk));
 }
-
-// AUXILIARY TYPES
 
 class Bytes32 extends Bytes(32) {}
