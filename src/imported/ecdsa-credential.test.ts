@@ -1,6 +1,7 @@
 import { assert, ByteUtils } from '../util.ts';
 import {
   EcdsaEthereum,
+  getHashHelper,
   parseSignature,
   verifyEthereumSignatureSimple,
 } from './ecdsa-credential.ts';
@@ -13,17 +14,24 @@ import {
   type ResponseItem,
 } from './zkpass.ts';
 
-const MAX_MESSAGE_LENGTH = 128;
-const Message = DynamicBytes({ maxLength: MAX_MESSAGE_LENGTH });
+const maxMessageLength = 128;
+const Message = DynamicBytes({ maxLength: maxMessageLength });
+
+console.time('hash helper constraints');
+let { short: shortCs } = await getHashHelper(maxMessageLength).analyzeMethods();
+console.log(shortCs.summary());
+console.timeEnd('hash helper constraints');
+
+console.time('compile dependencies');
+await EcdsaEthereum.compileDependencies({ maxMessageLength });
+console.timeEnd('compile dependencies');
 
 console.time('ecdsa create credential');
-const EcdsaCredential = await EcdsaEthereum.Credential({
-  maxMessageLength: 128,
-});
+const EcdsaCredential = await EcdsaEthereum.Credential({ maxMessageLength });
 console.timeEnd('ecdsa create credential');
 
 console.time('ecdsa compile');
-let vk = await EcdsaCredential.compile({ proofsEnabled: false });
+let vk = await EcdsaCredential.compile({ proofsEnabled: true });
 console.timeEnd('ecdsa compile');
 
 // create ecdsa cred from zkpass data
@@ -84,3 +92,20 @@ console.time('ecdsa constraints (simple)');
 let cs = await Provable.constraintSystem(simpleCircuit);
 console.log(cs.summary());
 console.timeEnd('ecdsa constraints (simple)');
+
+console.time('ecdsa constraints (recursive)');
+let csRec = (await EcdsaCredential.program.analyzeMethods()).run;
+console.log(csRec.summary());
+console.timeEnd('ecdsa constraints (recursive)');
+
+console.time('ecdsa prove');
+let credential = await EcdsaCredential.create({
+  owner,
+  publicInput: { signerAddress: EcdsaEthereum.Address.from(address) },
+  privateInput: {
+    message: Message.fromBytes(message),
+    signature,
+    parityBit: isOdd,
+  },
+});
+console.timeEnd('ecdsa prove');

@@ -4,20 +4,18 @@ import {
   createForeignCurve,
   Crypto,
   EcdsaSignature,
+  Experimental,
   Field,
   type From,
   Keccak,
   Provable,
+  Struct,
   UInt8,
   Unconstrained,
+  ZkProgram,
 } from 'o1js';
 import { Credential } from '../credential-index.ts';
-import {
-  DynamicArray,
-  DynamicBytes,
-  DynamicSHA3,
-  DynamicString,
-} from '../dynamic.ts';
+import { DynamicArray, DynamicBytes, DynamicSHA3 } from '../dynamic.ts';
 import { bytesToBigintBE } from '../rsa/utils.ts';
 import { assert, ByteUtils } from '../util.ts';
 import { unpackBytes } from '../credentials/gadgets.ts';
@@ -28,6 +26,7 @@ export {
   recoverPublicKey,
   publicKeyToAddress,
   verifyEthereumSignatureSimple,
+  getHashHelper,
 };
 
 class PublicKey extends createForeignCurve(Crypto.CurveParams.Secp256k1) {}
@@ -42,13 +41,30 @@ const EcdsaEthereum = {
   MessageHash,
   Address,
   Credential: EcdsaCredential,
+  compileDependencies,
 };
 
 // Ethereum signed message hash (EIP-191), assuming a 32-byte message that resulted from another hash
 const MESSAGE_PREFIX = '\x19Ethereum Signed Message:\n32';
 
-function EcdsaCredential({ maxMessageLength }: { maxMessageLength: number }) {
-  const Message = DynamicString({ maxLength: maxMessageLength });
+async function compileDependencies({
+  maxMessageLength,
+}: {
+  maxMessageLength: number;
+}) {
+  await getHashHelper(maxMessageLength).compile();
+}
+
+async function EcdsaCredential({
+  maxMessageLength,
+}: {
+  maxMessageLength: number;
+}) {
+  const Message = DynamicBytes({ maxLength: maxMessageLength });
+
+  const hashHelper = getHashHelper(maxMessageLength);
+  const hashHelperRecursive = Experimental.Recursive(hashHelper);
+
   return Credential.Recursive.fromMethod(
     {
       name: `ecdsa-${maxMessageLength}`,
@@ -64,26 +80,16 @@ function EcdsaCredential({ maxMessageLength }: { maxMessageLength: number }) {
       publicInput: { signerAddress: address },
       privateInput: { message, signature, parityBit },
     }) => {
-      // TODO recursive proof of this
-      let messageHash = Provable.witness(MessageHash, () =>
-        DynamicSHA3.keccak256(message)
-      );
-      let finalHash = Keccak.ethereum([
-        ...Bytes.fromString(MESSAGE_PREFIX).bytes,
-        ...messageHash.bytes,
-      ]);
-
-      // witness the recovered public key
-      let publicKey = Provable.witness(PublicKey, () =>
-        recoverPublicKey(finalHash, signature, parityBit.get())
-      );
-
-      // check that public key hashes to address
-      let recoveredAddress = publicKeyToAddress(publicKey);
-      Provable.assertEqual(Address, recoveredAddress, address);
+      // in a recursive call, hash the message and extract the public key
+      let { messageHash, publicKey } = await hashHelperRecursive.short({
+        message,
+        signature,
+        address,
+        parityBit,
+      });
 
       // verify the signature against the now-validated public key
-      let ok = signature.verifySignedHash(finalHash, publicKey);
+      let ok = signature.verifySignedHash(messageHash, publicKey);
       ok.assertTrue('signature is invalid');
       return { message };
     }
@@ -126,6 +132,8 @@ function verifyEthereumSignatureSimple(
   let ok = signature.verifySignedHash(finalHash, publicKey);
   ok.assertTrue('signature is invalid');
 }
+
+// helper functions
 
 function publicKeyToAddress(pk: From<typeof PublicKey>) {
   let { x, y } = PublicKey.from(pk);
@@ -214,4 +222,82 @@ function parseSignature(signature: string | Uint8Array) {
   // Convert v to parity of R_y (27/28 -> 0/1 -> boolean)
   let isOdd = !!(v - 27);
   return { signature: { r, s }, isOdd };
+}
+
+/*
+RECURSIVE PROOF SPLITTING
+
+there are two versions, an easy one that only supports messages up to a few keccak blocks,
+and a flexible and more complex one.
+
+VERSION 1:
+
+(main) ---- (hash address, message hash and message)
+
+VERSION 2, with two recursive branches:
+
+(main) ---- (hash address, message hash and message)
+       \--- (hash address, message hash and end of message) --> (recursive message hash)
+*/
+
+const hashHelpers = new Map<number, ReturnType<typeof createHashHelper>>();
+
+function getHashHelper(maxMessageLength: number) {
+  if (!hashHelpers.has(maxMessageLength)) {
+    hashHelpers.set(maxMessageLength, createHashHelper(maxMessageLength));
+  }
+  return hashHelpers.get(maxMessageLength)!;
+}
+
+function createHashHelper(maxMessageLength: number) {
+  const Message = DynamicBytes({ maxLength: maxMessageLength });
+
+  class HashHelperInput extends Struct({
+    message: Message,
+    signature: Signature,
+    address: Address,
+    parityBit: Unconstrained.withEmpty(false),
+  }) {}
+  class HashHelperOutput extends Struct({
+    messageHash: MessageHash,
+    publicKey: PublicKey,
+  }) {}
+
+  let hashHelperProgram = ZkProgram({
+    name: 'ecdsa-hash-helper',
+    publicInput: HashHelperInput,
+    publicOutput: HashHelperOutput,
+
+    methods: {
+      short: {
+        privateInputs: [],
+        async method({
+          message,
+          signature,
+          address,
+          parityBit,
+        }: HashHelperInput) {
+          let intermediateHash = DynamicSHA3.keccak256(message);
+          let messageHash = Keccak.ethereum([
+            ...Bytes.fromString(MESSAGE_PREFIX).bytes,
+            ...intermediateHash.bytes,
+          ]);
+
+          // witness the recovered public key
+          let publicKey = Provable.witness(PublicKey, () =>
+            recoverPublicKey(messageHash, signature, parityBit.get())
+          );
+
+          // check that public key hashes to address
+          let recoveredAddress = publicKeyToAddress(publicKey);
+          Provable.assertEqual(Address, recoveredAddress, address);
+
+          let publicOutput = { messageHash, publicKey };
+          return { publicOutput };
+        },
+      },
+    },
+  });
+
+  return hashHelperProgram;
 }
