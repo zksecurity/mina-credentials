@@ -9,7 +9,6 @@ import {
   type From,
   Keccak,
   Provable,
-  Struct,
   UInt8,
   Unconstrained,
   ZkProgram,
@@ -81,12 +80,16 @@ async function EcdsaCredential({
       privateInput: { message, signature, parityBit },
     }) => {
       // in a recursive call, hash the message and extract the public key
-      let { messageHash, publicKey } = await hashHelperRecursive.short({
-        message,
-        signature,
-        address,
-        parityBit,
-      });
+      let messageHash = await hashHelperRecursive.short(message);
+
+      // witness the recovered public key
+      let publicKey = Provable.witness(PublicKey, () =>
+        recoverPublicKey(messageHash, signature, parityBit.get())
+      );
+
+      // check that public key hashes to address
+      let recoveredAddress = publicKeyToAddress(publicKey);
+      Provable.assertEqual(Address, recoveredAddress, address);
 
       // verify the signature against the now-validated public key
       let ok = signature.verifySignedHash(messageHash, publicKey);
@@ -232,12 +235,12 @@ and a flexible and more complex one.
 
 VERSION 1:
 
-(main) ---- (hash address, message hash and message)
+(main) ---- (hash message hash and message)
 
 VERSION 2, with two recursive branches:
 
-(main) ---- (hash address, message hash and message)
-       \--- (hash address, message hash and end of message) --> (recursive message hash)
+(main) ---- (hash message hash and message)
+       \--- (hash message hash and end of message) --> (recursive message hash)
 */
 
 const hashHelpers = new Map<number, ReturnType<typeof createHashHelper>>();
@@ -252,48 +255,21 @@ function getHashHelper(maxMessageLength: number) {
 function createHashHelper(maxMessageLength: number) {
   const Message = DynamicBytes({ maxLength: maxMessageLength });
 
-  class HashHelperInput extends Struct({
-    message: Message,
-    signature: Signature,
-    address: Address,
-    parityBit: Unconstrained.withEmpty(false),
-  }) {}
-  class HashHelperOutput extends Struct({
-    messageHash: MessageHash,
-    publicKey: PublicKey,
-  }) {}
-
   let hashHelperProgram = ZkProgram({
     name: 'ecdsa-hash-helper',
-    publicInput: HashHelperInput,
-    publicOutput: HashHelperOutput,
+    publicInput: Message,
+    publicOutput: MessageHash,
 
     methods: {
       short: {
         privateInputs: [],
-        async method({
-          message,
-          signature,
-          address,
-          parityBit,
-        }: HashHelperInput) {
+        async method(message: DynamicBytes) {
           let intermediateHash = DynamicSHA3.keccak256(message);
           let messageHash = Keccak.ethereum([
             ...Bytes.fromString(MESSAGE_PREFIX).bytes,
             ...intermediateHash.bytes,
           ]);
-
-          // witness the recovered public key
-          let publicKey = Provable.witness(PublicKey, () =>
-            recoverPublicKey(messageHash, signature, parityBit.get())
-          );
-
-          // check that public key hashes to address
-          let recoveredAddress = publicKeyToAddress(publicKey);
-          Provable.assertEqual(Address, recoveredAddress, address);
-
-          let publicOutput = { messageHash, publicKey };
-          return { publicOutput };
+          return { publicOutput: messageHash };
         },
       },
     },
