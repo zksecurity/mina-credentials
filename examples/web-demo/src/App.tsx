@@ -11,6 +11,7 @@ import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
 import AnonymousPoll from './components/poll';
 import { loginRequest } from './interactions/presentation-request';
+import ZkPassTab from './components/ZkPassTab';
 
 const CopyableCode: React.FC<{ value: string; label: string }> = ({
   value,
@@ -338,6 +339,9 @@ const App: React.FC = () => {
                 <TabsTrigger value="poll" className="flex-1 min-w-[120px]">
                   Anonymous Poll
                 </TabsTrigger>
+                <TabsTrigger value="zkpass" className="flex-1 min-w-[120px]">
+                  ZkPass Integration
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -381,6 +385,9 @@ const App: React.FC = () => {
 
             <TabsContent value="poll" className="mt-6">
               <AnonymousPoll useMockWallet={useMockWallet} />
+            </TabsContent>
+            <TabsContent value="zkpass" className="mt-6">
+              <ZkPassTab />
             </TabsContent>
           </Tabs>
         </main>
