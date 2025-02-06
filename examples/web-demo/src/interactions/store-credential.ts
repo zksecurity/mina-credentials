@@ -11,7 +11,7 @@ async function storeCredential(
   await Credential.validate(storedCredential);
 
   if (useMockWallet) {
-    let credentials = await getStoredCredentialStrings(useMockWallet);
+    let credentials = getStoredCredentialStrings(useMockWallet);
     credentials.push(credential);
 
     window.localStorage.setItem(
@@ -30,9 +30,7 @@ async function storeCredential(
   if (!result.success) throw Error('Failed to store credential');
 }
 
-async function getStoredCredentialStrings(
-  useMockWallet: boolean
-): Promise<string[]> {
+function getStoredCredentialStrings(useMockWallet: boolean): string[] {
   if (!useMockWallet)
     throw Error('Cannot get stored credentials from a real wallet');
 
@@ -49,7 +47,7 @@ async function getStoredCredentialStrings(
 async function getStoredCredentials(
   useMockWallet: boolean
 ): Promise<StoredCredential[]> {
-  let storedCredentialStrings = await getStoredCredentialStrings(useMockWallet);
+  let storedCredentialStrings = getStoredCredentialStrings(useMockWallet);
 
   let storedCredentials = [];
   for (let credential of storedCredentialStrings) {
