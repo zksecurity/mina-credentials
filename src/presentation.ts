@@ -34,7 +34,7 @@ import {
   serializeNestedProvableValue,
   serializeProvable,
 } from './serialize-provable.ts';
-import { DynamicRecord } from './credentials/dynamic-record.ts';
+import { DynamicRecord } from './dynamic/dynamic-record.ts';
 
 // external API
 export { PresentationRequest, HttpsRequest, ZkAppRequest, Presentation };

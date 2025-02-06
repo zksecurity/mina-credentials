@@ -17,7 +17,7 @@ import { Credential } from '../credential-index.ts';
 import { DynamicArray, DynamicBytes, DynamicSHA3 } from '../dynamic.ts';
 import { bytesToBigintBE } from '../rsa/utils.ts';
 import { assert, ByteUtils } from '../util.ts';
-import { unpackBytes } from '../credentials/gadgets.ts';
+import { unpackBytes } from '../dynamic/gadgets.ts';
 
 export {
   EcdsaEthereum,

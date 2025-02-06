@@ -14,8 +14,8 @@ import {
   type NestedProvableFor,
 } from './nested.ts';
 import { zip } from './util.ts';
-import { hashDynamic } from './credentials/dynamic-hash.ts';
-import { Schema } from './credentials/schema.ts';
+import { hashDynamic } from './dynamic/dynamic-hash.ts';
+import { Schema } from './dynamic/schema.ts';
 
 export {
   type Credential,

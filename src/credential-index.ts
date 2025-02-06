@@ -22,7 +22,7 @@ import {
   deserializeNestedProvableValue,
   serializeNestedProvableValue,
 } from './serialize-provable.ts';
-import { Schema } from './credentials/schema.ts';
+import { Schema } from './dynamic/schema.ts';
 
 export { Credential, validateCredential };
 

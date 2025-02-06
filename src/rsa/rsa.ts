@@ -6,7 +6,7 @@
 import { Bytes, Field, Gadgets, Provable, Struct, Unconstrained } from 'o1js';
 import { TypeBuilder } from '../provable-type-builder.ts';
 import { assert, chunk, fill } from '../util.ts';
-import { pack, packBytes, unpack } from '../credentials/gadgets.ts';
+import { pack, packBytes, unpack } from '../dynamic/gadgets.ts';
 import { power } from './utils.ts';
 
 export { Bigint2048, rsaVerify65537, rsaSign };

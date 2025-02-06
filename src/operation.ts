@@ -2,12 +2,9 @@ import { Bool, UInt8, UInt32, UInt64, Field, Provable, PublicKey } from 'o1js';
 import { ProvableType } from './o1js-missing.ts';
 import { assert, assertHasProperty } from './util.ts';
 import { NestedProvable } from './nested.ts';
-import { DynamicArray } from './credentials/dynamic-array.ts';
-import {
-  DynamicRecord,
-  extractProperty,
-} from './credentials/dynamic-record.ts';
-import { hashDynamicWithPrefix } from './credentials/dynamic-hash.ts';
+import { DynamicArray } from './dynamic/dynamic-array.ts';
+import { DynamicRecord, extractProperty } from './dynamic/dynamic-record.ts';
+import { hashDynamicWithPrefix } from './dynamic/dynamic-hash.ts';
 import type { Input, RootType } from './program-spec.ts';
 import type {
   Credential,

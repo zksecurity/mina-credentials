@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { Bigint2048, rsaVerify65537, rsaSign } from './rsa.ts';
 import { generateRsaKeys65537, randomPrime } from './utils.ts';
 import { it, describe } from 'node:test';
-import { SHA2 } from '../credentials/sha2.ts';
+import { SHA2 } from '../dynamic/sha2.ts';
 
 describe('RSA65537 verification tests', () => {
   it('should accept RSA signature (5 iterations)', async () => {
