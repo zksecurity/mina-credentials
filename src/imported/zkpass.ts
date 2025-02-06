@@ -3,15 +3,17 @@
  *
  * See `ecdsa-credential.test.ts`
  */
+import { PublicKey } from 'o1js';
 import { DynamicSHA3 } from '../dynamic.ts';
-import { ByteUtils, zip } from '../util.ts';
+import { assert, ByteUtils, zip } from '../util.ts';
+import { EcdsaEthereum, parseSignature } from './ecdsa-credential.ts';
 
 export { ZkPass, type ZkPassResponseItem };
 
 /**
  * Utitilies to help process zkpass responses.
  */
-const ZkPass = { encodeParameters, genPublicFieldHash };
+const ZkPass = { importCredential, encodeParameters, genPublicFieldHash };
 
 type Type = 'bytes32' | 'address';
 
@@ -27,6 +29,52 @@ type ZkPassResponseItem = {
   validatorAddress: string;
   validatorSignature: string;
 };
+
+async function importCredential(
+  owner: PublicKey,
+  schema: string,
+  response: ZkPassResponseItem,
+  log: (msg: string) => void = () => {}
+) {
+  let publicFieldsHash = ZkPass.genPublicFieldHash(
+    response.publicFields
+  ).toBytes();
+
+  // validate public fields hash
+  assert(
+    '0x' + ByteUtils.toHex(publicFieldsHash) === response.publicFieldsHash
+  );
+
+  // compute message hash
+  let message = ZkPass.encodeParameters(
+    ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
+    [
+      ByteUtils.fromString(response.taskId),
+      ByteUtils.fromString(schema),
+      ByteUtils.fromHex(response.uHash),
+      publicFieldsHash,
+    ]
+  );
+
+  let { signature, parityBit } = parseSignature(response.validatorSignature);
+  let address = ByteUtils.fromHex(response.validatorAddress);
+
+  const maxMessageLength = 128;
+
+  log('Compiling ZkPass credential...');
+  await EcdsaEthereum.compileDependencies({ maxMessageLength });
+
+  let EcdsaCredential = await EcdsaEthereum.Credential({ maxMessageLength });
+
+  log('Creating ZkPass credential...');
+  let credential = await EcdsaCredential.create({
+    owner,
+    publicInput: { signerAddress: EcdsaEthereum.Address.from(address) },
+    privateInput: { message, signature, parityBit },
+  });
+
+  return credential;
+}
 
 // Based on the Solidity ABI encoding we have the following definitions for encoding bytes32 and address
 // For any ABI value X, we recursively define enc(X), depending on the type of X being
