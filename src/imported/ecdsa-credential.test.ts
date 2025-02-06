@@ -6,7 +6,7 @@ import {
   verifyEthereumSignatureSimple,
 } from './ecdsa-credential.ts';
 import { owner } from '../../tests/test-utils.ts';
-import { Provable } from 'o1js';
+import { Provable, Unconstrained } from 'o1js';
 import { DynamicBytes } from '../dynamic.ts';
 import {
   encodeParameters,
@@ -51,8 +51,6 @@ const response: ResponseItem = {
     '0x99d61fa8f8413a3eaa38d2c064119c67592c696a0b8c2c2eb4a9b2e4ef122de3674e68203d0388d238635e36237f41279a406512515f6a26b0b38479d5c6eade1b',
 };
 
-let { taskId, uHash } = response;
-
 let publicFieldsHash = genPublicFieldHash(response.publicFields).toBytes();
 
 // validate public fields hash
@@ -62,9 +60,9 @@ assert('0x' + ByteUtils.toHex(publicFieldsHash) === response.publicFieldsHash);
 let message = encodeParameters(
   ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
   [
-    ByteUtils.fromString(taskId),
+    ByteUtils.fromString(response.taskId),
     ByteUtils.fromString(schema),
-    ByteUtils.fromHex(uHash),
+    ByteUtils.fromHex(response.uHash),
     publicFieldsHash,
   ]
 );
@@ -79,11 +77,13 @@ function simpleCircuit() {
   let addressVar = Provable.witness(EcdsaEthereum.Address, () =>
     EcdsaEthereum.Address.from(address)
   );
+  let parityBitVar = Unconstrained.witness(() => parityBit);
+
   verifyEthereumSignatureSimple(
     messageVar,
     signatureVar,
     addressVar,
-    parityBit
+    parityBitVar
   );
 }
 

@@ -24,6 +24,7 @@ export {
   parseSignature,
   recoverPublicKey,
   publicKeyToAddress,
+  verifyEthereumSignature,
   verifyEthereumSignatureSimple,
   getHashHelper,
 };
@@ -43,27 +44,12 @@ const EcdsaEthereum = {
   compileDependencies,
 };
 
-// Ethereum signed message hash (EIP-191), assuming a 32-byte message that resulted from another hash
-const MESSAGE_PREFIX = '\x19Ethereum Signed Message:\n32';
-
-async function compileDependencies({
-  maxMessageLength,
-}: {
-  maxMessageLength: number;
-}) {
-  await getHashHelper(maxMessageLength).compile();
-}
-
-async function EcdsaCredential({
-  maxMessageLength,
-}: {
-  maxMessageLength: number;
-}) {
+/**
+ * Credential that wraps an Ethereum-style ECDSA signature.
+ */
+async function EcdsaCredential(options: { maxMessageLength: number }) {
+  let { maxMessageLength } = options;
   const Message = DynamicBytes({ maxLength: maxMessageLength });
-
-  const hashHelper = getHashHelper(maxMessageLength);
-  const hashHelperRecursive = Experimental.Recursive(hashHelper);
-
   return Credential.Recursive.fromMethod(
     {
       name: `ecdsa-${maxMessageLength}`,
@@ -76,27 +62,64 @@ async function EcdsaCredential({
       data: { message: Message },
     },
     async ({
-      publicInput: { signerAddress: address },
+      publicInput: { signerAddress },
       privateInput: { message, signature, parityBit },
     }) => {
-      // in a recursive call, hash the message and extract the public key
-      let messageHash = await hashHelperRecursive.short(message);
-
-      // witness the recovered public key
-      let publicKey = Provable.witness(PublicKey, () =>
-        recoverPublicKey(messageHash, signature, parityBit.get())
+      verifyEthereumSignature(
+        message,
+        signature,
+        signerAddress,
+        parityBit,
+        maxMessageLength
       );
-
-      // check that public key hashes to address
-      let recoveredAddress = publicKeyToAddress(publicKey);
-      Provable.assertEqual(Address, recoveredAddress, address);
-
-      // verify the signature against the now-validated public key
-      let ok = signature.verifySignedHash(messageHash, publicKey);
-      ok.assertTrue('signature is invalid');
       return { message };
     }
   );
+}
+
+async function compileDependencies({
+  maxMessageLength,
+}: {
+  maxMessageLength: number;
+}) {
+  await getHashHelper(maxMessageLength).compile();
+}
+
+// Ethereum signed message hash (EIP-191), assuming a 32-byte message that resulted from another hash
+const MESSAGE_PREFIX = '\x19Ethereum Signed Message:\n32';
+
+/**
+ * Recursive ethereum-style signature verification.
+ *
+ * - The message is hashed in two steps, first a normal message hash (using Keccak) and then final EIP-191 hash.
+ * - The public key is recovered from the message, signature and parity bit. It is shown to be correct by hashing to the signer address.
+ * - The method returns nothing, and fails if the signature is invalid.
+ */
+async function verifyEthereumSignature(
+  message: DynamicArray<UInt8>,
+  signature: Signature,
+  signerAddress: Bytes,
+  parityBit: Unconstrained<boolean>,
+  maxMessageLength: number
+) {
+  // in a recursive call, hash the message and extract the public key
+  const hashHelper = getHashHelper(maxMessageLength);
+  const hashHelperRecursive = Experimental.Recursive(hashHelper);
+  let messageHash = await hashHelperRecursive.short(message);
+
+  // witness the recovered public key
+  let publicKey = Provable.witness(PublicKey, () =>
+    recoverPublicKey(messageHash, signature, parityBit.get())
+  );
+
+  // check that public key hashes to address
+  let recoveredAddress = publicKeyToAddress(publicKey);
+  Provable.assertEqual(Address, recoveredAddress, signerAddress);
+
+  // verify the signature against the now-validated public key
+  let ok = signature.verifySignedHash(messageHash, publicKey);
+  ok.assertTrue('signature is invalid');
+  return { message };
 }
 
 /**
@@ -105,16 +128,11 @@ async function EcdsaCredential({
  * Note: this is not provable due to the circuit limit, use the recursive version for that.
  */
 function verifyEthereumSignatureSimple(
-  message: DynamicArray<UInt8> | string | Uint8Array,
-  signature: From<typeof Signature>,
-  address: Bytes | Uint8Array,
-  parityBit: Unconstrained<boolean> | boolean
+  message: DynamicArray<UInt8>,
+  signature: Signature,
+  signerAddress: Bytes,
+  parityBit: Unconstrained<boolean>
 ) {
-  message = DynamicBytes.from(message);
-  signature = Signature.from(signature);
-  address = Bytes.from(address);
-  parityBit = Unconstrained.from(parityBit);
-
   // hash the message
   let messageHash = DynamicSHA3.keccak256(message);
   let finalHash = Keccak.ethereum([
@@ -129,7 +147,7 @@ function verifyEthereumSignatureSimple(
 
   // check that public key hashes to address
   let recoveredAddress = publicKeyToAddress(publicKey);
-  Provable.assertEqual(Address, recoveredAddress, address);
+  Provable.assertEqual(Address, recoveredAddress, signerAddress);
 
   // verify the signature against the now-validated public key
   let ok = signature.verifySignedHash(finalHash, publicKey);
@@ -253,7 +271,7 @@ function getHashHelper(maxMessageLength: number) {
 }
 
 function createHashHelper(maxMessageLength: number) {
-  const Message = DynamicBytes({ maxLength: maxMessageLength });
+  const Message = DynamicArray(UInt8, { maxLength: maxMessageLength });
 
   let hashHelperProgram = ZkProgram({
     name: 'ecdsa-hash-helper',
@@ -272,6 +290,7 @@ function createHashHelper(maxMessageLength: number) {
           return { publicOutput: messageHash };
         },
       },
+      // TODO: implement version 2 / "long" method
     },
   });
 
