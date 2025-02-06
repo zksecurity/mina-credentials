@@ -32,9 +32,7 @@ const DynamicSHA3 = {
    * ```
    */
   keccak256(message: DynamicArray<UInt8> | Uint8Array | string): Bytes {
-    if (typeof message === 'string') message = DynamicString.from(message);
-    if (message instanceof Uint8Array)
-      message = DynamicBytes.fromBytes(message);
+    message = DynamicBytes.from(message);
 
     let bytes = hash(message, {
       length: 4, // 256 = 4*64 bits
