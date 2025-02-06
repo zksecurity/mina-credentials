@@ -8,11 +8,7 @@ import {
 import { owner } from '../../tests/test-utils.ts';
 import { Provable, Unconstrained } from 'o1js';
 import { DynamicBytes } from '../dynamic.ts';
-import {
-  encodeParameters,
-  genPublicFieldHash,
-  type ResponseItem,
-} from './zkpass.ts';
+import { ZkPass, type ZkPassResponseItem } from './zkpass.ts';
 
 const maxMessageLength = 128;
 const Message = DynamicBytes({ maxLength: maxMessageLength });
@@ -37,7 +33,7 @@ console.timeEnd('ecdsa compile');
 // create ecdsa cred from zkpass data
 const schema = 'c7eab8b7d7e44b05b41b613fe548edf5';
 
-const response: ResponseItem = {
+const response: ZkPassResponseItem = {
   taskId: '1582fa3c0e9747f0beebc0540052278d',
   publicFields: [],
   allocatorAddress: '0x19a567b3b212a5b35bA0E3B600FbEd5c2eE9083d',
@@ -51,13 +47,15 @@ const response: ResponseItem = {
     '0x99d61fa8f8413a3eaa38d2c064119c67592c696a0b8c2c2eb4a9b2e4ef122de3674e68203d0388d238635e36237f41279a406512515f6a26b0b38479d5c6eade1b',
 };
 
-let publicFieldsHash = genPublicFieldHash(response.publicFields).toBytes();
+let publicFieldsHash = ZkPass.genPublicFieldHash(
+  response.publicFields
+).toBytes();
 
 // validate public fields hash
 assert('0x' + ByteUtils.toHex(publicFieldsHash) === response.publicFieldsHash);
 
 // compute message hash
-let message = encodeParameters(
+let message = ZkPass.encodeParameters(
   ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
   [
     ByteUtils.fromString(response.taskId),

@@ -1,13 +1,23 @@
+/**
+ * This file contains some helpers to wrap zkpass responses in ecdsa credentials.
+ *
+ * See `ecdsa-credential.test.ts`
+ */
 import { DynamicSHA3 } from '../dynamic.ts';
 import { ByteUtils, zip } from '../util.ts';
 
-export { encodeParameters, genPublicFieldHash, type ResponseItem };
+export { ZkPass, type ZkPassResponseItem };
+
+/**
+ * Utitilies to help process zkpass responses.
+ */
+const ZkPass = { encodeParameters, genPublicFieldHash };
 
 type Type = 'bytes32' | 'address';
 
 type PublicField = string | ({ [key: string]: PublicField } & { str?: string });
 
-type ResponseItem = {
+type ZkPassResponseItem = {
   taskId: string;
   publicFields: PublicField[];
   allocatorAddress: string;

@@ -35,6 +35,9 @@ class Signature extends createEcdsa(PublicKey) {}
 const MessageHash = Bytes(32);
 const Address = Bytes(20);
 
+/**
+ * Ethereum-style ECDSA signature credentials.
+ */
 const EcdsaEthereum = {
   Signature,
   PublicKey,

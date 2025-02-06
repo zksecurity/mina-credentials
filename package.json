@@ -28,6 +28,9 @@
     "./dynamic": {
       "import": "./build/src/dynamic.js"
     },
+    "./imported": {
+      "import": "./build/src/imported.js"
+    },
     "./validation": {
       "import": "./build/src/validation.js"
     }
@@ -51,7 +54,6 @@
     "@types/chrome": "^0.0.272",
     "@types/node": "^22.5.5",
     "prettier": "^2.3.2",
-    "secp256k1": "^5.0.1",
     "typescript": "^5.7.3",
     "zod": "^3.24.1"
   },
@@ -60,8 +62,5 @@
   },
   "engines": {
     "node": ">=22.0"
-  },
-  "dependencies": {
-    "js-sha3": "^0.9.3"
   }
 }
