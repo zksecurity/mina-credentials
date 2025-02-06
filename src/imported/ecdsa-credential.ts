@@ -223,8 +223,8 @@ function parseSignature(signature: string | Uint8Array) {
   assert(v === 27 || v === 28, `Invalid recovery id "v" ${v}`);
 
   // Convert v to parity of R_y (27/28 -> 0/1 -> boolean)
-  let isOdd = !!(v - 27);
-  return { signature: { r, s }, isOdd };
+  let parityBit = !!(v - 27);
+  return { signature: { r, s }, parityBit };
 }
 
 /*

@@ -78,7 +78,23 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
     UInt8,
     { value: bigint },
     typeof DynamicBytesBase
-  >(UInt8 as any, DynamicBytes).build();
+  >(UInt8 as any, DynamicBytes)
+    .mapValue<Uint8Array>({
+      there(s) {
+        return Uint8Array.from(s, ({ value }) => Number(value));
+      },
+      backAndDistinguish(s) {
+        // gracefully handle different maxLength
+        if (s instanceof DynamicBytesBase) {
+          if (s.maxLength === maxLength) return s;
+          if (s.maxLength < maxLength) return s.growMaxLengthTo(maxLength);
+          // shrinking max length will only work outside circuit
+          s = s.toBytes();
+        }
+        return [...s].map((t) => ({ value: BigInt(t) }));
+      },
+    })
+    .build();
 
   return DynamicBytes;
 }
@@ -152,6 +168,10 @@ class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {
    */
   toString() {
     return new TextDecoder().decode(this.toBytes());
+  }
+
+  growMaxLengthTo(maxLength: number): DynamicBytes {
+    return DynamicBytes.from(super.growMaxLengthTo(maxLength));
   }
 }
 

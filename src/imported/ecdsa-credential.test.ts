@@ -70,16 +70,21 @@ let message = encodeParameters(
 );
 console.log('message length', message.length);
 
-let { signature, isOdd } = parseSignature(response.validatorSignature);
+let { signature, parityBit } = parseSignature(response.validatorSignature);
 let address = ByteUtils.fromHex(response.validatorAddress);
 
 function simpleCircuit() {
-  let messageVar = Provable.witness(Message, () => Message.fromBytes(message));
+  let messageVar = Provable.witness(Message, () => message);
   let signatureVar = Provable.witness(EcdsaEthereum.Signature, () => signature);
   let addressVar = Provable.witness(EcdsaEthereum.Address, () =>
     EcdsaEthereum.Address.from(address)
   );
-  verifyEthereumSignatureSimple(messageVar, signatureVar, addressVar, isOdd);
+  verifyEthereumSignatureSimple(
+    messageVar,
+    signatureVar,
+    addressVar,
+    parityBit
+  );
 }
 
 // plain
@@ -102,10 +107,6 @@ console.time('ecdsa prove');
 let credential = await EcdsaCredential.create({
   owner,
   publicInput: { signerAddress: EcdsaEthereum.Address.from(address) },
-  privateInput: {
-    message: Message.fromBytes(message),
-    signature,
-    parityBit: isOdd,
-  },
+  privateInput: { message, signature, parityBit },
 });
 console.timeEnd('ecdsa prove');
