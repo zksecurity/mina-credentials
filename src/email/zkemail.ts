@@ -16,7 +16,7 @@ import {
   UInt8,
   ZkProgram,
 } from 'o1js';
-import { Block32, Bytes32, State32 } from '../credentials/dynamic-sha2.ts';
+import { Block32, Bytes32, State32 } from '../dynamic/dynamic-sha2.ts';
 
 export {
   ProvableEmail,

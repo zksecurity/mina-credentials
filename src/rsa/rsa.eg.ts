@@ -1,5 +1,5 @@
 import { Bytes, ZkProgram } from 'o1js';
-import { SHA2 } from '../credentials/sha2.ts';
+import { SHA2 } from '../dynamic/sha2.ts';
 import { rsaVerify65537, rsaSign, Bigint2048 } from './rsa.ts';
 import { generateRsaKeys65537 } from './utils.ts';
 

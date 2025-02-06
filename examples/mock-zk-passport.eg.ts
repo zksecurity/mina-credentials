@@ -11,22 +11,23 @@ import {
 import { owner, ownerKey } from '../tests/test-utils.ts';
 import { Field, UInt64 } from 'o1js';
 
-const String = DynamicString({ maxLength: 30 });
+const Nationality = DynamicString({ maxLength: 50 });
 
 // dummy passport credential, which just takes in some data and returns it
 // TODO: in place of this, we'd want a real proof of passport verification
 // (implementation in progress at the time of writing)
-let PassportCredential = await Credential.Recursive.fromMethod(
+let PassportCredential_ = await Credential.Recursive.fromMethod(
   {
     name: 'passport',
     publicInput: { issuer: Field },
-    privateInput: { nationality: String, expiresAt: UInt64 },
-    data: { nationality: String, expiresAt: UInt64 },
+    privateInput: { nationality: Nationality, expiresAt: UInt64 },
+    data: { nationality: Nationality, expiresAt: UInt64 },
   },
   async ({ privateInput }) => {
     return privateInput;
   }
 );
+let PassportCredential = Object.assign(PassportCredential_, { Nationality });
 let vk = await PassportCredential.compile();
 
 // user "imports" their passport into a credential, by creating a PassportCredential proof
@@ -53,7 +54,9 @@ let spec = PresentationSpec(
       Operation.not(
         Operation.equals(
           Operation.property(passport, 'nationality'),
-          Operation.constant(String.from('United States'))
+          Operation.constant(
+            PassportCredential.Nationality.from('United States')
+          )
         )
       ),
 
