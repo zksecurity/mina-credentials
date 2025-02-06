@@ -1,7 +1,11 @@
 import { Bool, Bytes, Field, type ProvableHashable, UInt8 } from 'o1js';
-import { DynamicArrayBase, provableDynamicArray } from './dynamic-array.ts';
+import {
+  DynamicArray,
+  DynamicArrayBase,
+  provableDynamicArray,
+} from './dynamic-array.ts';
 import { ProvableFactory } from '../provable-factory.ts';
-import { assert, chunk } from '../util.ts';
+import { assert, chunk, stringLength } from '../util.ts';
 import { DynamicSHA2 } from './dynamic-sha2.ts';
 
 export { DynamicBytes };
@@ -81,6 +85,29 @@ function DynamicBytes({ maxLength }: { maxLength: number }) {
 
 DynamicBytes.fromBytes = function (bytes: Uint8Array) {
   return DynamicBytes({ maxLength: bytes.length }).fromBytes(bytes);
+};
+
+DynamicBytes.from = function (
+  input: DynamicArray<UInt8> | Uint8Array | string
+): DynamicBytes {
+  if (typeof input === 'string') {
+    let Bytes = DynamicBytes({ maxLength: stringLength(input) });
+    return Bytes.fromString(input);
+  }
+  if (input instanceof Uint8Array) {
+    let Bytes = DynamicBytes({ maxLength: input.length });
+    return Bytes.fromBytes(input);
+  }
+  assert(input instanceof DynamicArray.Base, 'invalid input');
+  if (input instanceof DynamicBytesBase) return input;
+
+  // if this is not a DynamicBytes, we construct an equivalent one
+  let Bytes = DynamicBytes({ maxLength: input.maxLength });
+  let bytes = new Bytes(input.array, input.length);
+  bytes._indexMasks = input._indexMasks;
+  bytes.__dummyMask = input.__dummyMask;
+  bytes._indicesInRange = input._indicesInRange;
+  return bytes;
 };
 
 class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {

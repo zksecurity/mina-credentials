@@ -8,25 +8,39 @@ import {
   type From,
   Keccak,
   Provable,
+  UInt8,
   Unconstrained,
 } from 'o1js';
 import { Credential } from '../credential-index.ts';
-import { DynamicSHA3, DynamicString } from '../dynamic.ts';
+import {
+  DynamicArray,
+  DynamicBytes,
+  DynamicSHA3,
+  DynamicString,
+} from '../dynamic.ts';
 import { bytesToBigintBE } from '../rsa/utils.ts';
 import { assert, ByteUtils } from '../util.ts';
 import { unpackBytes } from '../credentials/gadgets.ts';
 
-export { EcdsaEthereum, parseSignature, recoverPublicKey, publicKeyToAddress };
+export {
+  EcdsaEthereum,
+  parseSignature,
+  recoverPublicKey,
+  publicKeyToAddress,
+  verifyEthereumSignatureSimple,
+};
 
 class PublicKey extends createForeignCurve(Crypto.CurveParams.Secp256k1) {}
 class Signature extends createEcdsa(PublicKey) {}
 
-const Bytes32 = Bytes(32);
+const MessageHash = Bytes(32);
 const Address = Bytes(20);
 
 const EcdsaEthereum = {
   Signature,
   PublicKey,
+  MessageHash,
+  Address,
   Credential: EcdsaCredential,
 };
 
@@ -51,7 +65,7 @@ function EcdsaCredential({ maxMessageLength }: { maxMessageLength: number }) {
       privateInput: { message, signature, parityBit },
     }) => {
       // TODO recursive proof of this
-      let messageHash = Provable.witness(Bytes32, () =>
+      let messageHash = Provable.witness(MessageHash, () =>
         DynamicSHA3.keccak256(message)
       );
       let finalHash = Keccak.ethereum([
@@ -69,10 +83,48 @@ function EcdsaCredential({ maxMessageLength }: { maxMessageLength: number }) {
       Provable.assertEqual(Address, recoveredAddress, address);
 
       // verify the signature against the now-validated public key
-      signature.verifySignedHash(finalHash, publicKey);
+      let ok = signature.verifySignedHash(finalHash, publicKey);
+      ok.assertTrue('signature is invalid');
       return { message };
     }
   );
+}
+
+/**
+ * Non-recursive e2e signature verification, for benchmarking and testing.
+ *
+ * Note: this is not provable due to the circuit limit, use the recursive version for that.
+ */
+function verifyEthereumSignatureSimple(
+  message: DynamicArray<UInt8> | string | Uint8Array,
+  signature: From<typeof Signature>,
+  address: Bytes | Uint8Array,
+  parityBit: Unconstrained<boolean> | boolean
+) {
+  message = DynamicBytes.from(message);
+  signature = Signature.from(signature);
+  address = Bytes.from(address);
+  parityBit = Unconstrained.from(parityBit);
+
+  // hash the message
+  let messageHash = DynamicSHA3.keccak256(message);
+  let finalHash = Keccak.ethereum([
+    ...Bytes.fromString(MESSAGE_PREFIX).bytes,
+    ...messageHash.bytes,
+  ]);
+
+  // witness the recovered public key
+  let publicKey = Provable.witness(PublicKey, () =>
+    recoverPublicKey(finalHash, signature, parityBit.get())
+  );
+
+  // check that public key hashes to address
+  let recoveredAddress = publicKeyToAddress(publicKey);
+  Provable.assertEqual(Address, recoveredAddress, address);
+
+  // verify the signature against the now-validated public key
+  let ok = signature.verifySignedHash(finalHash, publicKey);
+  ok.assertTrue('signature is invalid');
 }
 
 function publicKeyToAddress(pk: From<typeof PublicKey>) {

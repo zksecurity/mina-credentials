@@ -1,39 +1,25 @@
-import { arrayEqual, assert, ByteUtils, zip } from '../util.ts';
+import { ByteUtils, zip } from '../util.ts';
 import {
   EcdsaEthereum,
-  publicKeyToAddress,
   parseSignature,
-  recoverPublicKey,
+  verifyEthereumSignatureSimple,
 } from './ecdsa-credential.ts';
-import { DynamicBytes, DynamicSHA3 } from '../dynamic.ts';
-import { log } from '../credentials/dynamic-hash.ts';
 import { owner } from '../../tests/test-utils.ts';
-import { bigintToBytesBE, bytesToBigintBE } from '../rsa/utils.ts';
-import { Bool, Bytes, EcdsaSignature, type From } from 'o1js';
+import { Provable } from 'o1js';
+import { DynamicBytes } from '../dynamic.ts';
 
-const { keccak256 } = DynamicSHA3;
+const MAX_MESSAGE_LENGTH = 128;
+const Message = DynamicBytes({ maxLength: MAX_MESSAGE_LENGTH });
 
 console.time('ecdsa create credential');
 const EcdsaCredential = await EcdsaEthereum.Credential({
-  maxMessageLength: 50,
+  maxMessageLength: 128,
 });
 console.timeEnd('ecdsa create credential');
-
-console.time('ecdsa constraints');
-let cs = await EcdsaCredential.program.analyzeMethods();
-console.log(cs.run.summary());
-console.timeEnd('ecdsa constraints');
 
 console.time('ecdsa compile');
 let vk = await EcdsaCredential.compile({ proofsEnabled: false });
 console.timeEnd('ecdsa compile');
-
-console.time('ecdsa dummy');
-let credDummy = await EcdsaCredential.dummy({
-  owner,
-  data: { message: 'test test' },
-});
-console.timeEnd('ecdsa dummy');
 
 // create ecdsa cred from zkpass data
 const schema = 'c7eab8b7d7e44b05b41b613fe548edf5';
@@ -55,7 +41,7 @@ const response = {
 let { taskId, uHash, publicFieldsHash } = response;
 
 // compute message hash
-let encodeParams = encodeParameters(
+let message = encodeParameters(
   ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
   [
     ByteUtils.fromString(taskId),
@@ -64,31 +50,30 @@ let encodeParams = encodeParameters(
     ByteUtils.fromHex(publicFieldsHash),
   ]
 );
-let messageHash = keccak256(encodeParams).toBytes();
+console.log('message length', message.length);
 
-// ethereum signed message hash
-const PREFIX = '\x19Ethereum Signed Message:\n32';
-let prefixedMessage = ByteUtils.concat(
-  ByteUtils.fromString(PREFIX),
-  messageHash
-);
-let finalHash = keccak256(prefixedMessage);
-
-// parse signature components
 let { signature, isOdd } = parseSignature(response.validatorSignature);
+let address = ByteUtils.fromHex(response.validatorAddress);
 
-// recover public key, and convert to 20-byte address
-let publicKey = recoverPublicKey(finalHash, signature, isOdd);
-let addressBytes = publicKeyToAddress(publicKey);
-let address = '0x' + addressBytes.toHex();
+function simpleCircuit() {
+  let messageVar = Provable.witness(Message, () => Message.fromBytes(message));
+  let signatureVar = Provable.witness(EcdsaEthereum.Signature, () => signature);
+  let addressVar = Provable.witness(EcdsaEthereum.Address, () =>
+    EcdsaEthereum.Address.from(address)
+  );
+  verifyEthereumSignatureSimple(messageVar, signatureVar, addressVar, isOdd);
+}
 
-console.log('address (computed)', address);
-console.log('address (actual)  ', response.validatorAddress);
+// plain
+simpleCircuit();
 
-assert(
-  address.toLowerCase() === response.validatorAddress.toLowerCase(),
-  'addresses do not match'
-);
+// witgen
+await Provable.runAndCheck(simpleCircuit);
+
+console.time('ecdsa constraints (simple)');
+let cs = await Provable.constraintSystem(simpleCircuit);
+console.log(cs.summary());
+console.timeEnd('ecdsa constraints (simple)');
 
 type Type = 'bytes32' | 'address';
 
