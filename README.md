@@ -52,7 +52,9 @@ let spec = PresentationSpec(
       Operation.not(
         Operation.equals(
           Operation.property(passport, 'nationality'),
-          Operation.constant(String.from('United States'))
+          Operation.constant(
+            PassportCredential.Nationality.from('United States')
+          )
         )
       ),
       // passport is not expired
