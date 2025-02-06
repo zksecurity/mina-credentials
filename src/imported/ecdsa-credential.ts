@@ -50,7 +50,7 @@ const EcdsaEthereum = {
 /**
  * Credential that wraps an Ethereum-style ECDSA signature.
  */
-async function EcdsaCredential(options: { maxMessageLength: number }) {
+function EcdsaCredential(options: { maxMessageLength: number }) {
   let { maxMessageLength } = options;
   const Message = DynamicBytes({ maxLength: maxMessageLength });
   return Credential.Recursive.fromMethod(
@@ -68,7 +68,7 @@ async function EcdsaCredential(options: { maxMessageLength: number }) {
       publicInput: { signerAddress },
       privateInput: { message, signature, parityBit },
     }) => {
-      verifyEthereumSignature(
+      await verifyEthereumSignature(
         message,
         signature,
         signerAddress,
