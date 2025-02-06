@@ -1,31 +1,39 @@
-import { arrayEqual, assert, Bytes, zip } from '../util.ts';
-import { EcdsaEthereum } from './ecdsa-credential.ts';
+import { arrayEqual, assert, ByteUtils, zip } from '../util.ts';
+import {
+  EcdsaEthereum,
+  publicKeyToAddress,
+  parseSignature,
+  recoverPublicKey,
+} from './ecdsa-credential.ts';
 import { DynamicBytes, DynamicSHA3 } from '../dynamic.ts';
 import { log } from '../credentials/dynamic-hash.ts';
 import { owner } from '../../tests/test-utils.ts';
 import { bigintToBytesBE, bytesToBigintBE } from '../rsa/utils.ts';
+import { Bool, Bytes, EcdsaSignature, type From } from 'o1js';
 
 const { keccak256 } = DynamicSHA3;
 
+console.time('ecdsa create credential');
 const EcdsaCredential = await EcdsaEthereum.Credential({
   maxMessageLength: 50,
 });
+console.timeEnd('ecdsa create credential');
 
-// console.time('ecdsa constraints');
-// let cs = await EcdsaCredential.program.analyzeMethods();
-// console.log(cs.run.summary());
-// console.timeEnd('ecdsa constraints');
+console.time('ecdsa constraints');
+let cs = await EcdsaCredential.program.analyzeMethods();
+console.log(cs.run.summary());
+console.timeEnd('ecdsa constraints');
 
-// console.time('ecdsa compile');
-// let vk = await EcdsaCredential.compile({ proofsEnabled: false });
-// console.timeEnd('ecdsa compile');
+console.time('ecdsa compile');
+let vk = await EcdsaCredential.compile({ proofsEnabled: false });
+console.timeEnd('ecdsa compile');
 
-// console.time('ecdsa dummy');
-// let credDummy = await EcdsaCredential.dummy({
-//   owner,
-//   data: { message: 'test test' },
-// });
-// console.timeEnd('ecdsa dummy');
+console.time('ecdsa dummy');
+let credDummy = await EcdsaCredential.dummy({
+  owner,
+  data: { message: 'test test' },
+});
+console.timeEnd('ecdsa dummy');
 
 // create ecdsa cred from zkpass data
 const schema = 'c7eab8b7d7e44b05b41b613fe548edf5';
@@ -50,71 +58,29 @@ let { taskId, uHash, publicFieldsHash } = response;
 let encodeParams = encodeParameters(
   ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
   [
-    Bytes.fromString(taskId),
-    Bytes.fromString(schema),
-    Bytes.fromHex(uHash),
-    Bytes.fromHex(publicFieldsHash),
+    ByteUtils.fromString(taskId),
+    ByteUtils.fromString(schema),
+    ByteUtils.fromHex(uHash),
+    ByteUtils.fromHex(publicFieldsHash),
   ]
 );
 let messageHash = keccak256(encodeParams).toBytes();
 
 // ethereum signed message hash
 const PREFIX = '\x19Ethereum Signed Message:\n32';
-let prefixedMessage = Bytes.concat(Bytes.fromString(PREFIX), messageHash);
+let prefixedMessage = ByteUtils.concat(
+  ByteUtils.fromString(PREFIX),
+  messageHash
+);
 let finalHash = keccak256(prefixedMessage);
-log('finalHash', finalHash.toHex());
 
-// Parse signature components
-let signatureBytes = Bytes.fromHex(response.validatorSignature);
-assert(signatureBytes.length === 65);
-let r = bytesToBigintBE(signatureBytes.slice(0, 32));
-let s = bytesToBigintBE(signatureBytes.slice(32, 64));
-let v = signatureBytes[64]!;
+// parse signature components
+let { signature, isOdd } = parseSignature(response.validatorSignature);
 
-// Convert v to recovery id (27/28 -> 0/1)
-let recoveryId = v - 27;
-
-assert(
-  recoveryId === 0 || recoveryId === 1,
-  `Invalid recovery id ${recoveryId}`
-);
-// Recover the public key
-let {
-  Scalar: { Bigint: Scalar },
-  Field: { Bigint: Field },
-  Bigint: Curve,
-} = EcdsaEthereum.PublicKey;
-
-let m = Scalar.mod(bytesToBigintBE(finalHash.toBytes()));
-
-// first, recover R_y from R_x and parity
-let x = Field.mod(r);
-let x3 = Field.mul(x, Field.square(x));
-let y2 = Field.add(x3, Field.mul(Curve.a, x) + Curve.b);
-let y = Field.sqrt(y2);
-assert(y !== undefined);
-if (Field.isEven(y) !== (recoveryId === 0)) y = Field.negate(y);
-let R = { x, y, infinity: false };
-
-// recover public key
-let rInv = Scalar.inverse(r);
-assert(rInv !== undefined);
-
-let publicKey = Curve.sub(
-  Curve.scale(R, Scalar.mul(s, rInv)),
-  Curve.scale(Curve.one, Scalar.mul(m, rInv))
-);
-let publicKeyBytes = Bytes.concat(
-  bigintToBytesBE(publicKey.x, 32),
-  bigintToBytesBE(publicKey.y, 32)
-);
-
-// Convert public key to address
-// The address is the last 20 bytes of the public key's keccak256 hash
-// It is generated from the uncompressed public key
-// We also have to remove the prefix 0x04 from the public key
-let publicKeyHash = keccak256(publicKeyBytes);
-let address = '0x' + publicKeyHash.toHex().slice(-40);
+// recover public key, and convert to 20-byte address
+let publicKey = recoverPublicKey(finalHash, signature, isOdd);
+let addressBytes = publicKeyToAddress(publicKey);
+let address = '0x' + addressBytes.toHex();
 
 console.log('address (computed)', address);
 console.log('address (actual)  ', response.validatorAddress);
@@ -134,9 +100,9 @@ type Type = 'bytes32' | 'address';
 // https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding
 function encodeParameters(types: Type[], values: Uint8Array[]) {
   let arrays = zip(types, values).map(([type, value]) => {
-    if (type === 'bytes32') return Bytes.padEnd(value, 32, 0);
-    if (type === 'address') return Bytes.padStart(value, 32, 0);
+    if (type === 'bytes32') return ByteUtils.padEnd(value, 32, 0);
+    if (type === 'address') return ByteUtils.padStart(value, 32, 0);
     throw Error('unexpected type');
   });
-  return Bytes.concat(...arrays);
+  return ByteUtils.concat(...arrays);
 }

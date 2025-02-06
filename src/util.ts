@@ -22,7 +22,7 @@ export {
   isSubclass,
   stringLength,
   mod,
-  Bytes,
+  ByteUtils,
 };
 
 function assert(
@@ -232,7 +232,7 @@ function mod(x: bigint, p: bigint): bigint {
   return z < 0 ? z + p : z;
 }
 
-const Bytes = {
+const ByteUtils = {
   fromString(str: string) {
     return enc.encode(str);
   },
