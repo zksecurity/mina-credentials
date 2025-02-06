@@ -33,92 +33,60 @@ const {
   validatorAddress: originAddress,
 } = sampleProof[0]!;
 
-const isValid = verifyECDSASignature({
-  taskId,
-  schema,
-  uHash,
-  publicFieldsHash,
-  signature,
-  originAddress,
-});
-assert(isValid);
-
 type Type = 'bytes32' | 'address';
 
-function verifyECDSASignature({
-  taskId,
-  schema,
+const types: Type[] = ['bytes32', 'bytes32', 'bytes32', 'bytes32'];
+const values = [
+  stringToHex(taskId),
+  stringToHex(schema),
   uHash,
   publicFieldsHash,
-  signature,
-  originAddress,
-  recipient,
-}: {
-  taskId: string;
-  schema: string;
-  uHash: string;
-  publicFieldsHash: string;
-  signature: string;
-  originAddress: string;
-  recipient?: string;
-}) {
-  const types: Type[] = ['bytes32', 'bytes32', 'bytes32', 'bytes32'];
-  const values = [
-    stringToHex(taskId),
-    stringToHex(schema),
-    uHash,
-    publicFieldsHash,
-  ];
+];
 
-  if (recipient) {
-    types.push('address');
-    values.push(recipient);
-  }
+const encodeParams = encodeParameters2(types, values);
 
-  const encodeParams = encodeParameters(types, values);
+const paramsHash = soliditySha3(encodeParams);
 
-  const paramsHash = soliditySha3(encodeParams);
+// Ethereum signed message hash (EIP-191)
+const PREFIX = '\x19Ethereum Signed Message:\n32';
+const messageHash = hexToUint8Array(paramsHash);
+const prefixedMessage = Buffer.concat([
+  Buffer.from(PREFIX),
+  Buffer.from(messageHash),
+]);
+const finalHash = keccak256(prefixedMessage);
 
-  // Ethereum signed message hash (EIP-191)
-  const PREFIX = '\x19Ethereum Signed Message:\n32';
-  const messageHash = hexToUint8Array(paramsHash);
-  const prefixedMessage = Buffer.concat([
-    Buffer.from(PREFIX),
-    Buffer.from(messageHash),
-  ]);
-  const finalHash = keccak256(prefixedMessage);
+// Parse signature components
+const signatureBytes = hexToUint8Array(signature);
+const r = signatureBytes.slice(0, 32);
+const s = signatureBytes.slice(32, 64);
+const v = signatureBytes[64]!;
 
-  // Parse signature components
-  const signatureBytes = hexToUint8Array(signature);
-  const r = signatureBytes.slice(0, 32);
-  const s = signatureBytes.slice(32, 64);
-  const v = signatureBytes[64]!;
-
-  // Convert v to recovery id (27/28 -> 0/1)
-  const recoveryId = v - 27;
-  if (recoveryId !== 0 && recoveryId !== 1) {
-    throw Error(`Invalid recovery id: ${recoveryId}`);
-  }
-
-  // Recover the public key
-  const pubKey = secp256k1.ecdsaRecover(
-    Buffer.concat([r, s]),
-    recoveryId,
-    Buffer.from(finalHash, 'hex'),
-    false
-  );
-
-  // Convert public key to address
-  // The address is the last 20 bytes of the public key's keccak256 hash
-  // It is generated from the uncompressed public key
-  // We also have to remove the prefix 0x04 from the public key
-  const pubKeyHash = keccak256(Buffer.from(pubKey.slice(1)));
-  const address = '0x' + pubKeyHash.slice(-40);
-
-  console.log('address (computed)', address);
-  console.log('address (actual)  ', originAddress);
-  return address.toLowerCase() === originAddress.toLowerCase();
+// Convert v to recovery id (27/28 -> 0/1)
+const recoveryId = v - 27;
+if (recoveryId !== 0 && recoveryId !== 1) {
+  throw Error(`Invalid recovery id: ${recoveryId}`);
 }
+
+// Recover the public key
+const pubKey = secp256k1.ecdsaRecover(
+  Buffer.concat([r, s]),
+  recoveryId,
+  Buffer.from(finalHash, 'hex'),
+  false
+);
+
+// Convert public key to address
+// The address is the last 20 bytes of the public key's keccak256 hash
+// It is generated from the uncompressed public key
+// We also have to remove the prefix 0x04 from the public key
+const pubKeyHash = keccak256(Buffer.from(pubKey.slice(1)));
+const address = '0x' + pubKeyHash.slice(-40);
+
+console.log('address (computed)', address);
+console.log('address (actual)  ', originAddress);
+let valid = address.toLowerCase() === originAddress.toLowerCase();
+assert(valid, 'Invalid address');
 
 // Web3.js adds 0x to the beginning of the hex string
 function stringToHex(str: string) {
@@ -131,7 +99,7 @@ function stringToHex(str: string) {
 // address: as in the uint160 case
 // uint<M>: enc(X) is the big-endian encoding of X, padded on the higher-order (left) side with zero-bytes such that the length is 32 bytes.
 // https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding
-function encodeParameters(types: Type[], values: string[]) {
+function encodeParameters2(types: Type[], values: string[]) {
   return (
     '0x' +
     types

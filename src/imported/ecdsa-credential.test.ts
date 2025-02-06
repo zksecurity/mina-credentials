@@ -1,15 +1,9 @@
-import { assert, Bytes, zip } from '../util.ts';
+import { arrayEqual, assert, Bytes, zip } from '../util.ts';
 import { EcdsaEthereum } from './ecdsa-credential.ts';
 import { DynamicBytes, DynamicSHA3 } from '../dynamic.ts';
 import { log } from '../credentials/dynamic-hash.ts';
 import { owner } from '../../tests/test-utils.ts';
-import { Provable } from 'o1js';
-import {
-  bigintToBytes,
-  bigintToBytesBE,
-  bytesToBigint,
-  bytesToBigintBE,
-} from '../rsa/utils.ts';
+import { bigintToBytesBE, bytesToBigintBE } from '../rsa/utils.ts';
 
 const { keccak256 } = DynamicSHA3;
 
@@ -62,15 +56,11 @@ let encodeParams = encodeParameters(
     Bytes.fromHex(publicFieldsHash),
   ]
 );
-let messageHash = keccak256(encodeParams);
-log('messageHash', messageHash.toHex());
+let messageHash = keccak256(encodeParams).toBytes();
 
 // ethereum signed message hash
 const PREFIX = '\x19Ethereum Signed Message:\n32';
-let prefixedMessage = Bytes.concat(
-  Bytes.fromString(PREFIX),
-  messageHash.toBytes()
-);
+let prefixedMessage = Bytes.concat(Bytes.fromString(PREFIX), messageHash);
 let finalHash = keccak256(prefixedMessage);
 log('finalHash', finalHash.toHex());
 
@@ -119,17 +109,6 @@ let publicKeyBytes = Bytes.concat(
   bigintToBytesBE(publicKey.y, 32)
 );
 
-// sanity check: verify signature
-// (this doesn't say anything because the public key was computed to satisfy these equations)
-let sInv = Scalar.inverse(s);
-assert(sInv !== undefined);
-let R2 = Curve.add(
-  Curve.scale(Curve.one, Scalar.mul(m, sInv)),
-  Curve.scale(publicKey, Scalar.mul(r, sInv))
-);
-assert(Field.equal(R2.x, R.x), 'signature verifies');
-assert(Field.equal(R2.y, R.y), 'signature verifies');
-
 // Convert public key to address
 // The address is the last 20 bytes of the public key's keccak256 hash
 // It is generated from the uncompressed public key
@@ -155,8 +134,8 @@ type Type = 'bytes32' | 'address';
 // https://docs.soliditylang.org/en/latest/abi-spec.html#formal-specification-of-the-encoding
 function encodeParameters(types: Type[], values: Uint8Array[]) {
   let arrays = zip(types, values).map(([type, value]) => {
-    if (type === 'bytes32') return Bytes.padEnd(value, 64, 0);
-    if (type === 'address') return Bytes.padStart(value, 64, 0);
+    if (type === 'bytes32') return Bytes.padEnd(value, 32, 0);
+    if (type === 'address') return Bytes.padStart(value, 32, 0);
     throw Error('unexpected type');
   });
   return Bytes.concat(...arrays);
