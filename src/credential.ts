@@ -45,7 +45,7 @@ type Credential<Data> = { owner: PublicKey; data: Data };
 /**
  * The different types of credential we currently support.
  */
-type CredentialType = 'unsigned' | 'native' | 'recursive';
+type CredentialType = 'unsigned' | 'native' | 'imported';
 
 /**
  * A credential spec is:

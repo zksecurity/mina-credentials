@@ -513,8 +513,8 @@ function verificationKeyHash({
   credentialKey,
 }: CredentialNode<any, WitnessImported>): Node<Field> {
   assert(
-    credentialType === 'recursive',
-    '`verificationKeyHash` is only available on recursive credentials'
+    credentialType === 'imported',
+    '`verificationKeyHash` is only available on imported credentials'
   );
   return { type: 'verificationKeyHash', credentialKey };
 }
@@ -524,8 +524,8 @@ function publicInput<Input>({
   credentialKey,
 }: CredentialNode<any, WitnessImported<any, Input>>): Node<Input> {
   assert(
-    credentialType === 'recursive',
-    '`publicInput` is only available on recursive credentials'
+    credentialType === 'imported',
+    '`publicInput` is only available on imported credentials'
   );
   return { type: 'publicInput', credentialKey };
 }
@@ -580,6 +580,6 @@ function assertImportedCredential<Data>(
   credential: Node<Data> & { type: CredentialNodeType }
 ) {
   let cred = assertCredential(root, credential);
-  assert(cred.witness?.type === 'recursive');
+  assert(cred.witness?.type === 'imported');
   return cred as CredentialOutputImported<Data>;
 }

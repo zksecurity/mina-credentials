@@ -123,7 +123,7 @@ async function validateCredential(
 
 const witnessTypes = new Set<unknown>([
   'native',
-  'recursive',
+  'imported',
 ] satisfies Witness['type'][]);
 
 function knownWitness(witness: unknown): witness is Witness {
@@ -138,7 +138,7 @@ function getCredentialSpec<W extends Witness>(
   switch (witness.type) {
     case 'native':
       return Credential.Native as any;
-    case 'recursive':
+    case 'imported':
       return Credential.Imported.Generic as any;
   }
 }

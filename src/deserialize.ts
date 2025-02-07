@@ -78,7 +78,7 @@ function deserializeInput(input: any): Input {
           return Credential.Native(data);
         case 'unsigned':
           return Credential.Unsigned(data);
-        case 'recursive':
+        case 'imported':
           let proof = deserializeProvableType(input.witness.proof) as any;
           return Credential.Imported(proof, data);
         default:

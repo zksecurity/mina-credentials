@@ -317,7 +317,7 @@ const InputSchema = z.discriminatedUnion('type', [
       credentialType: z.union([
         z.literal('native'),
         z.literal('unsigned'),
-        z.literal('recursive'),
+        z.literal('imported'),
       ]),
       witness: NestedSerializedTypeSchema,
       data: NestedSerializedTypeSchema,
@@ -395,7 +395,7 @@ const NativeWitnessSchema = z
 
 const ImportedWitnessSchema = z
   .object({
-    type: z.literal('recursive'),
+    type: z.literal('imported'),
     vk: z
       .object({
         data: z.string(),

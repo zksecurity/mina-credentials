@@ -35,7 +35,7 @@ import { assert, assertHasProperty } from './util.ts';
 export { Imported, type Witness };
 
 type Witness<Data = any, Input = any> = {
-  type: 'recursive';
+  type: 'imported';
   vk: VerificationKey;
   proof: DynamicProof<Input, Credential<Data>>;
 };
@@ -54,15 +54,15 @@ function Imported<
 >(
   Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): CredentialSpec<'recursive', Witness<Data, Input>, Data> {
+): CredentialSpec<'imported', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
   const data: NestedProvableFor<Data> = dataType as any;
 
   return {
     type: 'credential',
-    credentialType: 'recursive',
+    credentialType: 'imported',
     witness: {
-      type: ProvableType.constant('recursive'),
+      type: ProvableType.constant('imported'),
       vk: VerificationKey,
       proof: Proof,
     },
@@ -98,7 +98,7 @@ function Imported<
 
     matchesSpec(witness) {
       // TODO should check proof type
-      return witness.type === 'recursive';
+      return witness.type === 'imported';
     },
   };
 }
@@ -107,13 +107,13 @@ Imported.publicInputType = function publicInputType<
   Spec extends CredentialSpec
 >(
   credentialSpec: Spec
-): Spec extends CredentialSpec<'recursive', Witness<any, infer Input>>
+): Spec extends CredentialSpec<'imported', Witness<any, infer Input>>
   ? ProvableType<Input>
   : never {
-  assert(credentialSpec.credentialType === 'recursive');
+  assert(credentialSpec.credentialType === 'imported');
   assertHasProperty(credentialSpec.witness, 'proof');
   let witness = credentialSpec.witness as {
-    type: Provable<'recursive'>;
+    type: Provable<'imported'>;
     vk: typeof VerificationKey;
     proof: typeof DynamicProof;
   };
@@ -121,9 +121,9 @@ Imported.publicInputType = function publicInputType<
 };
 
 const genericImported = defineCredential({
-  credentialType: 'recursive',
+  credentialType: 'imported',
   witness: {
-    type: ProvableType.constant('recursive'),
+    type: ProvableType.constant('imported'),
     vk: VerificationKey,
     proof: DynamicProof,
   },
@@ -159,7 +159,7 @@ const genericImported = defineCredential({
   },
 
   matchesSpec(witness) {
-    return witness.type === 'recursive';
+    return witness.type === 'imported';
   },
 });
 
@@ -231,7 +231,7 @@ async function importedFromProgram<
         version: 'v0',
         metadata: undefined,
         credential: proof.publicOutput,
-        witness: { type: 'recursive', vk, proof: dynProof },
+        witness: { type: 'imported', vk, proof: dynProof },
       };
     },
 
@@ -264,7 +264,7 @@ async function importedFromProgram<
         version: 'v0',
         metadata: undefined,
         credential,
-        witness: { type: 'recursive', vk, proof: dummyProof },
+        witness: { type: 'imported', vk, proof: dummyProof },
       };
     },
   };
