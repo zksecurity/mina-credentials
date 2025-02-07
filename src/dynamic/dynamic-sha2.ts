@@ -1,13 +1,4 @@
-import {
-  Bytes,
-  Field,
-  Provable,
-  type ProvablePure,
-  Struct,
-  UInt32,
-  UInt64,
-  UInt8,
-} from 'o1js';
+import { Bytes, Field, Provable, Struct, UInt32, UInt64, UInt8 } from 'o1js';
 import { DynamicArray } from './dynamic-array.ts';
 import { StaticArray } from './static-array.ts';
 import { assert, chunk, pad } from '../util.ts';
@@ -477,7 +468,7 @@ function finalize(
 
 function Sha2IterationState<L extends Length>(len: L) {
   const S: Constructor<Sha2IterationState<L>> &
-    ProvablePure<
+    Provable<
       Sha2IterationState<L>,
       { len: L; state: bigint[]; commitment: bigint }
     > = Struct({
