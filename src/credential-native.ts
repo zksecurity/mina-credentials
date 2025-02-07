@@ -16,7 +16,7 @@ import { deserializeNestedProvableValue } from './serialize-provable.ts';
 export { Native, createNative, type Witness, type Metadata };
 
 type Witness = {
-  type: 'simple';
+  type: 'native';
   issuer: PublicKey;
   issuerSignature: Signature;
 };
@@ -28,9 +28,9 @@ type Native<Data> = StoredCredential<Data, Witness, Metadata>;
 
 const Native = Object.assign(
   defineCredential({
-    credentialType: 'simple',
+    credentialType: 'native',
     witness: {
-      type: ProvableType.constant('simple' as const),
+      type: ProvableType.constant('native' as const),
       issuer: PublicKey,
       issuerSignature: Signature,
     },
@@ -47,16 +47,16 @@ const Native = Object.assign(
 
     // issuer == issuer public key
     issuer({ issuer }) {
-      return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
+      return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
     },
 
     matchesSpec(witness) {
-      return witness.type === 'simple';
+      return witness.type === 'native';
     },
   }),
   {
     issuer(issuer: PublicKey) {
-      return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
+      return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
     },
   }
 );
@@ -75,7 +75,7 @@ function createNative<Data>(
 
   return {
     version: 'v0',
-    witness: { type: 'simple', issuer, issuerSignature },
+    witness: { type: 'native', issuer, issuerSignature },
     metadata: undefined,
     credential,
   };

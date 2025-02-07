@@ -502,7 +502,7 @@ function issuerPublicKey({
   credentialKey,
 }: CredentialNode<any, WitnessSigned>): Node<PublicKey> {
   assert(
-    credentialType === 'simple',
+    credentialType === 'native',
     '`issuerPublicKey` is only available on signed credentials'
   );
   return { type: 'issuerPublicKey', credentialKey };
@@ -571,7 +571,7 @@ function assertSignedCredential<Data>(
   credential: Node<Data> & { type: CredentialNodeType }
 ) {
   let cred = assertCredential(root, credential);
-  assert(cred.witness?.type === 'simple');
+  assert(cred.witness?.type === 'native');
   return cred as CredentialOutputSigned<Data>;
 }
 

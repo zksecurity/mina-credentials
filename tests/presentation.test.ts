@@ -14,7 +14,7 @@ import { Presentation, PresentationRequest } from '../src/presentation.ts';
 import { Operation } from '../src/operation.ts';
 import { PresentationRequestSchema } from '../src/validation.ts';
 
-test('program with simple spec and signature credential', async (t) => {
+test('program with simple spec and native credential', async (t) => {
   const Bytes32 = Bytes(32);
 
   const spec = Spec(

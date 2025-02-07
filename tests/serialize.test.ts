@@ -683,9 +683,9 @@ test('serializeInput', async (t) => {
 
     const expected = {
       type: 'credential',
-      credentialType: 'simple',
+      credentialType: 'native',
       witness: {
-        type: { _type: 'Constant', value: 'simple' },
+        type: { _type: 'Constant', value: 'native' },
         issuer: { _type: 'PublicKey' },
         issuerSignature: { _type: 'Signature' },
       },
@@ -743,7 +743,7 @@ test('serializeInput', async (t) => {
   });
 
   await t.test(
-    'should serialize simple credential input with nested structure',
+    'should serialize native credential input with nested structure',
     () => {
       const input = Credential.Native({
         personal: {
@@ -856,9 +856,9 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          credentialType: 'simple',
+          credentialType: 'native',
           witness: {
-            type: { _type: 'Constant', value: 'simple' },
+            type: { _type: 'Constant', value: 'native' },
             issuer: { _type: 'PublicKey' },
             issuerSignature: { _type: 'Signature' },
           },
@@ -877,7 +877,7 @@ test('convertSpecToSerializable', async (t) => {
             inner: {
               type: 'credential',
               credentialKey: 'signedData',
-              credentialType: 'simple',
+              credentialType: 'native',
             },
           },
           right: {
@@ -889,7 +889,7 @@ test('convertSpecToSerializable', async (t) => {
         outputClaim: {
           type: 'credential',
           credentialKey: 'signedData',
-          credentialType: 'simple',
+          credentialType: 'native',
         },
       },
     };

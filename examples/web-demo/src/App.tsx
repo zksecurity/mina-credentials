@@ -156,7 +156,7 @@ const StoreCredentialTab: React.FC<{ useMockWallet: boolean }> = ({
             value={credential}
             onChange={(e) => setCredential(e.target.value)}
             placeholder={
-              '{"version":"v0","witness":{"type":"simple","issuer":...'
+              '{"version":"v0","witness":{"type":"native","issuer":...'
             }
           />
         </div>

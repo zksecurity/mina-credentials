@@ -74,7 +74,7 @@ function deserializeInput(input: any): Input {
       let credentialType: CredentialType = input.credentialType;
       let data = deserializeNestedProvable(input.data);
       switch (credentialType) {
-        case 'simple':
+        case 'native':
           return Credential.Native(data);
         case 'unsigned':
           return Credential.Unsigned(data);

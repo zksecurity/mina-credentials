@@ -122,7 +122,7 @@ async function validateCredential(
 }
 
 const witnessTypes = new Set<unknown>([
-  'simple',
+  'native',
   'recursive',
 ] satisfies Witness['type'][]);
 
@@ -136,7 +136,7 @@ function getCredentialSpec<W extends Witness>(
   dataType: DataType
 ) => CredentialSpec<CredentialType, W, InferNestedProvable<DataType>> {
   switch (witness.type) {
-    case 'simple':
+    case 'native':
       return Credential.Native as any;
     case 'recursive':
       return Credential.Recursive.Generic as any;
