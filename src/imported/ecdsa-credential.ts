@@ -95,12 +95,14 @@ function createCredential(options: { maxMessageLength: number }) {
  */
 async function compileDependencies({
   maxMessageLength,
+  proofsEnabled = true,
 }: {
   maxMessageLength: number;
+  proofsEnabled?: boolean;
 }) {
-  await getHashHelper(maxMessageLength).compile();
+  await getHashHelper(maxMessageLength).compile({ proofsEnabled });
   let cred = await EcdsaEthereum.Credential({ maxMessageLength });
-  await cred.compile();
+  await cred.compile({ proofsEnabled });
 }
 
 // Ethereum signed message hash (EIP-191), assuming a 32-byte message that resulted from another hash

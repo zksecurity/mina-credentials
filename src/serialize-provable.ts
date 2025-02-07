@@ -154,6 +154,12 @@ function serializeProvable(value: any): SerializedType & { value: JSONValue } {
       return { ...serializedType, value };
     case 'UInt8':
       return { ...serializedType, value: (value as UInt8).toString() };
+    case 'VerificationKey':
+      let vk: VerificationKey = value;
+      return {
+        ...serializedType,
+        value: { data: vk.data, hash: vk.hash.toString() },
+      };
     default:
       assertHasMethod(
         value,
