@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { Switch } from './components/ui/switch';
 import { Label } from './components/ui/label';
-import { Copy } from 'lucide-react';
 import {
   getPublicKey,
   obtainCredential,
@@ -11,33 +10,8 @@ import { useToast, ToastProvider } from './components/ui/toast';
 import { storeCredential } from './interactions/store-credential';
 import AnonymousPoll from './components/poll';
 import { loginRequest } from './interactions/presentation-request';
-
-const CopyableCode: React.FC<{ value: string; label: string }> = ({
-  value,
-  label,
-}) => {
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(value);
-  };
-
-  return (
-    <div className="space-y-2">
-      <h2 className="text-xl font-semibold text-gray-900">{label}</h2>
-      <div className="relative">
-        <pre className="bg-gray-100 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap break-all">
-          {value}
-        </pre>
-        <button
-          onClick={copyToClipboard}
-          className="absolute top-3 right-3 p-2 hover:bg-gray-200 rounded-md"
-          title="Copy to clipboard"
-        >
-          <Copy size={16} />
-        </button>
-      </div>
-    </div>
-  );
-};
+import ZkPassTab from './components/ZkPassTab';
+import { CopyableCode } from './components/ui/copyable-code';
 
 const IssueCredentialsForm: React.FC<{
   useMockWallet: boolean;
@@ -338,6 +312,9 @@ const App: React.FC = () => {
                 <TabsTrigger value="poll" className="flex-1 min-w-[120px]">
                   Anonymous Poll
                 </TabsTrigger>
+                <TabsTrigger value="zkpass" className="flex-1 min-w-[120px]">
+                  ZkPass Integration
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -381,6 +358,9 @@ const App: React.FC = () => {
 
             <TabsContent value="poll" className="mt-6">
               <AnonymousPoll useMockWallet={useMockWallet} />
+            </TabsContent>
+            <TabsContent value="zkpass" className="mt-6">
+              <ZkPassTab useMockWallet={useMockWallet} />
             </TabsContent>
           </Tabs>
         </main>

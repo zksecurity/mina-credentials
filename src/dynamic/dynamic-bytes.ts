@@ -151,7 +151,7 @@ class DynamicBytesBase extends DynamicArrayBase<UInt8, { value: bigint }> {
    * Convert DynamicBytes to a byte array.
    */
   toBytes() {
-    return new Uint8Array(this.toValue().map(({ value }) => Number(value)));
+    return this.toValue() as any as Uint8Array;
   }
 
   /**

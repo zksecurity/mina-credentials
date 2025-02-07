@@ -43,14 +43,24 @@ const EcdsaEthereum = {
   PublicKey,
   MessageHash,
   Address,
-  Credential: EcdsaCredential,
+
+  /**
+   * Credential that wraps an Ethereum-style ECDSA signature.
+   */
+  Credential({ maxMessageLength }: { maxMessageLength: number }) {
+    let cred = ecdsaCredentials.get(maxMessageLength);
+    cred ??= createCredential({ maxMessageLength });
+    ecdsaCredentials.set(maxMessageLength, cred);
+    return cred;
+  },
+
   compileDependencies,
 };
 
-/**
- * Credential that wraps an Ethereum-style ECDSA signature.
- */
-function EcdsaCredential(options: { maxMessageLength: number }) {
+const ecdsaCredentials = new Map<number, ReturnType<typeof createCredential>>();
+const hashHelpers = new Map<number, ReturnType<typeof createHashHelper>>();
+
+function createCredential(options: { maxMessageLength: number }) {
   let { maxMessageLength } = options;
   const Message = DynamicBytes({ maxLength: maxMessageLength });
   return Credential.Recursive.fromMethod(
@@ -80,12 +90,19 @@ function EcdsaCredential(options: { maxMessageLength: number }) {
   );
 }
 
+/**
+ * Compile the ECDSA credential for the given message length and its ZkProgram dependencies.
+ */
 async function compileDependencies({
   maxMessageLength,
+  proofsEnabled = true,
 }: {
   maxMessageLength: number;
+  proofsEnabled?: boolean;
 }) {
-  await getHashHelper(maxMessageLength).compile();
+  await getHashHelper(maxMessageLength).compile({ proofsEnabled });
+  let cred = await EcdsaEthereum.Credential({ maxMessageLength });
+  await cred.compile({ proofsEnabled });
 }
 
 // Ethereum signed message hash (EIP-191), assuming a 32-byte message that resulted from another hash
@@ -263,8 +280,6 @@ VERSION 2, with two recursive branches:
 (main) ---- (hash message hash and message)
        \--- (hash message hash and end of message) --> (recursive message hash)
 */
-
-const hashHelpers = new Map<number, ReturnType<typeof createHashHelper>>();
 
 function getHashHelper(maxMessageLength: number) {
   if (!hashHelpers.has(maxMessageLength)) {
