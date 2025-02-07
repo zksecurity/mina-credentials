@@ -6,6 +6,7 @@ export {
   assertHasProperty,
   assertHasMethod,
   hasProperty,
+  isObject,
   assertIsObject,
   notImplemented,
   zip,
@@ -62,6 +63,10 @@ function Required<T extends {}>(
       );
     },
   }) as Required<T>;
+}
+
+function isObject(obj: unknown): obj is Record<string, unknown> {
+  return (typeof obj === 'object' && obj !== null) || typeof obj === 'function';
 }
 
 function assertIsObject(

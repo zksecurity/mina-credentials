@@ -20,6 +20,7 @@ import {
 import {
   assert,
   hasProperty,
+  isObject,
   isSubclass,
   mapEntries,
   mapObject,
@@ -27,6 +28,7 @@ import {
 } from '../util.ts';
 import type { UnknownRecord } from './dynamic-record.ts';
 import { BaseType } from './dynamic-base-types.ts';
+import { NestedProvable } from '../nested.ts';
 
 export {
   hashDynamic,
@@ -43,6 +45,7 @@ export {
   hashSafeWithPrefix,
   toValue,
   log,
+  provableTypeMatches,
 };
 
 // compatible hashing
@@ -332,7 +335,122 @@ function provableTypeEquals(
   return valueType === type;
 }
 
-// helpers
+/**
+ * Gets a nested provable type from any value.
+ *
+ * Recursively walks into unknown objects.
+ */
+function nestedProvableTypeOf(value: unknown): NestedProvable {
+  if (typeof value === 'string') {
+    return BaseType.DynamicString({ maxLength: stringLength(value) });
+  }
+  if (typeof value === 'number') return UInt64;
+  if (typeof value === 'boolean') return Bool;
+  if (typeof value === 'bigint') return Field;
+  if (value === undefined || value === null) return Undefined;
+  if (Array.isArray(value)) {
+    return BaseType.DynamicArray(innerArrayType(value), {
+      maxLength: value.length,
+    });
+  }
+  let type = provableTypeOfConstructor(value);
+  if (type !== undefined) return type;
+
+  // recursively walk into unknown objects
+  assert(isObject(value), 'Expected object');
+  return mapObject<Record<string, unknown>, Record<string, NestedProvable>>(
+    value,
+    (v) => nestedProvableTypeOf(v)
+  );
+}
+
+/**
+ * Tells us whether `value` can be used as an input for `type`.
+ *
+ * Note: this check is not fully strict and can't be,
+ * since arbitrary provable types could be "too" forgiving in their inputs,
+ * and we don't want to prescribe all the possible provable types a value can be turned into.
+ *
+ * But we catch common incompatibilities, like the overall shape of container types.
+ */
+function provableTypeMatches(
+  value: unknown,
+  type: NestedProvable | NestedProvable[]
+) {
+  // if the type is nested, the value must be an object; and we check the properties
+  if (!ProvableType.isProvableType(type)) {
+    if (!isObject(value)) return false;
+    if (Array.isArray(type)) return arrayProvableTypeMatches(value, type);
+    return strictlyNestedProvableTypeMatches(value, type);
+  }
+
+  // if the type is a struct, the value must be an object that has _all_ struct properties.
+  if (isStruct(type)) {
+    if (!isObject(value)) return false;
+    let blueprint = ProvableType.synthesize(type);
+
+    // the value has all keys
+    for (let key of Object.keys(blueprint)) {
+      if (!(key in value)) return false;
+    }
+    // value has the right type for each key
+    let nestedType = mapObject<
+      Record<string, unknown>,
+      Record<string, NestedProvable | NestedProvable[]>
+    >(blueprint, (v) => {
+      // strings here should be treated as `constant`
+      if (typeof v === 'string') return ProvableType.constant(v);
+
+      // arrays are left as is, i.e. treated as nested
+      if (Array.isArray(v)) return v;
+
+      return nestedProvableTypeOf(v);
+    });
+    return strictlyNestedProvableTypeMatches(value, nestedType);
+  }
+
+  // if the type is a DynamicRecord class, the value must be either
+  // a DynamicRecord or match the known shape
+  if (isSubclass(type, BaseType.GenericRecord.Base)) {
+    if (value instanceof BaseType.GenericRecord.Base) return true;
+    if (!isObject(value)) return false;
+    let shape = type.prototype.knownShape;
+
+    // the value has all the known keys
+    for (let key of Object.keys(shape)) {
+      if (!(key in value)) return false;
+    }
+    // the value has the right type for each known key
+    return strictlyNestedProvableTypeMatches(value, shape);
+  }
+
+  // otherwise, at least `.fromValue` should not throw
+  try {
+    ProvableType.get(type).fromValue(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function arrayProvableTypeMatches(value: unknown, type: NestedProvable[]) {
+  if (!Array.isArray(value)) return false;
+  if (value.length !== type.length) return false;
+  for (let i = 0; i < value.length; i++) {
+    if (!provableTypeMatches(value[i], type[i]!)) return false;
+  }
+  return true;
+}
+
+function strictlyNestedProvableTypeMatches(
+  value: Record<string, unknown>,
+  type: Record<string, NestedProvable | NestedProvable[]>
+) {
+  for (let [key, nestedType] of Object.entries(type)) {
+    if (!provableTypeMatches(value[key], nestedType)) return false;
+  }
+  return true;
+}
 
 function toValue(value: unknown): any {
   if (typeof value === 'string') return value;

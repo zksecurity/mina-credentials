@@ -157,6 +157,9 @@ class GenericRecordBase {
   get maxEntries(): number {
     throw Error('Need subclass');
   }
+  get knownShape() {
+    return {};
+  }
 
   static from(actual: UnknownRecord): GenericRecordBase {
     let entries = Object.entries(actual).map(([key, value]) => {
