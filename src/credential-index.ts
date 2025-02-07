@@ -8,14 +8,14 @@ import {
   Unsigned,
 } from './credential.ts';
 import {
-  createSigned,
-  Signed,
-  type Witness as SignedWitness,
-} from './credential-signed.ts';
+  createNative,
+  Native,
+  type Witness as NativeWitness,
+} from './credential-native.ts';
 import {
-  Recursive,
-  type Witness as RecursiveWitness,
-} from './credential-recursive.ts';
+  Imported,
+  type Witness as ImportedWitness,
+} from './credential-imported.ts';
 import { assert, hasProperty } from './util.ts';
 import { type InferNestedProvable, NestedProvable } from './nested.ts';
 import {
@@ -33,13 +33,13 @@ type Credential<Data> = { owner: PublicKey; data: Data };
 
 const Credential = {
   Unsigned,
-  Simple: Signed,
-  Recursive,
+  Native,
+  Imported,
 
   /**
-   * Issue a "simple" signed credential.
+   * Issue a "native" signed credential.
    */
-  sign: createSigned,
+  sign: createNative,
 
   /**
    * Create a dummy credential with no owner and no signature.
@@ -101,7 +101,7 @@ const Credential = {
 
 // validating generic credential
 
-type Witness = SignedWitness | RecursiveWitness;
+type Witness = NativeWitness | ImportedWitness;
 
 async function validateCredential(
   credential: StoredCredential<unknown, unknown, unknown>
@@ -122,8 +122,8 @@ async function validateCredential(
 }
 
 const witnessTypes = new Set<unknown>([
-  'simple',
-  'recursive',
+  'native',
+  'imported',
 ] satisfies Witness['type'][]);
 
 function knownWitness(witness: unknown): witness is Witness {
@@ -136,9 +136,9 @@ function getCredentialSpec<W extends Witness>(
   dataType: DataType
 ) => CredentialSpec<CredentialType, W, InferNestedProvable<DataType>> {
   switch (witness.type) {
-    case 'simple':
-      return Credential.Simple as any;
-    case 'recursive':
-      return Credential.Recursive.Generic as any;
+    case 'native':
+      return Credential.Native as any;
+    case 'imported':
+      return Credential.Imported.Generic as any;
   }
 }

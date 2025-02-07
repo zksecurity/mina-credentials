@@ -13,10 +13,10 @@ import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { deserializeNestedProvableValue } from './serialize-provable.ts';
 
-export { Signed, createSigned, type Witness, type Metadata };
+export { Native, createNative, type Witness, type Metadata };
 
 type Witness = {
-  type: 'simple';
+  type: 'native';
   issuer: PublicKey;
   issuerSignature: Signature;
 };
@@ -24,13 +24,13 @@ type Witness = {
 // TODO
 type Metadata = undefined;
 
-type Signed<Data> = StoredCredential<Data, Witness, Metadata>;
+type Native<Data> = StoredCredential<Data, Witness, Metadata>;
 
-const Signed = Object.assign(
+const Native = Object.assign(
   defineCredential({
-    credentialType: 'simple',
+    credentialType: 'native',
     witness: {
-      type: ProvableType.constant('simple' as const),
+      type: ProvableType.constant('native' as const),
       issuer: PublicKey,
       issuerSignature: Signature,
     },
@@ -47,24 +47,24 @@ const Signed = Object.assign(
 
     // issuer == issuer public key
     issuer({ issuer }) {
-      return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
+      return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
     },
 
     matchesSpec(witness) {
-      return witness.type === 'simple';
+      return witness.type === 'native';
     },
   }),
   {
     issuer(issuer: PublicKey) {
-      return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
+      return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
     },
   }
 );
 
-function createSigned<Data>(
+function createNative<Data>(
   issuerPrivateKey: PrivateKey,
   credentialInput: Credential<Data> | string
-): Signed<Data> {
+): Native<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
   let credential =
     typeof credentialInput === 'string'
@@ -75,7 +75,7 @@ function createSigned<Data>(
 
   return {
     version: 'v0',
-    witness: { type: 'simple', issuer, issuerSignature },
+    witness: { type: 'native', issuer, issuerSignature },
     metadata: undefined,
     credential,
   };

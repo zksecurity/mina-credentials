@@ -677,15 +677,15 @@ test('serializeInput', async (t) => {
 
   await t.test('should serialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Credential.Simple(InputData);
+    const input = Credential.Native(InputData);
 
     const serialized = serializeInput(input);
 
     const expected = {
       type: 'credential',
-      credentialType: 'simple',
+      credentialType: 'native',
       witness: {
-        type: { _type: 'Constant', value: 'simple' },
+        type: { _type: 'Constant', value: 'native' },
         issuer: { _type: 'PublicKey' },
         issuerSignature: { _type: 'Signature' },
       },
@@ -743,9 +743,9 @@ test('serializeInput', async (t) => {
   });
 
   await t.test(
-    'should serialize simple credential input with nested structure',
+    'should serialize native credential input with nested structure',
     () => {
-      const input = Credential.Simple({
+      const input = Credential.Native({
         personal: {
           age: Field,
           score: UInt64,
@@ -839,7 +839,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with an credential', () => {
     const spec = Spec(
       {
-        signedData: Credential.Simple({ field: Field }),
+        signedData: Credential.Native({ field: Field }),
         zeroField: Constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
@@ -856,9 +856,9 @@ test('convertSpecToSerializable', async (t) => {
       inputs: {
         signedData: {
           type: 'credential',
-          credentialType: 'simple',
+          credentialType: 'native',
           witness: {
-            type: { _type: 'Constant', value: 'simple' },
+            type: { _type: 'Constant', value: 'native' },
             issuer: { _type: 'PublicKey' },
             issuerSignature: { _type: 'Signature' },
           },
@@ -877,7 +877,7 @@ test('convertSpecToSerializable', async (t) => {
             inner: {
               type: 'credential',
               credentialKey: 'signedData',
-              credentialType: 'simple',
+              credentialType: 'native',
             },
           },
           right: {
@@ -889,7 +889,7 @@ test('convertSpecToSerializable', async (t) => {
         outputClaim: {
           type: 'credential',
           credentialKey: 'signedData',
-          credentialType: 'simple',
+          credentialType: 'native',
         },
       },
     };
@@ -1036,7 +1036,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
 
 test('Serialize spec with owner and issuer nodes', async (t) => {
   const InputData = { age: Field };
-  const SignedData = Credential.Simple(InputData);
+  const SignedData = Credential.Native(InputData);
 
   const spec = Spec(
     {

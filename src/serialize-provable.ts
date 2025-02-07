@@ -1,7 +1,7 @@
 /**
  * JSON serialization of provable types and values.
  */
-import { NestedProvable, type NestedProvablePure } from './nested.ts';
+import { NestedProvable } from './nested.ts';
 import { array, ProvableType } from './o1js-missing.ts';
 import {
   Field,
@@ -16,7 +16,6 @@ import {
   DynamicProof,
   VerificationKey,
   Struct,
-  type ProvablePure,
   type JsonProof,
 } from 'o1js';
 import { assert, assertHasMethod, defined } from './util.ts';
@@ -34,10 +33,8 @@ export {
   serializeNestedProvable,
   serializeNestedProvableValue,
   deserializeProvableType,
-  deserializeProvablePureType,
   deserializeProvable,
   deserializeNestedProvable,
-  deserializeNestedProvablePure,
   deserializeNestedProvableValue,
   replaceNull,
 };
@@ -242,8 +239,12 @@ function deserializeProvableType(type: SerializedType): ProvableType<any> {
   if (type._type === 'Proof') {
     let proof = type.proof;
     let Proof = class extends DynamicProof<any, any> {
-      static publicInputType = deserializeProvablePureType(proof.publicInput);
-      static publicOutputType = deserializeProvablePureType(proof.publicOutput);
+      static publicInputType = ProvableType.get(
+        deserializeProvableType(proof.publicInput)
+      );
+      static publicOutputType = ProvableType.get(
+        deserializeProvableType(proof.publicOutput)
+      );
       static maxProofsVerified = proof.maxProofsVerified;
       static featureFlags = replaceNull(proof.featureFlags) as any;
     };
@@ -337,13 +338,6 @@ function proofFromJSONSync(json: {
   ]);
 }
 
-function deserializeProvablePureType(type: {
-  _type: O1jsTypeName;
-}): ProvablePure<any> {
-  const provableType = deserializeProvableType(type);
-  return provableType as ProvablePure<any>;
-}
-
 function deserializeNestedProvable(type: any): NestedProvable {
   if (typeof type === 'object' && type !== null) {
     if ('_type' in type) {
@@ -359,23 +353,6 @@ function deserializeNestedProvable(type: any): NestedProvable {
     }
   }
   throw Error(`Invalid type in NestedProvable: ${type}`);
-}
-
-function deserializeNestedProvablePure(type: any): NestedProvablePure {
-  if (typeof type === 'object' && type !== null) {
-    if ('_type' in type) {
-      // basic provable pure type
-      return deserializeProvablePureType(type);
-    } else {
-      // nested object
-      const result: Record<string, any> = {};
-      for (const [key, value] of Object.entries(type)) {
-        result[key] = deserializeNestedProvablePure(value);
-      }
-      return result as NestedProvablePure;
-    }
-  }
-  throw Error(`Invalid type in NestedProvablePure: ${type}`);
 }
 
 function deserializeNestedProvableValue(value: any): any {

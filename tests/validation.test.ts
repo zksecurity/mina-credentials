@@ -15,7 +15,7 @@ import { Operation, PresentationRequest } from '../src/index.ts';
 const Bytes32 = Bytes(32);
 
 test('StoredCredentialSchema validation', async (t) => {
-  await t.test('validates simple credential', () => {
+  await t.test('validates native credential', () => {
     const data = { age: Field(25) };
     const signedCredential = Credential.sign(issuerKey, { owner, data });
     const serialized = Credential.toJSON(signedCredential);
@@ -24,12 +24,12 @@ test('StoredCredentialSchema validation', async (t) => {
     const result = StoredCredentialSchema.safeParse(parsed);
     assert(
       result.success,
-      'Simple credential JSON should be valid: ' +
+      'Native credential JSON should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
 
-  await t.test('validates recursive credential', async () => {
+  await t.test('validates imported credential', async () => {
     const InputData = { age: Field, name: Bytes32 };
     const inputProofSpec = Spec(
       { inputOwner: Claim(PublicKey), data: Claim(InputData) },
@@ -38,12 +38,12 @@ test('StoredCredentialSchema validation', async (t) => {
       })
     );
 
-    // create recursive credential
-    const Recursive = await Credential.Recursive.fromProgram(
+    // create imported credential
+    const Imported = await Credential.Imported.fromProgram(
       createProgram(inputProofSpec).program
     );
     let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-    let provedData = await Recursive.create(
+    let provedData = await Imported.create(
       { context: Field(0), claims: { inputOwner: owner, data } },
       {
         credentials: {},
@@ -57,7 +57,7 @@ test('StoredCredentialSchema validation', async (t) => {
     const result = StoredCredentialSchema.safeParse(parsed);
     assert(
       result.success,
-      'Recursive credential JSON should be valid: ' +
+      'Imported credential JSON should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
@@ -87,7 +87,7 @@ test('PresentationRequestSchema validation', async (t) => {
 
     const spec = Spec(
       {
-        data: Credential.Simple(NestedInputData),
+        data: Credential.Native(NestedInputData),
         targetAge: Claim(Field),
         targetPoints: Claim(Field),
       },

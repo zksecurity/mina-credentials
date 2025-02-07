@@ -23,37 +23,35 @@ A credential is a set of attributes and an owner:
 ```javascript
 type Attributes = {
   [key: string]: Any, // any o1js type
-}
+};
 
 type Credential = {
-  owner: PublicKey,       // the owners public key
-  metaHash: Field,        // hash of arbitrary metadata
+  owner: PublicKey, // the owners public key
+  metaHash: Field, // hash of arbitrary metadata
   attributes: Attributes, // struct of hidden attributes (e.g. age, name, SSN)
-}
+};
 ```
 
 Is is stored along with metadata and the version of the credential:
 
 ```javascript
 type Witness =
-  | { type: "simple",
-      issuer: PublicKey,
-      issuerSignature: Signature,
-    }
-  | { type: "recursive",
+  | { type: 'native', issuer: PublicKey, issuerSignature: Signature }
+  | {
+      type: 'imported',
       credVK: VerificationKey,
       credIdent: Field,
       credProof: Proof,
-    }
+    };
 ```
 
 ```javascript
 type StoredCredential = {
-  version: "v0",
+  version: 'v0',
   witness: Witness,
   metadata: Metadata,
   credential: Credential,
-}
+};
 ```
 
 Wallets MUST import/export credentials in this format, but MAY store them in any format internally.
@@ -66,10 +64,10 @@ The presentation proof is encoded as follows:
 
 ```javascript
 type Presentation = {
-  version: "v0",
+  version: 'v0',
   proof: Proof,
   claims: Claims,
-}
+};
 ```
 
 ## Mina Credential Metadata
@@ -98,14 +96,14 @@ type Metadata = {
   minaDescription: String,
   minaIcon: Uint8Array, // svg, jpg, png, webp, etc.
   ...
-}
+};
 ```
 
 The `metaHash` field of the credential is the hash of the metadata.
 The `metaHash` fiueld MUST be computed using `Keccak256` over the metadata.
 
 ```javascript
-metaHash = Keccak256.hash(metadata)
+metaHash = Keccak256.hash(metadata);
 ```
 
 # Protocols
@@ -119,18 +117,18 @@ metaHash = Keccak256.hash(metadata)
 
 ### Public Inputs
 
-The public inputs for the presentations circuits (simple and recursive) are:
+The public inputs for the presentations circuits (native and imported) are:
 
 ```javascript
 type PublicInput = {
   context: Field, // context : specified later
-  claims: Claims  // application specific public inputs.
-}
+  claims: Claims, // application specific public inputs.
+};
 ```
 
-### Circuit: Present Simple Credential
+### Circuit: Present Native Credential
 
-A standardized circuit for presenting simple credentials.
+A standardized circuit for presenting native credentials.
 
 The circuit verifies two signatures: one from the issuer and one from the owner.
 
@@ -141,7 +139,7 @@ type PrivateInput = {
   issuerPk: PublicKey,
   issuerSignature: Signature,
   ownerSignature: Signature,
-}
+};
 
 // hash the credential
 let credHash = Poseidon.hashPacked(Credential, credential);
@@ -151,27 +149,24 @@ issuerSignature.verify(issuerPk, credHash);
 
 // convert issuerPK to opaque field element
 let issuer = Poseidon.hashWithPrefix(
-  "mina-cred:v0:simple",  // sep. the domain of "simple" and "recursive" issuers
+  'mina-cred:v0:native', // sep. the domain of "native" and "imported" issuers
   issuerPk
 );
 
 // verify the credential owners signature
-ownerSignature.verify(
-  credential.owner,
-  [context, issuer, credHash]
-);
+ownerSignature.verify(credential.owner, [context, issuer, credHash]);
 
 // verify application specific constraints using the standard API
 applicationConstraints(
   credential, // hidden attributes/owner
-  issuer,     // potentially hidden issuer
-  claims,     // application specific public input
-)
+  issuer, // potentially hidden issuer
+  claims // application specific public input
+);
 ```
 
-### Circuit: Present Recursive Credential
+### Circuit: Present Imported Credential
 
-A standardized circuit for presenting recursive credentials.
+A standardized circuit for presenting imported credentials.
 
 The circuit verifies a proof "from" the issuing authority and a signature from the owner.
 
@@ -183,7 +178,7 @@ type PrivateInput = {
   credProof: Proof,
   credential: Credential,
   ownerSignature: Signature,
-}
+};
 
 // hash the credential
 let credHash = Poseidon.hashPacked(Credential, credential);
@@ -192,24 +187,21 @@ let credHash = Poseidon.hashPacked(Credential, credential);
 credProof.publicInput.assertEquals([credHash, credIdent]);
 credProof.verify(credVK);
 
-// the issuer is identified by the recursive relation and public input
+// the issuer is identified by the imported relation and public input
 let issuer = Poseidon.hashWithPrefix(
-  "mina-cred:v0:recursive", // sep. the domain of "simple" and "recursive" issuers
-  [vk.hash, credIdent]      // identifies the issuing authority / validation logic
+  'mina-cred:v0:imported', // sep. the domain of "native" and "imported" issuers
+  [vk.hash, credIdent] // identifies the issuing authority / validation logic
 );
 
 // verify the credential owners signature
-ownerSignature.verify(
-  credential.owner,
-  [context, issuer, credHash]
-);
+ownerSignature.verify(credential.owner, [context, issuer, credHash]);
 
 // verify application specific constraints using the standard API
 applicationConstraints(
   credential, // hidden attributes/owner
-  issuer,     // potentially hidden issuer
-  claims,     // application specific public input
-)
+  issuer, // potentially hidden issuer
+  claims // application specific public input
+);
 ```
 
 # Context Binding
@@ -218,25 +210,25 @@ The verifier computes the context (out-of-circuit) as:
 
 ```javascript
 context = Poseidon.hashWithPrefix(
-  "mina-cred:v0:context", // for versioning
+  'mina-cred:v0:context', // for versioning
   [
-    type,                       // seperates different types of verifiers
+    type, // seperates different types of verifiers
     presentationCircuitVK.hash, // binds the presentation to the relation
-    nonce,                      // a random nonce to prevent replay attacks
-    verifierIdentity,           // verifiers identifier
-    action,                     // the "action" being performed (e.g. login, transaction hash etc.)
-    claims,                     // the public input (the set of "claims" being presented)
+    nonce, // a random nonce to prevent replay attacks
+    verifierIdentity, // verifiers identifier
+    action, // the "action" being performed (e.g. login, transaction hash etc.)
+    claims, // the public input (the set of "claims" being presented)
   ]
-)
+);
 ```
 
 The nonce MUST be generated as follows:
 
 ```javascript
-let nonce = Poseidon.hashWithPrefix(
-  "mina-cred:v0:nonce",
-  [serverNonce, clientNonce]
-)
+let nonce = Poseidon.hashWithPrefix('mina-cred:v0:nonce', [
+  serverNonce,
+  clientNonce,
+]);
 ```
 
 - The `clientNonce` MUST be a uniformly random field element generated by the client.
@@ -264,9 +256,9 @@ The ZK app MUST check the validity of the presentation proof and the claims.
 [Uniform Resource Identifier](https://datatracker.ietf.org/doc/html/rfc3986)
 
 ```javascript
-let type = Keccak256.hash("https");
+let type = Keccak256.hash('https');
 
-let verifierIdentity = Keccak256.hash("example.com");
+let verifierIdentity = Keccak256.hash('example.com');
 
 let action = Keccak256.hash(HTTP_REQUEST);
 ```

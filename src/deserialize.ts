@@ -4,7 +4,7 @@ import { validateSpecHash, type SerializedContext } from './serialize.ts';
 import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import {
-  deserializeNestedProvablePure,
+  deserializeNestedProvable,
   deserializeProvable,
   deserializeProvableType,
 } from './serialize-provable.ts';
@@ -69,18 +69,18 @@ function deserializeInput(input: any): Input {
         deserializeProvable({ ...input.data, value: input.value })
       );
     case 'claim':
-      return Claim(deserializeNestedProvablePure(input.data));
+      return Claim(deserializeNestedProvable(input.data));
     case 'credential': {
       let credentialType: CredentialType = input.credentialType;
-      let data = deserializeNestedProvablePure(input.data);
+      let data = deserializeNestedProvable(input.data);
       switch (credentialType) {
-        case 'simple':
-          return Credential.Simple(data);
+        case 'native':
+          return Credential.Native(data);
         case 'unsigned':
           return Credential.Unsigned(data);
-        case 'recursive':
+        case 'imported':
           let proof = deserializeProvableType(input.witness.proof) as any;
-          return Credential.Recursive(proof, data);
+          return Credential.Imported(proof, data);
         default:
           throw Error(`Unsupported credential id: ${credentialType}`);
       }

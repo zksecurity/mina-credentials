@@ -38,7 +38,7 @@ const Schema = DynamicRecord(
 
 const votingSpec = Spec(
   {
-    credential: Credential.Simple(Schema),
+    credential: Credential.Native(Schema),
     expectedIssuer: Claim(Field),
     createdAt: Claim(UInt64),
     inFavor: Claim(Bool),
@@ -101,7 +101,7 @@ compiledRequestPromise.then(() =>
 const openRequests = new Map<string, Request>();
 
 async function createRequest(inFavor: boolean, createdAt: number) {
-  let expectedIssuer = Credential.Simple.issuer(getPublicKey());
+  let expectedIssuer = Credential.Native.issuer(getPublicKey());
   let compiled = await compiledRequestPromise;
 
   let request = PresentationRequest.httpsFromCompiled(

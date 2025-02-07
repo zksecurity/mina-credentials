@@ -95,7 +95,7 @@ const FieldArray = DynamicArray(Field, { maxLength: 100 });
 
 const spec = Spec(
   {
-    credential: Credential.Simple(Subschema),
+    credential: Credential.Native(Subschema),
     acceptedNations: Claim(FieldArray), // we represent nations as their hashes for efficiency
     acceptedIssuers: Claim(FieldArray),
     currentDate: Claim(UInt64),
@@ -130,7 +130,7 @@ const spec = Spec(
 
 const acceptedNations = ['United States of America', 'Canada', 'Mexico'];
 const acceptedIssuers = [issuer, randomPublicKey(), randomPublicKey()].map(
-  (pk) => Credential.Simple.issuer(pk)
+  (pk) => Credential.Native.issuer(pk)
 );
 
 let request = PresentationRequest.https(

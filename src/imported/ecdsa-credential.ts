@@ -63,7 +63,7 @@ const hashHelpers = new Map<number, ReturnType<typeof createHashHelper>>();
 function createCredential(options: { maxMessageLength: number }) {
   let { maxMessageLength } = options;
   const Message = DynamicBytes({ maxLength: maxMessageLength });
-  return Credential.Recursive.fromMethod(
+  return Credential.Imported.fromMethod(
     {
       name: `ecdsa-${maxMessageLength}`,
       publicInput: { signerAddress: Address },

@@ -32,21 +32,21 @@ import {
 } from './credential.ts';
 import { assert, assertHasProperty } from './util.ts';
 
-export { Recursive, type Witness };
+export { Imported, type Witness };
 
 type Witness<Data = any, Input = any> = {
-  type: 'recursive';
+  type: 'imported';
   vk: VerificationKey;
   proof: DynamicProof<Input, Credential<Data>>;
 };
 
-type Recursive<Data, Input> = StoredCredential<
+type Imported<Data, Input> = StoredCredential<
   Data,
   Witness<Data, Input>,
   undefined
 >;
 
-function Recursive<
+function Imported<
   DataType extends NestedProvable,
   InputType extends ProvableType,
   Data extends InferNestedProvable<DataType>,
@@ -54,15 +54,15 @@ function Recursive<
 >(
   Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): CredentialSpec<'recursive', Witness<Data, Input>, Data> {
+): CredentialSpec<'imported', Witness<Data, Input>, Data> {
   // TODO annoying that this cast doesn't work without overriding the type
   const data: NestedProvableFor<Data> = dataType as any;
 
   return {
     type: 'credential',
-    credentialType: 'recursive',
+    credentialType: 'imported',
     witness: {
-      type: ProvableType.constant('recursive'),
+      type: ProvableType.constant('imported'),
       vk: VerificationKey,
       proof: Proof,
     },
@@ -90,7 +90,7 @@ function Recursive<
       let credIdent = Poseidon.hash(
         Proof.publicInputType.toFields(proof.publicInput)
       );
-      return Poseidon.hashWithPrefix(prefixes.issuerRecursive, [
+      return Poseidon.hashWithPrefix(prefixes.issuerImported, [
         vk.hash,
         credIdent,
       ]);
@@ -98,32 +98,32 @@ function Recursive<
 
     matchesSpec(witness) {
       // TODO should check proof type
-      return witness.type === 'recursive';
+      return witness.type === 'imported';
     },
   };
 }
 
-Recursive.publicInputType = function publicInputType<
+Imported.publicInputType = function publicInputType<
   Spec extends CredentialSpec
 >(
   credentialSpec: Spec
-): Spec extends CredentialSpec<'recursive', Witness<any, infer Input>>
+): Spec extends CredentialSpec<'imported', Witness<any, infer Input>>
   ? ProvableType<Input>
   : never {
-  assert(credentialSpec.credentialType === 'recursive');
+  assert(credentialSpec.credentialType === 'imported');
   assertHasProperty(credentialSpec.witness, 'proof');
   let witness = credentialSpec.witness as {
-    type: Provable<'recursive'>;
+    type: Provable<'imported'>;
     vk: typeof VerificationKey;
     proof: typeof DynamicProof;
   };
   return witness.proof.publicInputType as any;
 };
 
-const genericRecursive = defineCredential({
-  credentialType: 'recursive',
+const genericImported = defineCredential({
+  credentialType: 'imported',
   witness: {
-    type: ProvableType.constant('recursive'),
+    type: ProvableType.constant('imported'),
     vk: VerificationKey,
     proof: DynamicProof,
   },
@@ -152,23 +152,23 @@ const genericRecursive = defineCredential({
         proof.publicInput
       )
     );
-    return Poseidon.hashWithPrefix(prefixes.issuerRecursive, [
+    return Poseidon.hashWithPrefix(prefixes.issuerImported, [
       vk.hash,
       credIdent,
     ]);
   },
 
   matchesSpec(witness) {
-    return witness.type === 'recursive';
+    return witness.type === 'imported';
   },
 });
 
-Recursive.Generic = genericRecursive;
+Imported.Generic = genericImported;
 
-Recursive.fromProgram = recursiveFromProgram;
-Recursive.fromMethod = recursiveFromMethod;
+Imported.fromProgram = importedFromProgram;
+Imported.fromMethod = importedFromMethod;
 
-async function recursiveFromProgram<
+async function importedFromProgram<
   DataType extends ProvableType,
   InputType extends ProvableType,
   Data extends InferProvable<DataType>,
@@ -209,7 +209,7 @@ async function recursiveFromProgram<
   let vk: VerificationKey | undefined;
 
   let self = {
-    spec: Recursive<Provable<Data>, InputType, Data, Input>(
+    spec: Imported<Provable<Data>, InputType, Data, Input>(
       InputProof,
       dataType
     ),
@@ -225,13 +225,13 @@ async function recursiveFromProgram<
     async fromProof(
       proof: Proof<Input, Credential<Data>>,
       vk: VerificationKey
-    ): Promise<Recursive<Data, Input>> {
+    ): Promise<Imported<Data, Input>> {
       let dynProof = InputProof.fromProof(proof);
       return {
         version: 'v0',
         metadata: undefined,
         credential: proof.publicOutput,
-        witness: { type: 'recursive', vk, proof: dynProof },
+        witness: { type: 'imported', vk, proof: dynProof },
       };
     },
 
@@ -250,7 +250,7 @@ async function recursiveFromProgram<
     async dummy({
       owner,
       data,
-    }: Credential<From<DataType>>): Promise<Recursive<Data, Input>> {
+    }: Credential<From<DataType>>): Promise<Imported<Data, Input>> {
       let input = ProvableType.synthesize(program.publicInputType);
       let vk = await self.compile();
       let credential = { owner, data: dataType.fromValue(data) };
@@ -264,7 +264,7 @@ async function recursiveFromProgram<
         version: 'v0',
         metadata: undefined,
         credential,
-        witness: { type: 'recursive', vk, proof: dummyProof },
+        witness: { type: 'imported', vk, proof: dummyProof },
       };
     },
   };
@@ -277,7 +277,7 @@ type PrivateInput<Config> = InferProvable<Get<Config, 'privateInput'>>;
 type Data<Config> = InferProvable<Get<Config, 'data'>>;
 
 // TODO type returned from this should be annotated
-async function recursiveFromMethod<
+async function importedFromMethod<
   Config extends {
     name: string;
     publicInput?: NestedProvable;
@@ -338,7 +338,7 @@ async function recursiveFromMethod<
     },
   });
 
-  let credentialSpec = await recursiveFromProgram<
+  let credentialSpec = await importedFromProgram<
     Provable<Data, InferValue<DataType>>,
     Provable<PublicInput, InferValue<PublicInputType>>,
     Data,

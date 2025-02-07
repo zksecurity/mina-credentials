@@ -757,7 +757,7 @@ test(' Spec and Node operations', async (t) => {
     const InputData = { age: Field, name: Bytes32 };
     const spec = Spec(
       {
-        signedData: Credential.Simple(InputData),
+        signedData: Credential.Native(InputData),
         targetAge: Claim(Field),
         targetName: Claim(Bytes32),
       },

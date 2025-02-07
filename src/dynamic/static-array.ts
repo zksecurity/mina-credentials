@@ -7,7 +7,6 @@ import {
   UInt32,
   type InferValue,
   Gadgets,
-  type ProvableHashable,
   type From,
   type ProvablePure,
   type IsPure,
@@ -128,7 +127,7 @@ class StaticArrayBase<T = any, V = any> {
     return (this.constructor as typeof StaticArrayBase).length;
   }
   /**
-   * The `length` of the array. For compatibility with `DynamicArray`, we also provide is under `maxLength`.
+   * The `length` of the array. For compatibility with `DynamicArray`, we also provide it under `maxLength`.
    */
   get maxLength() {
     return this.length;
@@ -330,7 +329,3 @@ class StaticArrayBase<T = any, V = any> {
  * Base class of all StaticArray subclasses
  */
 StaticArray.Base = StaticArrayBase;
-
-type ProvableArray<T, V> = ProvableHashable<StaticArrayBase<T, V>, V[]> & {
-  fromValue(array: (V | T)[] | StaticArrayBase<T>): StaticArrayBase<T, V>;
-};

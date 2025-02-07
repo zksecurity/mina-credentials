@@ -315,9 +315,9 @@ const InputSchema = z.discriminatedUnion('type', [
     .object({
       type: z.literal('credential'),
       credentialType: z.union([
-        z.literal('simple'),
+        z.literal('native'),
         z.literal('unsigned'),
-        z.literal('recursive'),
+        z.literal('imported'),
       ]),
       witness: NestedSerializedTypeSchema,
       data: NestedSerializedTypeSchema,
@@ -385,17 +385,17 @@ const PresentationRequestSchema = z
 
 // Witness Schemas
 
-const SimpleWitnessSchema = z
+const NativeWitnessSchema = z
   .object({
-    type: z.literal('simple'),
+    type: z.literal('native'),
     issuer: SerializedPublicKeySchema,
     issuerSignature: SerializedSignatureSchema,
   })
   .strict();
 
-const RecursiveWitnessSchema = z
+const ImportedWitnessSchema = z
   .object({
-    type: z.literal('recursive'),
+    type: z.literal('imported'),
     vk: z
       .object({
         data: z.string(),
@@ -426,12 +426,12 @@ const UnsignedWitnessSchema = z
   .strict();
 
 const WitnessSchema = z.discriminatedUnion('type', [
-  SimpleWitnessSchema,
-  RecursiveWitnessSchema,
+  NativeWitnessSchema,
+  ImportedWitnessSchema,
   UnsignedWitnessSchema,
 ]);
 
-const SimpleCredentialSchema = z
+const NativeCredentialSchema = z
   .object({
     owner: SerializedPublicKeySchema,
     data: z.record(SerializedDataValueSchema),
@@ -464,6 +464,6 @@ const StoredCredentialSchema = z
     version: z.literal('v0'),
     witness: WitnessSchema,
     metadata: JsonSchema.optional(),
-    credential: z.union([SimpleCredentialSchema, StructCredentialSchema]),
+    credential: z.union([NativeCredentialSchema, StructCredentialSchema]),
   })
   .strict();
