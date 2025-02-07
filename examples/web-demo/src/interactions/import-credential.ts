@@ -1,7 +1,7 @@
 import { PublicKey } from 'o1js';
-import { ZkPass, type ZkPassResponseItem } from '../../../../src/imported';
+import { Credential } from 'mina-attestations';
+import { ZkPass, type ZkPassResponseItem } from 'mina-attestations/imported';
 import { storeCredential } from './store-credential';
-import { Credential } from '../../../../build/src';
 import { getPublicKey } from './obtain-credential';
 
 export { importZkpassProof };

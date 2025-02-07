@@ -1,4 +1,4 @@
-import { type StoredCredential, Credential } from '../../../..';
+import { type StoredCredential, Credential } from 'mina-attestations';
 import { getProvider } from './obtain-credential';
 
 export { storeCredential, getStoredCredentials };

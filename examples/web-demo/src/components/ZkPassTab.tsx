@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Label } from './ui/label';
 import TransgateConnect from '@zkpass/transgate-js-sdk';
-import type { ZkPassResponseItem } from '../../../../src/imported';
+import type { ZkPassResponseItem } from 'mina-attestations/imported';
 import { importZkpassProof } from '../interactions/import-credential';
 import { useToast } from './ui/toast';
 
