@@ -95,6 +95,11 @@ function Recursive<
         credIdent,
       ]);
     },
+
+    matchesSpec(witness) {
+      // TODO should check proof type
+      return witness.type === 'recursive';
+    },
   };
 }
 
@@ -151,6 +156,10 @@ const genericRecursive = defineCredential({
       vk.hash,
       credIdent,
     ]);
+  },
+
+  matchesSpec(witness) {
+    return witness.type === 'recursive';
   },
 });
 

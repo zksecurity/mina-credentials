@@ -49,6 +49,10 @@ const Signed = Object.assign(
     issuer({ issuer }) {
       return Poseidon.hashWithPrefix(prefixes.issuerSimple, issuer.toFields());
     },
+
+    matchesSpec(witness) {
+      return witness.type === 'simple';
+    },
   }),
   {
     issuer(issuer: PublicKey) {

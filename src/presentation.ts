@@ -13,6 +13,7 @@ import {
 import { Spec, type Input, type Claims } from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
+  credentialMatchesSpec,
   hashCredential,
   type CredentialSpec,
   type StoredCredential,
@@ -45,6 +46,7 @@ export {
   type HttpsInputContext,
   type WalletDerivedContext,
   hashClaims,
+  pickCredentials,
 };
 
 type PresentationRequestType = 'no-context' | 'zk-app' | 'https';
@@ -332,43 +334,34 @@ async function preparePresentation<R extends PresentationRequest>({
   });
 
   // find credentials and sign with owner key
-  let credentialsNeeded = Object.entries(request.spec.inputs).filter(
-    (c): c is [string, CredentialSpec] => c[1].type === 'credential'
-  );
-  let credentialsUsed = pickCredentials(
-    credentialsNeeded.map(([key]) => key),
+  let { credentialsUsed, credentialsAndSpecs } = pickCredentials(
+    request.spec,
     credentials
   );
-  let credentialsAndTypes = credentialsNeeded.map(([key, credentialType]) => {
-    let credentialAndType = { ...credentialsUsed[key]!, credentialType };
 
-    // if the credential uses a subschema, we have to wrap it inside DynamicRecord
-    if (isSubclass(credentialType.data, DynamicRecord.Base)) {
-      let { owner, data } = credentialAndType.credential;
-      credentialAndType.credential = {
-        owner,
-        data: credentialType.data.from(data),
-      };
-    }
-    return credentialAndType;
-  });
+  // TODO do we need this step?
+  // credentialsAndSpecs = credentialsAndSpecs.map((credentialAndSpec) => {
+  //   // if the credential uses a subschema, we have to wrap it inside DynamicRecord
+  //   if (isSubclass(credentialAndSpec.spec.data, DynamicRecord.Base)) {
+  //     let { owner, data } = credentialAndSpec.credential;
+  //     credentialAndSpec.credential = {
+  //       owner,
+  //       data: credentialAndSpec.spec.data.from(data),
+  //     };
+  //   }
+  //   return credentialAndSpec;
+  // });
 
   // prepare fields to sign
-  let credHashes = credentialsAndTypes.map(({ credential }) =>
-    hashCredential(credential)
+  let credHashes = credentialsAndSpecs.map(
+    ({ credential }) => hashCredential(credential).hash
   );
-  let issuers = credentialsAndTypes.map(({ credentialType, witness }) =>
-    credentialType.issuer(witness)
+  let issuers = credentialsAndSpecs.map(({ spec, witness }) =>
+    spec.issuer(witness)
   );
 
   // data that is going to be signed by the wallet
-  const fieldsToSign = [
-    context,
-    ...zip(
-      credHashes.map((c) => c.hash),
-      issuers
-    ).flat(),
-  ];
+  const fieldsToSign = [context, ...zip(credHashes, issuers).flat()];
   return {
     context,
     messageFields: fieldsToSign.map((f) => f.toString()),
@@ -503,33 +496,56 @@ function fromJSON(presentationJson: string): Presentation {
 // helper
 
 function pickCredentials(
-  credentialsNeeded: string[],
+  spec: Spec,
   [...credentials]: (StoredCredential & { key?: string })[]
-): Record<string, StoredCredential> {
+): {
+  credentialsUsed: Record<string, StoredCredential>;
+  credentialsAndSpecs: (StoredCredential & { spec: CredentialSpec })[];
+} {
+  let credentialsNeeded = Object.entries(spec.inputs).filter(
+    (c): c is [string, CredentialSpec] => c[1].type === 'credential'
+  );
+  let credentialKeys = credentialsNeeded.map(([key]) => key);
   let credentialsUsed: Record<string, StoredCredential> = {};
-  let credentialsStillNeeded: string[] = [];
+  let credentialsStillNeeded: [string, CredentialSpec][] = [];
 
-  for (let key of credentialsNeeded) {
+  // an attached `key` signals that the caller knows where to use the credential
+  // in that case, we don't perform additional filtering
+  for (let [key, spec] of credentialsNeeded) {
     let i = credentials.findIndex((c) => c.key === key);
     if (i === -1) {
-      credentialsStillNeeded.push(key);
+      credentialsStillNeeded.push([key, spec]);
       continue;
     } else {
       credentialsUsed[key] = credentials[i]!;
       credentials.splice(i, 1);
     }
   }
-  let i = 0;
   for (let credential of credentials) {
     if (credentialsStillNeeded.length === 0) break;
-    credentialsUsed[credentialsStillNeeded.shift()!] = credential;
-    i++;
+
+    // can we use this credential for one of the remaining slots?
+    let j = credentialsStillNeeded.findIndex(([, spec]) => {
+      let matches = credentialMatchesSpec(spec, credential);
+      // console.log('matches', matches, spec, credential);
+      return matches;
+    });
+    if (j === -1) continue;
+    let [slot] = credentialsStillNeeded.splice(j, 1);
+    let [key] = slot!;
+    credentialsUsed[key] = credential;
   }
   assert(
     credentialsStillNeeded.length === 0,
-    `Missing credentials: ${credentialsStillNeeded.join(', ')}`
+    `Missing credentials: ${credentialsStillNeeded
+      .map(([key]) => `"${key}"`)
+      .join(', ')}`
   );
-  return credentialsUsed;
+  let credentialsAndSpecs = credentialsNeeded.map(([key, spec]) => ({
+    ...credentialsUsed[key]!,
+    spec,
+  }));
+  return { credentialsUsed, credentialsAndSpecs };
 }
 
 // specific types of requests

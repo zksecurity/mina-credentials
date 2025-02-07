@@ -34,6 +34,7 @@ export {
   Unsigned,
   unsafeMissingOwner,
   createUnsigned,
+  credentialMatchesSpec,
 };
 
 /**
@@ -47,13 +48,14 @@ type Credential<Data> = { owner: PublicKey; data: Data };
 type CredentialType = 'unsigned' | 'simple' | 'recursive';
 
 /**
- * A credential type is:
- * - a string id fully identifying the credential type
- * - a type for private parameters
+ * A credential spec is:
+ * - a string `credentialType` identifying the credential type
+ * - a "witness" type for private parameters
  * - a type for data (which is left generic when defining credential types)
  * - a function `verify(...)` that verifies the credential inside a ZkProgram circuit
  * - a function `verifyOutsideCircuit(...)` that verifies the credential in normal JS
  * - a function `issuer(...)` that derives a commitment to the "issuer" of the credential, e.g. a public key for signed credentials
+ * - a function `matchesSpec(...)` that decides whether a stored credential's witness matches the spec
  */
 type CredentialSpec<
   Type extends CredentialType = CredentialType,
@@ -73,6 +75,8 @@ type CredentialSpec<
   ): Promise<void>;
 
   issuer(witness: Witness): Field;
+
+  matchesSpec(witness: Witness): boolean;
 };
 
 /**
@@ -203,6 +207,21 @@ function signCredentials<Private, Data>(
   return Signature.create(ownerKey, [context, ...zip(hashes, issuers).flat()]);
 }
 
+function credentialMatchesSpec(
+  spec: CredentialSpec,
+  credential: StoredCredential<unknown>
+): boolean {
+  // check version
+  if (credential.version !== 'v0') return false;
+
+  // credential-specific check
+  if (!spec.matchesSpec(credential.witness)) return false;
+
+  // check that the data type matches
+  // TODO
+  return true;
+}
+
 function defineCredential<
   Type extends CredentialType,
   Witness extends NestedProvable
@@ -221,6 +240,8 @@ function defineCredential<
   ): Promise<void>;
 
   issuer(witness: InferNestedProvable<Witness>): Field;
+
+  matchesSpec(witness: InferNestedProvable<Witness>): boolean;
 }) {
   return function credential<DataType extends NestedProvable>(
     dataType: DataType
@@ -237,6 +258,7 @@ function defineCredential<
       verify: config.verify,
       verifyOutsideCircuit: config.verifyOutsideCircuit,
       issuer: config.issuer,
+      matchesSpec: config.matchesSpec,
     };
   };
 }
@@ -255,6 +277,11 @@ const Unsigned = defineCredential({
   // dummy issuer
   issuer() {
     return Field(0);
+  },
+
+  // always matches
+  matchesSpec() {
+    return true;
   },
 });
 
