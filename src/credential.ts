@@ -14,7 +14,7 @@ import {
   type NestedProvableFor,
 } from './nested.ts';
 import { zip } from './util.ts';
-import { hashDynamic } from './dynamic/dynamic-hash.ts';
+import { hashDynamic, provableTypeMatches } from './dynamic/dynamic-hash.ts';
 import { Schema } from './dynamic/schema.ts';
 
 export {
@@ -218,8 +218,7 @@ function credentialMatchesSpec(
   if (!spec.matchesSpec(credential.witness)) return false;
 
   // check that the data type matches
-  // TODO
-  return true;
+  return provableTypeMatches(credential.credential.data, spec.data);
 }
 
 function defineCredential<
