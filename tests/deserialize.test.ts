@@ -725,7 +725,7 @@ test('deserializeSpec', async (t) => {
   );
 
   await t.test(
-    'should correctly deserialize a Spec with recursive credential',
+    'should correctly deserialize a Spec with imported credential',
     async () => {
       class RecursiveProof extends DynamicProof<undefined, Credential<Field>> {
         static publicInputType = Undefined;
@@ -736,7 +736,7 @@ test('deserializeSpec', async (t) => {
 
       const originalSpec = Spec(
         {
-          provedData: Credential.Recursive(RecursiveProof, Field),
+          provedData: Credential.Imported(RecursiveProof, Field),
           zeroField: Constant(Field, Field(0)),
         },
         ({ provedData, zeroField }) => ({

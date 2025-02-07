@@ -13,8 +13,8 @@ import {
   type Witness as NativeWitness,
 } from './credential-native.ts';
 import {
-  Recursive,
-  type Witness as RecursiveWitness,
+  Imported,
+  type Witness as ImportedWitness,
 } from './credential-recursive.ts';
 import { assert, hasProperty } from './util.ts';
 import { type InferNestedProvable, NestedProvable } from './nested.ts';
@@ -34,7 +34,7 @@ type Credential<Data> = { owner: PublicKey; data: Data };
 const Credential = {
   Unsigned,
   Native,
-  Recursive,
+  Imported,
 
   /**
    * Issue a "native" signed credential.
@@ -101,7 +101,7 @@ const Credential = {
 
 // validating generic credential
 
-type Witness = NativeWitness | RecursiveWitness;
+type Witness = NativeWitness | ImportedWitness;
 
 async function validateCredential(
   credential: StoredCredential<unknown, unknown, unknown>
@@ -139,6 +139,6 @@ function getCredentialSpec<W extends Witness>(
     case 'native':
       return Credential.Native as any;
     case 'recursive':
-      return Credential.Recursive.Generic as any;
+      return Credential.Imported.Generic as any;
   }
 }

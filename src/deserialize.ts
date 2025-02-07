@@ -80,7 +80,7 @@ function deserializeInput(input: any): Input {
           return Credential.Unsigned(data);
         case 'recursive':
           let proof = deserializeProvableType(input.witness.proof) as any;
-          return Credential.Recursive(proof, data);
+          return Credential.Imported(proof, data);
         default:
           throw Error(`Unsupported credential id: ${credentialType}`);
       }

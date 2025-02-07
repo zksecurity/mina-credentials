@@ -11,10 +11,10 @@ import type {
   CredentialSpec,
   CredentialType,
 } from './credential.ts';
-import type { Witness as WitnessSigned } from './credential-native.ts';
+import type { Witness as WitnessNative } from './credential-native.ts';
 import {
-  Recursive,
-  type Witness as WitnessRecursive,
+  Imported,
+  type Witness as WitnessImported,
 } from './credential-recursive.ts';
 
 export { Node, Operation };
@@ -133,11 +133,11 @@ function evalNode<Data>(root: object, node: Node<Data>): Data {
     case 'issuer':
       return assertCredential(root, node).issuer as any;
     case 'issuerPublicKey':
-      return assertSignedCredential(root, node).witness.issuer as Data;
+      return assertNativeCredential(root, node).witness.issuer as Data;
     case 'verificationKeyHash':
-      return assertRecursiveCredential(root, node).witness.vk.hash as Data;
+      return assertImportedCredential(root, node).witness.vk.hash as Data;
     case 'publicInput':
-      return assertRecursiveCredential(root, node).witness.proof
+      return assertImportedCredential(root, node).witness.proof
         .publicInput as Data;
 
     case 'property': {
@@ -307,7 +307,7 @@ function evalNodeType(rootType: RootType, node: Node): NestedProvable {
       return Field;
     case 'publicInput': {
       let spec = assertCredentialType(rootType, node);
-      return Recursive.publicInputType(spec);
+      return Imported.publicInputType(spec);
     }
 
     case 'property': {
@@ -500,7 +500,7 @@ function issuer(credential: CredentialNode): Node<Field> {
 function issuerPublicKey({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessSigned>): Node<PublicKey> {
+}: CredentialNode<any, WitnessNative>): Node<PublicKey> {
   assert(
     credentialType === 'native',
     '`issuerPublicKey` is only available on signed credentials'
@@ -511,7 +511,7 @@ function issuerPublicKey({
 function verificationKeyHash({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessRecursive>): Node<Field> {
+}: CredentialNode<any, WitnessImported>): Node<Field> {
   assert(
     credentialType === 'recursive',
     '`verificationKeyHash` is only available on recursive credentials'
@@ -522,7 +522,7 @@ function verificationKeyHash({
 function publicInput<Input>({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessRecursive<any, Input>>): Node<Input> {
+}: CredentialNode<any, WitnessImported<any, Input>>): Node<Input> {
   assert(
     credentialType === 'recursive',
     '`publicInput` is only available on recursive credentials'
@@ -530,17 +530,17 @@ function publicInput<Input>({
   return { type: 'publicInput', credentialKey };
 }
 
-type WitnessAny = WitnessSigned | WitnessRecursive | undefined;
+type WitnessAny = WitnessNative | WitnessImported | undefined;
 
 type CredentialOutput<Data = any, Witness extends WitnessAny = WitnessAny> = {
   credential: Credential<Data>;
   issuer: Field;
   witness: Witness;
 };
-type CredentialOutputSigned<Data = any> = CredentialOutput<Data, WitnessSigned>;
-type CredentialOutputRecursive<Data = any> = CredentialOutput<
+type CredentialOutputNative<Data = any> = CredentialOutput<Data, WitnessNative>;
+type CredentialOutputImported<Data = any> = CredentialOutput<
   Data,
-  WitnessRecursive
+  WitnessImported
 >;
 
 type CredentialNodeType =
@@ -566,20 +566,20 @@ function assertCredentialType<Data>(
   return rootType[credential.credentialKey] as CredentialSpec;
 }
 
-function assertSignedCredential<Data>(
+function assertNativeCredential<Data>(
   root: object,
   credential: Node<Data> & { type: CredentialNodeType }
 ) {
   let cred = assertCredential(root, credential);
   assert(cred.witness?.type === 'native');
-  return cred as CredentialOutputSigned<Data>;
+  return cred as CredentialOutputNative<Data>;
 }
 
-function assertRecursiveCredential<Data>(
+function assertImportedCredential<Data>(
   root: object,
   credential: Node<Data> & { type: CredentialNodeType }
 ) {
   let cred = assertCredential(root, credential);
   assert(cred.witness?.type === 'recursive');
-  return cred as CredentialOutputRecursive<Data>;
+  return cred as CredentialOutputImported<Data>;
 }

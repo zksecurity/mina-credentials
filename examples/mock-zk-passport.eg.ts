@@ -16,7 +16,7 @@ const Nationality = DynamicString({ maxLength: 50 });
 // dummy passport credential, which just takes in some data and returns it
 // TODO: in place of this, we'd want a real proof of passport verification
 // (implementation in progress at the time of writing)
-let PassportCredential_ = await Credential.Recursive.fromMethod(
+let PassportCredential_ = await Credential.Imported.fromMethod(
   {
     name: 'passport',
     publicInput: { issuer: Field },

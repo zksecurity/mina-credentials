@@ -38,7 +38,7 @@ Is is stored along with metadata and the version of the credential:
 type Witness =
   | { type: 'native', issuer: PublicKey, issuerSignature: Signature }
   | {
-      type: 'recursive',
+      type: 'imported',
       credVK: VerificationKey,
       credIdent: Field,
       credProof: Proof,
@@ -117,7 +117,7 @@ metaHash = Keccak256.hash(metadata);
 
 ### Public Inputs
 
-The public inputs for the presentations circuits (native and recursive) are:
+The public inputs for the presentations circuits (native and imported) are:
 
 ```javascript
 type PublicInput = {
@@ -149,7 +149,7 @@ issuerSignature.verify(issuerPk, credHash);
 
 // convert issuerPK to opaque field element
 let issuer = Poseidon.hashWithPrefix(
-  'mina-cred:v0:native', // sep. the domain of "native" and "recursive" issuers
+  'mina-cred:v0:native', // sep. the domain of "native" and "imported" issuers
   issuerPk
 );
 
@@ -164,9 +164,9 @@ applicationConstraints(
 );
 ```
 
-### Circuit: Present Recursive Credential
+### Circuit: Present Imported Credential
 
-A standardized circuit for presenting recursive credentials.
+A standardized circuit for presenting imported credentials.
 
 The circuit verifies a proof "from" the issuing authority and a signature from the owner.
 
@@ -187,9 +187,9 @@ let credHash = Poseidon.hashPacked(Credential, credential);
 credProof.publicInput.assertEquals([credHash, credIdent]);
 credProof.verify(credVK);
 
-// the issuer is identified by the recursive relation and public input
+// the issuer is identified by the imported relation and public input
 let issuer = Poseidon.hashWithPrefix(
-  'mina-cred:v0:recursive', // sep. the domain of "native" and "recursive" issuers
+  'mina-cred:v0:imported', // sep. the domain of "native" and "imported" issuers
   [vk.hash, credIdent] // identifies the issuing authority / validation logic
 );
 

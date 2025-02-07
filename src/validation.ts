@@ -393,7 +393,7 @@ const NativeWitnessSchema = z
   })
   .strict();
 
-const RecursiveWitnessSchema = z
+const ImportedWitnessSchema = z
   .object({
     type: z.literal('recursive'),
     vk: z
@@ -427,7 +427,7 @@ const UnsignedWitnessSchema = z
 
 const WitnessSchema = z.discriminatedUnion('type', [
   NativeWitnessSchema,
-  RecursiveWitnessSchema,
+  ImportedWitnessSchema,
   UnsignedWitnessSchema,
 ]);
 

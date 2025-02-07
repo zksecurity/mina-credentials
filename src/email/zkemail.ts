@@ -62,7 +62,6 @@ function verifyEmailSimple(email: ProvableEmail) {
   let header = DynamicString.from(email.header);
 
   // compute and compare the body hash
-  // TODO: this needs a recursive proof
   let bodyHash = body.hashToBytes('sha2-256');
   let bodyHashBase64 = bodyHash.base64Encode();
 
@@ -78,7 +77,6 @@ function verifyEmailSimple(email: ProvableEmail) {
   );
 
   // hash the header
-  // TODO: this needs a recursive proof
   let headerHash = header.hashToBytes('sha2-256');
 
   // verify the signature

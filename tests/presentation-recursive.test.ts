@@ -12,15 +12,15 @@ import { Operation } from '../src/operation.ts';
 const Bytes32 = Bytes(32);
 const InputData = { age: Field, name: Bytes32 };
 
-// create recursive credential
+// create imported credential
 // TODO create a more interesting input proof
-const Recursive = await Credential.Recursive.fromMethod(
+const Imported = await Credential.Imported.fromMethod(
   { name: 'dummy', privateInput: InputData, data: InputData },
   async ({ privateInput: data }) => data
 );
 
 let data = { age: Field(18), name: Bytes32.fromString('Alice') };
-let provedData = await Recursive.create({
+let provedData = await Imported.create({
   owner,
   privateInput: data,
   publicInput: undefined,
@@ -32,7 +32,7 @@ await Credential.validate(storedCredential);
 // define presentation spec
 const spec = Spec(
   {
-    provedData: Recursive.spec,
+    provedData: Imported.spec,
     targetAge: Claim(Field),
     targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
   },
@@ -100,7 +100,7 @@ await describe('program with proof credential', async () => {
   });
 
   await test('run program with invalid proof', async () => {
-    let provedData = await Recursive.dummy({ owner, data });
+    let provedData = await Imported.dummy({ owner, data });
 
     await assert.rejects(
       () =>
@@ -120,7 +120,7 @@ await describe('program with proof credential', async () => {
     let invalidContext = Field(1);
     let ownerSignature = signCredentials(ownerKey, actualContext, {
       ...provedData,
-      credentialType: Recursive.spec,
+      credentialType: Imported.spec,
     });
 
     await assert.rejects(

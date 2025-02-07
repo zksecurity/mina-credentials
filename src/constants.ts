@@ -4,7 +4,7 @@ const pre = 'mina-cred:v0';
 
 const prefixes = {
   issuerNative: `${pre}:native`,
-  issuerRecursive: `${pre}:recursive`,
+  issuerImported: `${pre}:imported`,
   context: `${pre}:context`,
   nonce: `${pre}:nonce`,
 };
