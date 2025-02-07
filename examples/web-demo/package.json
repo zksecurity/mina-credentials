@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "build": "tsc && vite build",
+    "build": "cd ../.. && npm run build && cd examples/web-demo && tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
