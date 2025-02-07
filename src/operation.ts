@@ -11,7 +11,7 @@ import type {
   CredentialSpec,
   CredentialType,
 } from './credential.ts';
-import type { Witness as WitnessSigned } from './credential-signed.ts';
+import type { Witness as WitnessSigned } from './credential-native.ts';
 import {
   Recursive,
   type Witness as WitnessRecursive,

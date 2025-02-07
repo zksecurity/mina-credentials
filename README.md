@@ -69,7 +69,7 @@ let spec = PresentationSpec(
 
 > Note: This example is simplified, see [our code example](https://github.com/zksecurity/mina-attestations/blob/main/examples/mock-zk-passport.eg.ts) for more details.
 
-The Attestation DSL is, essentially, a radically simplified language for specifying custom zk circuits, tailored to the use case of making statements about user data. It has several advantages over a general-purpose circuit framework like o1js:
+The Attestation DSL is, essentially, a radically simplified language for specifying zk circuits, tailored to the use case of making statements about user data. It has several advantages over a general-purpose circuit framework like o1js:
 
 - Simple enough to be readable by a user (in pretty-printed form), who wants to understand what private information is shared
 - Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet

@@ -23,7 +23,7 @@ const Schema = DynamicRecord({ expiresAt: UInt64 }, { maxEntries: 20 });
 
 const authenticationSpec = Spec(
   {
-    credential: Credential.Simple(Schema),
+    credential: Credential.Native(Schema),
     expectedIssuer: Claim(Field),
     createdAt: Claim(UInt64),
   },
@@ -55,7 +55,7 @@ compiledRequestPromise.then(() =>
 const openRequests = new Map<string, Request>();
 
 async function createRequest(createdAt: UInt64) {
-  let expectedIssuer = Credential.Simple.issuer(getPublicKey());
+  let expectedIssuer = Credential.Native.issuer(getPublicKey());
   let compiled = await compiledRequestPromise;
 
   let request = PresentationRequest.httpsFromCompiled(

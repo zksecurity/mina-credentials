@@ -13,7 +13,7 @@ import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { deserializeNestedProvableValue } from './serialize-provable.ts';
 
-export { Signed, createSigned, type Witness, type Metadata };
+export { Native, createNative, type Witness, type Metadata };
 
 type Witness = {
   type: 'simple';
@@ -24,9 +24,9 @@ type Witness = {
 // TODO
 type Metadata = undefined;
 
-type Signed<Data> = StoredCredential<Data, Witness, Metadata>;
+type Native<Data> = StoredCredential<Data, Witness, Metadata>;
 
-const Signed = Object.assign(
+const Native = Object.assign(
   defineCredential({
     credentialType: 'simple',
     witness: {
@@ -61,10 +61,10 @@ const Signed = Object.assign(
   }
 );
 
-function createSigned<Data>(
+function createNative<Data>(
   issuerPrivateKey: PrivateKey,
   credentialInput: Credential<Data> | string
-): Signed<Data> {
+): Native<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
   let credential =
     typeof credentialInput === 'string'

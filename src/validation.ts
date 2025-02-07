@@ -385,7 +385,7 @@ const PresentationRequestSchema = z
 
 // Witness Schemas
 
-const SimpleWitnessSchema = z
+const NativeWitnessSchema = z
   .object({
     type: z.literal('simple'),
     issuer: SerializedPublicKeySchema,
@@ -426,7 +426,7 @@ const UnsignedWitnessSchema = z
   .strict();
 
 const WitnessSchema = z.discriminatedUnion('type', [
-  SimpleWitnessSchema,
+  NativeWitnessSchema,
   RecursiveWitnessSchema,
   UnsignedWitnessSchema,
 ]);

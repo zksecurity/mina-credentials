@@ -8,10 +8,10 @@ import {
   Unsigned,
 } from './credential.ts';
 import {
-  createSigned,
-  Signed,
-  type Witness as SignedWitness,
-} from './credential-signed.ts';
+  createNative,
+  Native,
+  type Witness as NativeWitness,
+} from './credential-native.ts';
 import {
   Recursive,
   type Witness as RecursiveWitness,
@@ -33,13 +33,13 @@ type Credential<Data> = { owner: PublicKey; data: Data };
 
 const Credential = {
   Unsigned,
-  Simple: Signed,
+  Native,
   Recursive,
 
   /**
-   * Issue a "simple" signed credential.
+   * Issue a "native" signed credential.
    */
-  sign: createSigned,
+  sign: createNative,
 
   /**
    * Create a dummy credential with no owner and no signature.
@@ -101,7 +101,7 @@ const Credential = {
 
 // validating generic credential
 
-type Witness = SignedWitness | RecursiveWitness;
+type Witness = NativeWitness | RecursiveWitness;
 
 async function validateCredential(
   credential: StoredCredential<unknown, unknown, unknown>
@@ -137,7 +137,7 @@ function getCredentialSpec<W extends Witness>(
 ) => CredentialSpec<CredentialType, W, InferNestedProvable<DataType>> {
   switch (witness.type) {
     case 'simple':
-      return Credential.Simple as any;
+      return Credential.Native as any;
     case 'recursive':
       return Credential.Recursive.Generic as any;
   }

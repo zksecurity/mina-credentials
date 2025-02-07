@@ -240,7 +240,7 @@ test('deserializeInput', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
 
-    const input = Credential.Simple(InputData);
+    const input = Credential.Native(InputData);
 
     const serialized = serializeInput(input);
 
@@ -311,7 +311,7 @@ test('deserializeInputs', async (t) => {
   await t.test('should deserialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
     const inputs = {
-      credential: Credential.Simple(InputData),
+      credential: Credential.Native(InputData),
     };
 
     const serialized = Object.fromEntries(
@@ -335,7 +335,7 @@ test('deserializeInputs', async (t) => {
       privateField: Credential.Unsigned(Field),
       publicBool: Claim(Bool),
       constantUint: Constant(UInt32, UInt32.from(42)),
-      credential: Credential.Simple({ score: UInt64 }),
+      credential: Credential.Native({ score: UInt64 }),
     };
 
     const serialized = Object.fromEntries(
@@ -622,7 +622,7 @@ test('deserializeSpec', async (t) => {
     async () => {
       const originalSpec = Spec(
         {
-          signedData: Credential.Simple({ field: Field }),
+          signedData: Credential.Native({ field: Field }),
           zeroField: Constant(Field, Field(0)),
         },
         ({ signedData, zeroField }) => ({
@@ -696,7 +696,7 @@ test('deserializeSpec', async (t) => {
     'should correctly deserialize a spec with owner and issuer',
     async (t) => {
       const InputData = { age: Field };
-      const SignedData = Credential.Simple(InputData);
+      const SignedData = Credential.Native(InputData);
 
       const originalSpec = Spec(
         {
@@ -787,7 +787,7 @@ test('deserializePresentationRequest with context', async (t) => {
 
   const spec = Spec(
     {
-      signedData: Credential.Simple(InputData),
+      signedData: Credential.Native(InputData),
       targetAge: Claim(Field),
       targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },

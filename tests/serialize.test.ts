@@ -677,7 +677,7 @@ test('serializeInput', async (t) => {
 
   await t.test('should serialize credential input', () => {
     const InputData = { age: Field, isAdmin: Bool };
-    const input = Credential.Simple(InputData);
+    const input = Credential.Native(InputData);
 
     const serialized = serializeInput(input);
 
@@ -745,7 +745,7 @@ test('serializeInput', async (t) => {
   await t.test(
     'should serialize simple credential input with nested structure',
     () => {
-      const input = Credential.Simple({
+      const input = Credential.Native({
         personal: {
           age: Field,
           score: UInt64,
@@ -839,7 +839,7 @@ test('convertSpecToSerializable', async (t) => {
   await t.test('should serialize a Spec with an credential', () => {
     const spec = Spec(
       {
-        signedData: Credential.Simple({ field: Field }),
+        signedData: Credential.Native({ field: Field }),
         zeroField: Constant(Field, Field(0)),
       },
       ({ signedData, zeroField }) => ({
@@ -1036,7 +1036,7 @@ test('Serialize and deserialize spec with hash', async (t) => {
 
 test('Serialize spec with owner and issuer nodes', async (t) => {
   const InputData = { age: Field };
-  const SignedData = Credential.Simple(InputData);
+  const SignedData = Credential.Native(InputData);
 
   const spec = Spec(
     {

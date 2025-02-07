@@ -15,7 +15,7 @@ import { Operation, PresentationRequest } from '../src/index.ts';
 const Bytes32 = Bytes(32);
 
 test('StoredCredentialSchema validation', async (t) => {
-  await t.test('validates simple credential', () => {
+  await t.test('validates native credential', () => {
     const data = { age: Field(25) };
     const signedCredential = Credential.sign(issuerKey, { owner, data });
     const serialized = Credential.toJSON(signedCredential);
@@ -24,7 +24,7 @@ test('StoredCredentialSchema validation', async (t) => {
     const result = StoredCredentialSchema.safeParse(parsed);
     assert(
       result.success,
-      'Simple credential JSON should be valid: ' +
+      'Native credential JSON should be valid: ' +
         (result.success ? '' : JSON.stringify(result.error.issues, null, 2))
     );
   });
@@ -87,7 +87,7 @@ test('PresentationRequestSchema validation', async (t) => {
 
     const spec = Spec(
       {
-        data: Credential.Simple(NestedInputData),
+        data: Credential.Native(NestedInputData),
         targetAge: Claim(Field),
         targetPoints: Claim(Field),
       },

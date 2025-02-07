@@ -19,7 +19,7 @@ test('program with simple spec and signature credential', async (t) => {
 
   const spec = Spec(
     {
-      signedData: Credential.Simple({ age: Field, name: Bytes32 }),
+      signedData: Credential.Native({ age: Field, name: Bytes32 }),
       targetAge: Claim(Field),
       targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },
@@ -122,7 +122,7 @@ test('program with simple spec and signature credential', async (t) => {
 
 test('program with owner and issuer operations', async (t) => {
   const InputData = { dummy: Field };
-  const SignedData = Credential.Simple(InputData);
+  const SignedData = Credential.Native(InputData);
 
   const spec = Spec(
     {
@@ -174,7 +174,7 @@ test('presentation with context binding', async (t) => {
 
   const spec = Spec(
     {
-      signedData: Credential.Simple(InputData),
+      signedData: Credential.Native(InputData),
       targetAge: Claim(Field),
       targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },
@@ -258,7 +258,7 @@ test('serialize presentation', async (t) => {
 
   const spec = Spec(
     {
-      signedData: Credential.Simple(InputData),
+      signedData: Credential.Native(InputData),
       targetAge: Claim(Field),
       targetName: Constant(Bytes32, Bytes32.fromString('Alice')),
     },
