@@ -8,22 +8,12 @@ import {
   type ProvableHashable,
   Struct,
 } from 'o1js';
-import {
-  array,
-  type ProvableHashablePure,
-  type ProvablePureType,
-  ProvableType,
-} from './o1js-missing.ts';
+import { array, ProvableType } from './o1js-missing.ts';
 import { assertIsObject } from './util.ts';
 
 export { NestedProvable };
 
-export type {
-  NestedProvablePure,
-  NestedProvableFor,
-  NestedProvablePureFor,
-  InferNestedProvable,
-};
+export type { NestedProvableFor, InferNestedProvable };
 
 const NestedProvable = {
   get: (<T>(type: NestedProvableFor<T>): Provable<T> => {
@@ -31,9 +21,7 @@ const NestedProvable = {
       ? ProvableType.get(type)
       : Struct(type);
   }) as {
-    <T>(type: NestedProvablePureFor<T>): ProvableHashablePure<T>;
     <T>(type: NestedProvableFor<T>): ProvableHashable<T>;
-    (type: NestedProvablePure): ProvableHashablePure;
     (type: NestedProvable): ProvableHashable<any>;
   },
 
@@ -62,17 +50,10 @@ const NestedProvable = {
 // TODO!! NestedProvable should accurately requre hashable type
 
 type NestedProvable = ProvableType | { [key: string]: NestedProvable };
-type NestedProvablePure =
-  | ProvablePureType
-  | { [key: string]: NestedProvablePure };
 
 type NestedProvableFor<T> =
   | ProvableType<T>
   | { [K in keyof T & string]: NestedProvableFor<T[K]> };
-
-type NestedProvablePureFor<T> =
-  | ProvablePureType<T>
-  | { [K in keyof T & string]: NestedProvablePureFor<T[K]> };
 
 type InferNestedProvable<A> = A extends ProvableType
   ? InferProvable<A>
