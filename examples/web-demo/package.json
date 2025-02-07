@@ -13,7 +13,6 @@
     "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.2",
     "lucide-react": "^0.321.0",
-    "o1js": "2.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.15.0",
