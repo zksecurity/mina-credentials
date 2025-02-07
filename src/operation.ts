@@ -15,7 +15,7 @@ import type { Witness as WitnessNative } from './credential-native.ts';
 import {
   Imported,
   type Witness as WitnessImported,
-} from './credential-recursive.ts';
+} from './credential-imported.ts';
 
 export { Node, Operation };
 export { type CredentialNode, type InputToNode, root };

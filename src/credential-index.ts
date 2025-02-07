@@ -15,7 +15,7 @@ import {
 import {
   Imported,
   type Witness as ImportedWitness,
-} from './credential-recursive.ts';
+} from './credential-imported.ts';
 import { assert, hasProperty } from './util.ts';
 import { type InferNestedProvable, NestedProvable } from './nested.ts';
 import {
