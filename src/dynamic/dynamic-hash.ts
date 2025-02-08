@@ -5,6 +5,7 @@ import {
   Bool,
   Bytes,
   Field,
+  Int64,
   Poseidon,
   Provable,
   Struct,
@@ -119,7 +120,7 @@ function packToField<T>(
   // hashable values
   if (typeof value === 'string') return hashString(value);
   if (typeof value === 'number')
-    return packToField(UInt64.from(value), UInt64, config);
+    return packToField(Int64.from(value), Int64, config);
   if (typeof value === 'boolean') return packToField(Bool(value), Bool, config);
   if (typeof value === 'bigint')
     return packToField(Field(value), Field, config);
@@ -236,7 +237,7 @@ function provableTypeOf(value: unknown): ProvableHashableType {
   if (typeof value === 'string') {
     return BaseType.DynamicString({ maxLength: stringLength(value) });
   }
-  if (typeof value === 'number') return UInt64;
+  if (typeof value === 'number') return Int64;
   if (typeof value === 'boolean') return Bool;
   if (typeof value === 'bigint') return Field;
   if (value === undefined || value === null) return Undefined;
@@ -296,7 +297,7 @@ function provableTypeEquals(
   if (typeof value === 'string') {
     return isSubclass(type, BaseType.DynamicString.Base);
   }
-  if (typeof value === 'number') return type === UInt64;
+  if (typeof value === 'number') return type === Int64;
   if (typeof value === 'boolean') return type === Bool;
   if (typeof value === 'bigint') return type === Field;
   if (value === undefined || value === null) return type === Undefined;
@@ -344,7 +345,7 @@ function nestedProvableTypeOf(value: unknown): NestedProvable {
   if (typeof value === 'string') {
     return BaseType.DynamicString({ maxLength: stringLength(value) });
   }
-  if (typeof value === 'number') return UInt64;
+  if (typeof value === 'number') return Int64;
   if (typeof value === 'boolean') return Bool;
   if (typeof value === 'bigint') return Field;
   if (value === undefined || value === null) return Undefined;
