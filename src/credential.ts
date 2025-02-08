@@ -200,28 +200,29 @@ function credentialMatchesSpec(
 
 type Unsigned<Data> = StoredCredential<Data, undefined>;
 
+const UnsignedBase = {
+  credentialType: 'unsigned' as const,
+  witness: Undefined,
+
+  // do nothing
+  verify() {},
+  async verifyOutsideCircuit() {},
+
+  // dummy issuer
+  issuer() {
+    return Field(0);
+  },
+
+  // always matches
+  matchesSpec() {
+    return true;
+  },
+};
+
 function Unsigned<DataType extends NestedProvable>(
   data: DataType
 ): CredentialSpec<'unsigned', undefined, InferNestedProvable<DataType>> {
-  return {
-    credentialType: 'unsigned',
-    witness: Undefined,
-    data: inferNestedProvable(data),
-
-    // do nothing
-    verify() {},
-    async verifyOutsideCircuit() {},
-
-    // dummy issuer
-    issuer() {
-      return Field(0);
-    },
-
-    // always matches
-    matchesSpec() {
-      return true;
-    },
-  };
+  return { ...UnsignedBase, data: inferNestedProvable(data) };
 }
 
 function unsafeMissingOwner(): PublicKey {

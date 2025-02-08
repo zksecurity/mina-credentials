@@ -1,7 +1,7 @@
 /**
  * Native signature credential
  */
-import { Poseidon, PrivateKey, PublicKey, Signature } from 'o1js';
+import { Field, Poseidon, PrivateKey, PublicKey, Signature } from 'o1js';
 import {
   type StoredCredential,
   type Credential,
@@ -28,37 +28,43 @@ type Witness = {
 
 type Native<Data> = StoredCredential<Data, Witness>;
 
+const NativeBase = {
+  credentialType: 'native' as const,
+
+  witness: {
+    type: ProvableType.constant('native' as const),
+    issuer: PublicKey,
+    issuerSignature: Signature,
+  },
+
+  // verify the signature
+  verify({ issuer, issuerSignature }: Witness, credHash: Field) {
+    let ok = issuerSignature.verify(issuer, [credHash]);
+    ok.assertTrue('Invalid signature');
+  },
+
+  async verifyOutsideCircuit(
+    { issuer, issuerSignature }: Witness,
+    credHash: Field
+  ) {
+    let ok = issuerSignature.verify(issuer, [credHash]);
+    ok.assertTrue('Invalid signature');
+  },
+
+  // issuer == issuer public key
+  issuer({ issuer }: Witness) {
+    return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
+  },
+
+  matchesSpec(witness: Witness) {
+    return witness.type === 'native';
+  },
+};
+
 function Native<DataType extends NestedProvable>(
   dataType: DataType
 ): CredentialSpec<'native', Witness, InferNestedProvable<DataType>> {
-  return {
-    credentialType: 'native',
-    witness: {
-      type: ProvableType.constant('native' as const),
-      issuer: PublicKey,
-      issuerSignature: Signature,
-    },
-    data: inferNestedProvable(dataType),
-
-    // verify the signature
-    verify({ issuer, issuerSignature }, credHash) {
-      let ok = issuerSignature.verify(issuer, [credHash]);
-      ok.assertTrue('Invalid signature');
-    },
-    async verifyOutsideCircuit({ issuer, issuerSignature }, credHash) {
-      let ok = issuerSignature.verify(issuer, [credHash]);
-      ok.assertTrue('Invalid signature');
-    },
-
-    // issuer == issuer public key
-    issuer({ issuer }) {
-      return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
-    },
-
-    matchesSpec(witness) {
-      return witness.type === 'native';
-    },
-  };
+  return { ...NativeBase, data: inferNestedProvable(dataType) };
 }
 Native.issuer = function (issuer: PublicKey) {
   return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
