@@ -26,8 +26,7 @@ import {
   type Credential,
   type StoredCredential,
   defineCredential,
-  credentialHash,
-  hashCredentialInCircuit,
+  hashCredential,
   withOwner,
 } from './credential.ts';
 import { assert, assertHasProperty } from './util.ts';
@@ -71,16 +70,16 @@ function Imported<
     // verify the proof, check that its public output is exactly the credential
     verify({ vk, proof }, credHash) {
       proof.verify(vk);
-      hashCredentialInCircuit(data, proof.publicOutput).hash.assertEquals(
-        credHash.hash,
+      hashCredential(proof.publicOutput).assertEquals(
+        credHash,
         'Invalid proof output'
       );
     },
     async verifyOutsideCircuit({ vk, proof }, credHash) {
       let ok = await verify(proof, vk);
       assert(ok, 'Invalid proof');
-      hashCredentialInCircuit(data, proof.publicOutput).hash.assertEquals(
-        credHash.hash,
+      hashCredential(proof.publicOutput).assertEquals(
+        credHash,
         'Invalid proof output'
       );
     },
@@ -131,16 +130,16 @@ const genericImported = defineCredential({
   // verify the proof, check that its public output is exactly the credential
   verify({ vk, proof }, credHash) {
     proof.verify(vk);
-    credentialHash(proof.publicOutput).assertEquals(
-      credHash.hash,
+    hashCredential(proof.publicOutput).assertEquals(
+      credHash,
       'Invalid proof output'
     );
   },
   async verifyOutsideCircuit({ vk, proof }, credHash) {
     let ok = await verify(proof, vk);
     assert(ok, 'Invalid proof');
-    credentialHash(proof.publicOutput).assertEquals(
-      credHash.hash,
+    hashCredential(proof.publicOutput).assertEquals(
+      credHash,
       'Invalid proof output'
     );
   },

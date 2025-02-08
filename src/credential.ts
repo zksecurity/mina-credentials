@@ -3,7 +3,6 @@ import {
   Signature,
   Undefined,
   Field,
-  Hashed,
   PrivateKey,
   Group,
   Poseidon,
@@ -15,7 +14,6 @@ import {
 } from './nested.ts';
 import { zip } from './util.ts';
 import { hashDynamic, provableTypeMatches } from './dynamic/dynamic-hash.ts';
-import { Schema } from './dynamic/schema.ts';
 
 export {
   type Credential,
@@ -23,9 +21,7 @@ export {
   type CredentialType,
   type CredentialInputs,
   type CredentialOutputs,
-  credentialHash,
   hashCredential,
-  hashCredentialInCircuit,
   verifyCredentials,
   signCredentials,
   type StoredCredential,
@@ -67,12 +63,9 @@ type CredentialSpec<
   witness: NestedProvableFor<Witness>;
   data: NestedProvableFor<Data>;
 
-  verify(witness: Witness, credHash: Hashed<Credential<Data>>): void;
+  verify(witness: Witness, credHash: Field): void;
 
-  verifyOutsideCircuit(
-    witness: Witness,
-    credHash: Hashed<Credential<Data>>
-  ): Promise<void>;
+  verifyOutsideCircuit(witness: Witness, credHash: Field): Promise<void>;
 
   issuer(witness: Witness): Field;
 
@@ -92,24 +85,10 @@ type StoredCredential<Data = any, Witness = any, Metadata = any> = {
 /**
  * Hash a credential.
  */
-function hashCredential<Data>(credential: Credential<Data>) {
-  let type = Schema.type(credential);
-  return Hashed.create(type, credentialHash).hash(type.fromValue(credential));
-}
-
-/**
- * Hash a credential inside a zk circuit.
- *
- * The differences to `hashCredential()` are:
- * - we have a dataType given which defines the circuit and therefore shouldn't be derived from the credential
- * - we can't convert the credential data from plain JS values
- */
-function hashCredentialInCircuit<Data>(
-  dataType: NestedProvableFor<Data>,
-  credential: Credential<Data>
-) {
-  let type = NestedProvable.get(withOwner(dataType));
-  return Hashed.create(type, credentialHash).hash(credential);
+function hashCredential({ owner, data }: Credential<unknown>) {
+  let ownerHash = Poseidon.hash(owner.toFields());
+  let dataHash = hashDynamic(data);
+  return Poseidon.hash([ownerHash, dataHash]);
 }
 
 /**
@@ -145,7 +124,7 @@ function verifyCredentials({
 }: CredentialInputs): CredentialOutputs {
   // pack credentials in hashes
   let credHashes = credentials.map(({ spec: { data }, credential }) =>
-    hashCredentialInCircuit(data, credential)
+    hashCredential(credential)
   );
 
   // verify each credential using its own verification method
@@ -167,10 +146,9 @@ function verifyCredentials({
 
   // verify the owner signature
   if (owner !== undefined) {
-    let hashes = credHashes.map((c) => c.hash);
     let ok = ownerSignature.verify(owner, [
       context,
-      ...zip(hashes, issuers).flat(),
+      ...zip(credHashes, issuers).flat(),
     ]);
     ok.assertTrue('Invalid owner signature');
   }
@@ -198,9 +176,7 @@ function signCredentials<Private, Data>(
     witness: Private;
   }[]
 ) {
-  let hashes = credentials.map(
-    ({ credential }) => hashCredential(credential).hash
-  );
+  let hashes = credentials.map(({ credential }) => hashCredential(credential));
   let issuers = credentials.map(({ credentialType, witness }) =>
     credentialType.issuer(witness)
   );
@@ -228,14 +204,11 @@ function defineCredential<
   credentialType: Type;
   witness: Witness;
 
-  verify<Data>(
-    witness: InferNestedProvable<Witness>,
-    credHash: Hashed<Credential<Data>>
-  ): void;
+  verify(witness: InferNestedProvable<Witness>, credHash: Field): void;
 
-  verifyOutsideCircuit<Data>(
+  verifyOutsideCircuit(
     witness: InferNestedProvable<Witness>,
-    credHash: Hashed<Credential<Data>>
+    credHash: Field
   ): Promise<void>;
 
   issuer(witness: InferNestedProvable<Witness>): Field;
@@ -295,12 +268,6 @@ function createUnsigned<Data>(data: Data): Unsigned<Data> {
     credential: { owner: unsafeMissingOwner(), data },
     witness: undefined,
   };
-}
-
-function credentialHash({ owner, data }: Credential<unknown>) {
-  let ownerHash = Poseidon.hash(owner.toFields());
-  let dataHash = hashDynamic(data);
-  return Poseidon.hash([ownerHash, dataHash]);
 }
 
 // helpers to create derived types

@@ -353,8 +353,8 @@ async function preparePresentation<R extends PresentationRequest>({
   // });
 
   // prepare fields to sign
-  let credHashes = credentialsAndSpecs.map(
-    ({ credential }) => hashCredential(credential).hash
+  let credHashes = credentialsAndSpecs.map(({ credential }) =>
+    hashCredential(credential)
   );
   let issuers = credentialsAndSpecs.map(({ spec, witness }) =>
     spec.issuer(witness)
