@@ -254,13 +254,7 @@ test('deserializeInput', async (t) => {
     const reserialized = serializeInput(deserialized);
 
     assert.deepStrictEqual(serialized, reserialized);
-
-    // can't compare them directly because of the verify function
-    Object.entries(input).forEach(([key, value]) => {
-      if (key !== 'verify') {
-        assert.deepStrictEqual((deserialized as any)[key], value);
-      }
-    });
+    assert.deepStrictEqual(deserialized, input);
   });
 
   await t.test('should deserialize nested input', () => {
