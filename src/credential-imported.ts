@@ -44,9 +44,10 @@ type Imported<Data, Input> = StoredCredential<Data, Witness<Input>>;
 
 const Imported = {
   create: createImported,
-  publicInputType,
   fromProgram: importedFromProgram,
   fromMethod: importedFromMethod,
+
+  publicInputType,
 
   Generic: {
     // verify the proof, check that its public output is exactly the credential
@@ -82,7 +83,7 @@ function createImported<
 >(
   Proof: typeof DynamicProof<Input, Credential<Data>>,
   dataType: DataType
-): CredentialSpec<'imported', Witness<Input>, Data> {
+): CredentialSpec<Witness<Input>, Data> {
   return {
     credentialType: 'imported',
     witness: {
@@ -110,7 +111,7 @@ function createImported<
 
 function publicInputType<Spec extends CredentialSpec>(
   credentialSpec: Spec
-): Spec extends CredentialSpec<'imported', Witness<infer Input>>
+): Spec extends CredentialSpec<Witness<infer Input>>
   ? ProvableType<Input>
   : never {
   assert(credentialSpec.credentialType === 'imported');

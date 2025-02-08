@@ -106,7 +106,6 @@ type Node<Data = any> =
 type GetData<T extends Input> = T extends Input<infer Data> ? Data : never;
 
 type InputToNode<T extends Input> = T extends CredentialSpec<
-  any,
   infer Witness,
   infer Data
 >

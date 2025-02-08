@@ -16,7 +16,6 @@ import {
 } from './nested.ts';
 import {
   type CredentialSpec,
-  type CredentialType,
   type Credential,
   type CredentialInputs,
   withOwner,
@@ -134,7 +133,7 @@ type Constant<Data> = {
 type Claim<Data> = { type: 'claim'; data: NestedProvableFor<Data> };
 
 type Input<Data = any> =
-  | (CredentialSpec<CredentialType, any, Data> & { type?: undefined })
+  | (CredentialSpec<any, Data> & { type?: undefined })
   | Constant<Data>
   | Claim<Data>;
 
@@ -338,7 +337,6 @@ type MapToDataInput<T extends Record<string, Input>> = {
 type ToClaim<T extends Input> = T extends Claim<infer Data> ? Data : never;
 
 type ToCredential<T extends Input> = T extends CredentialSpec<
-  CredentialType,
   infer Witness,
   infer Data
 >
@@ -346,7 +344,6 @@ type ToCredential<T extends Input> = T extends CredentialSpec<
   : never;
 
 type ToDataInput<T extends Input> = T extends CredentialSpec<
-  CredentialType,
   infer Witness,
   infer Data
 >

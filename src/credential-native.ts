@@ -63,7 +63,7 @@ const NativeBase = {
 
 function Native<DataType extends NestedProvable>(
   dataType: DataType
-): CredentialSpec<'native', Witness, InferNestedProvable<DataType>> {
+): CredentialSpec<Witness, InferNestedProvable<DataType>> {
   return { ...NativeBase, data: inferNestedProvable(dataType) };
 }
 Native.issuer = function (issuer: PublicKey) {

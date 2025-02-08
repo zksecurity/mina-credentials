@@ -54,12 +54,8 @@ type CredentialType = 'unsigned' | 'native' | 'imported';
  * - a function `issuer(...)` that derives a commitment to the "issuer" of the credential, e.g. a public key for signed credentials
  * - a function `matchesSpec(...)` that decides whether a stored credential's witness matches the spec
  */
-type CredentialSpec<
-  Type extends CredentialType = CredentialType,
-  Witness = unknown,
-  Data = unknown
-> = {
-  credentialType: Type;
+type CredentialSpec<Witness = unknown, Data = unknown> = {
+  credentialType: CredentialType;
   witness: NestedProvableFor<Witness>;
   data: NestedProvableFor<Data>;
 
@@ -170,7 +166,7 @@ function signCredentials<Private, Data>(
   ownerKey: PrivateKey,
   context: Field,
   ...credentials: {
-    credentialType: CredentialSpec<any, Private, Data>;
+    credentialType: CredentialSpec<Private, Data>;
     credential: Credential<Data>;
     witness: Private;
   }[]
@@ -221,7 +217,7 @@ const UnsignedBase = {
 
 function Unsigned<DataType extends NestedProvable>(
   data: DataType
-): CredentialSpec<'unsigned', undefined, InferNestedProvable<DataType>> {
+): CredentialSpec<undefined, InferNestedProvable<DataType>> {
   return { ...UnsignedBase, data: inferNestedProvable(data) };
 }
 
