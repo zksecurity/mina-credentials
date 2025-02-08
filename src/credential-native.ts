@@ -6,17 +6,17 @@ import {
   type StoredCredential,
   type Credential,
   hashCredential,
-  CredentialSpec,
+  type CredentialSpec,
 } from './credential.ts';
 import {
   inferNestedProvable,
-  InferNestedProvable,
+  type InferNestedProvable,
   NestedProvable,
 } from './nested.ts';
 import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { deserializeNestedProvableValue } from './serialize-provable.ts';
-import { JSONValue } from './types.ts';
+import type { JSONValue } from './types.ts';
 
 export { Native, createNative, type Witness };
 

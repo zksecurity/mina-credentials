@@ -15,7 +15,7 @@ import {
 } from './nested.ts';
 import { zip } from './util.ts';
 import { hashDynamic, provableTypeMatches } from './dynamic/dynamic-hash.ts';
-import { JSONValue } from './types.ts';
+import type { JSONValue } from './types.ts';
 
 export {
   type Credential,

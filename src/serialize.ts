@@ -10,6 +10,7 @@ import {
   serializeProvable,
   serializeProvableType,
 } from './serialize-provable.ts';
+import { assert } from './util.ts';
 
 export {
   type SerializedValue,
@@ -46,32 +47,30 @@ function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
 }
 
 function serializeInput(input: Input): any {
-  if ('type' in input) {
-    switch (input.type) {
-      case 'constant': {
-        return {
-          type: 'constant',
-          data: serializeProvableType(input.data),
-          value: serializeProvable(input.value).value,
-        };
-      }
-      case 'claim': {
-        return {
-          type: 'claim',
-          data: serializeNestedProvable(input.data),
-        };
-      }
-      default: {
-        return {
-          type: 'credential',
-          credentialType: input.credentialType,
-          witness: serializeNestedProvable(input.witness),
-          data: serializeNestedProvable(input.data),
-        };
-      }
+  switch (input.type) {
+    case 'constant': {
+      return {
+        type: 'constant',
+        data: serializeProvableType(input.data),
+        value: serializeProvable(input.value).value,
+      };
+    }
+    case 'claim': {
+      return {
+        type: 'claim',
+        data: serializeNestedProvable(input.data),
+      };
+    }
+    default: {
+      assert('credentialType' in input, 'Invalid input type');
+      return {
+        type: 'credential',
+        credentialType: input.credentialType,
+        witness: serializeNestedProvable(input.witness),
+        data: serializeNestedProvable(input.data),
+      };
     }
   }
-  throw Error('Invalid input type');
 }
 
 function serializeNode(node: Node): object {
