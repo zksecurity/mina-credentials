@@ -36,7 +36,7 @@ export {
 /**
  * A credential is a generic piece of data (the "attributes") along with an owner represented by a public key.
  */
-type Credential<Data> = { owner: PublicKey; data: Data };
+type Credential<Data = unknown> = { owner: PublicKey; data: Data };
 
 /**
  * The different types of credential we currently support.
@@ -55,8 +55,8 @@ type CredentialType = 'unsigned' | 'native' | 'imported';
  */
 type CredentialSpec<
   Type extends CredentialType = CredentialType,
-  Witness = any,
-  Data = any
+  Witness = unknown,
+  Data = unknown
 > = {
   credentialType: Type;
   witness: NestedProvableFor<Witness>;
@@ -74,7 +74,7 @@ type CredentialSpec<
 /**
  * Credential in stored form, including the witness and metadata.
  */
-type StoredCredential<Data = any, Witness = any, Metadata = any> = {
+type StoredCredential<Data = unknown, Witness = unknown, Metadata = unknown> = {
   version: 'v0';
   witness: Witness;
   metadata: Metadata;
@@ -84,7 +84,7 @@ type StoredCredential<Data = any, Witness = any, Metadata = any> = {
 /**
  * Hash a credential.
  */
-function hashCredential({ owner, data }: Credential<unknown>) {
+function hashCredential({ owner, data }: Credential) {
   let ownerHash = Poseidon.hash(owner.toFields());
   let dataHash = hashDynamic(data);
   return Poseidon.hash([ownerHash, dataHash]);
@@ -99,8 +99,8 @@ type CredentialInputs = {
 
   credentials: {
     spec: CredentialSpec;
-    credential: Credential<any>;
-    witness: any;
+    credential: Credential;
+    witness: unknown;
   }[];
 };
 
@@ -110,9 +110,9 @@ type CredentialInputs = {
 type CredentialOutputs = {
   owner: PublicKey;
   credentials: {
-    credential: Credential<any>;
+    credential: Credential;
     issuer: Field;
-    witness: any;
+    witness: unknown;
   }[];
 };
 
@@ -122,7 +122,7 @@ function verifyCredentials({
   credentials,
 }: CredentialInputs): CredentialOutputs {
   // pack credentials in hashes
-  let credHashes = credentials.map(({ spec: { data }, credential }) =>
+  let credHashes = credentials.map(({ credential }) =>
     hashCredential(credential)
   );
 
@@ -183,7 +183,7 @@ function signCredentials<Private, Data>(
 
 function credentialMatchesSpec(
   spec: CredentialSpec,
-  credential: StoredCredential<unknown>
+  credential: StoredCredential
 ): boolean {
   // check version
   if (credential.version !== 'v0') return false;
