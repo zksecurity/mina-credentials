@@ -58,7 +58,6 @@ function Imported<
   const data: NestedProvableFor<Data> = dataType as any;
 
   return {
-    type: 'credential',
     credentialType: 'imported',
     witness: {
       type: ProvableType.constant('imported'),

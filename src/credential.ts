@@ -58,7 +58,6 @@ type CredentialSpec<
   Witness = any,
   Data = any
 > = {
-  type: 'credential';
   credentialType: Type;
   witness: NestedProvableFor<Witness>;
   data: NestedProvableFor<Data>;
@@ -133,7 +132,6 @@ function verifyCredentials({
   });
 
   // create issuer hashes for each credential
-  // TODO would be nice to make this a `Hashed<Issuer>` over a more informative `Issuer` type, for easier use in the app circuit
   let issuers = credentials.map(({ spec, witness }) => spec.issuer(witness));
 
   // assert that all credentials have the same owner, and determine that owner
@@ -223,7 +221,6 @@ function defineCredential<
     InferNestedProvable<DataType>
   > {
     return {
-      type: 'credential',
       credentialType: config.credentialType,
       witness: config.witness as any,
       data: dataType as any,
