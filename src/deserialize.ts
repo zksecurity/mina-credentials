@@ -80,7 +80,7 @@ function deserializeInput(input: any): Input {
           return Credential.Unsigned(data);
         case 'imported':
           let proof = deserializeProvableType(input.witness.proof) as any;
-          return Credential.Imported(proof, data);
+          return Credential.Imported.create(proof, data);
         default:
           throw Error(`Unsupported credential id: ${credentialType}`);
       }

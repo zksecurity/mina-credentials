@@ -5,15 +5,20 @@ import { Poseidon, PrivateKey, PublicKey, Signature } from 'o1js';
 import {
   type StoredCredential,
   type Credential,
-  defineCredential,
   hashCredential,
+  CredentialSpec,
 } from './credential.ts';
-import { NestedProvable } from './nested.ts';
+import {
+  inferNestedProvable,
+  InferNestedProvable,
+  NestedProvable,
+} from './nested.ts';
 import { prefixes } from './constants.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { deserializeNestedProvableValue } from './serialize-provable.ts';
+import { JSONValue } from './types.ts';
 
-export { Native, createNative, type Witness, type Metadata };
+export { Native, createNative, type Witness };
 
 type Witness = {
   type: 'native';
@@ -21,19 +26,19 @@ type Witness = {
   issuerSignature: Signature;
 };
 
-// TODO
-type Metadata = undefined;
+type Native<Data> = StoredCredential<Data, Witness>;
 
-type Native<Data> = StoredCredential<Data, Witness, Metadata>;
-
-const Native = Object.assign(
-  defineCredential({
+function Native<DataType extends NestedProvable>(
+  dataType: DataType
+): CredentialSpec<'native', Witness, InferNestedProvable<DataType>> {
+  return {
     credentialType: 'native',
     witness: {
       type: ProvableType.constant('native' as const),
       issuer: PublicKey,
       issuerSignature: Signature,
     },
+    data: inferNestedProvable(dataType),
 
     // verify the signature
     verify({ issuer, issuerSignature }, credHash) {
@@ -53,17 +58,16 @@ const Native = Object.assign(
     matchesSpec(witness) {
       return witness.type === 'native';
     },
-  }),
-  {
-    issuer(issuer: PublicKey) {
-      return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
-    },
-  }
-);
+  };
+}
+Native.issuer = function (issuer: PublicKey) {
+  return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
+};
 
 function createNative<Data>(
   issuerPrivateKey: PrivateKey,
-  credentialInput: Credential<Data> | string
+  credentialInput: Credential<Data> | string,
+  metadata?: JSONValue
 ): Native<Data> {
   let issuer = issuerPrivateKey.toPublicKey();
   let credential =
@@ -76,7 +80,7 @@ function createNative<Data>(
   return {
     version: 'v0',
     witness: { type: 'native', issuer, issuerSignature },
-    metadata: undefined,
+    metadata,
     credential,
   };
 }

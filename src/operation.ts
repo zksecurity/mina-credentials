@@ -522,7 +522,7 @@ function verificationKeyHash({
 function publicInput<Input>({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessImported<any, Input>>): Node<Input> {
+}: CredentialNode<any, WitnessImported<Input>>): Node<Input> {
   assert(
     credentialType === 'imported',
     '`publicInput` is only available on imported credentials'

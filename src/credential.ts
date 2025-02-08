@@ -8,12 +8,14 @@ import {
   Poseidon,
 } from 'o1js';
 import {
+  inferNestedProvable,
   type InferNestedProvable,
   NestedProvable,
   type NestedProvableFor,
 } from './nested.ts';
 import { zip } from './util.ts';
 import { hashDynamic, provableTypeMatches } from './dynamic/dynamic-hash.ts';
+import { JSONValue } from './types.ts';
 
 export {
   type Credential,
@@ -25,7 +27,6 @@ export {
   verifyCredentials,
   signCredentials,
   type StoredCredential,
-  defineCredential,
   withOwner,
   Unsigned,
   unsafeMissingOwner,
@@ -74,10 +75,10 @@ type CredentialSpec<
 /**
  * Credential in stored form, including the witness and metadata.
  */
-type StoredCredential<Data = unknown, Witness = unknown, Metadata = unknown> = {
+type StoredCredential<Data = unknown, Witness = unknown> = {
   version: 'v0';
   witness: Witness;
-  metadata: Metadata;
+  metadata: JSONValue | undefined;
   credential: Credential<Data>;
 };
 
@@ -195,73 +196,45 @@ function credentialMatchesSpec(
   return provableTypeMatches(credential.credential.data, spec.data);
 }
 
-function defineCredential<
-  Type extends CredentialType,
-  Witness extends NestedProvable
->(config: {
-  credentialType: Type;
-  witness: Witness;
+// dummy credential with no proof attached
 
-  verify(witness: InferNestedProvable<Witness>, credHash: Field): void;
+type Unsigned<Data> = StoredCredential<Data, undefined>;
 
-  verifyOutsideCircuit(
-    witness: InferNestedProvable<Witness>,
-    credHash: Field
-  ): Promise<void>;
+function Unsigned<DataType extends NestedProvable>(
+  data: DataType
+): CredentialSpec<'unsigned', undefined, InferNestedProvable<DataType>> {
+  return {
+    credentialType: 'unsigned',
+    witness: Undefined,
+    data: inferNestedProvable(data),
 
-  issuer(witness: InferNestedProvable<Witness>): Field;
+    // do nothing
+    verify() {},
+    async verifyOutsideCircuit() {},
 
-  matchesSpec(witness: InferNestedProvable<Witness>): boolean;
-}) {
-  return function credential<DataType extends NestedProvable>(
-    dataType: DataType
-  ): CredentialSpec<
-    Type,
-    InferNestedProvable<Witness>,
-    InferNestedProvable<DataType>
-  > {
-    return {
-      credentialType: config.credentialType,
-      witness: config.witness as any,
-      data: dataType as any,
-      verify: config.verify,
-      verifyOutsideCircuit: config.verifyOutsideCircuit,
-      issuer: config.issuer,
-      matchesSpec: config.matchesSpec,
-    };
+    // dummy issuer
+    issuer() {
+      return Field(0);
+    },
+
+    // always matches
+    matchesSpec() {
+      return true;
+    },
   };
 }
-
-// dummy credential with no proof attached
-type Unsigned<Data> = StoredCredential<Data, undefined, undefined>;
-
-const Unsigned = defineCredential({
-  credentialType: 'unsigned',
-  witness: Undefined,
-
-  // do nothing
-  verify() {},
-  async verifyOutsideCircuit() {},
-
-  // dummy issuer
-  issuer() {
-    return Field(0);
-  },
-
-  // always matches
-  matchesSpec() {
-    return true;
-  },
-});
 
 function unsafeMissingOwner(): PublicKey {
   return PublicKey.fromGroup(Group.generator);
 }
 
-function createUnsigned<Data>(data: Data): Unsigned<Data> {
+function createUnsigned<Data>(
+  data: Data,
+  metadata?: JSONValue
+): Unsigned<Data> {
   return {
     version: 'v0',
-    metadata: undefined,
+    metadata,
     credential: { owner: unsafeMissingOwner(), data },
     witness: undefined,
   };

@@ -13,9 +13,11 @@ import {
   Undefined,
   type From,
   type InferValue,
+  Field,
 } from 'o1js';
 import { ProvableType } from './o1js-missing.ts';
 import {
+  inferNestedProvable,
   type InferNestedProvable,
   NestedProvable,
   type NestedProvableFor,
@@ -25,7 +27,6 @@ import {
   type CredentialSpec,
   type Credential,
   type StoredCredential,
-  defineCredential,
   hashCredential,
   withOwner,
 } from './credential.ts';
@@ -33,48 +34,31 @@ import { assert, assertHasProperty } from './util.ts';
 
 export { Imported, type Witness };
 
-type Witness<Data = any, Input = any> = {
+type Witness<Input = unknown> = {
   type: 'imported';
   vk: VerificationKey;
-  proof: DynamicProof<Input, Credential<Data>>;
+  proof: DynamicProof<Input, Credential>;
 };
 
-type Imported<Data, Input> = StoredCredential<
-  Data,
-  Witness<Data, Input>,
-  undefined
->;
+type Imported<Data, Input> = StoredCredential<Data, Witness<Input>>;
 
-function Imported<
-  DataType extends NestedProvable,
-  InputType extends ProvableType,
-  Data extends InferNestedProvable<DataType>,
-  Input extends InferProvable<InputType>
->(
-  Proof: typeof DynamicProof<Input, Credential<Data>>,
-  dataType: DataType
-): CredentialSpec<'imported', Witness<Data, Input>, Data> {
-  // TODO annoying that this cast doesn't work without overriding the type
-  const data: NestedProvableFor<Data> = dataType as any;
+const Imported = {
+  create: createImported,
+  publicInputType,
+  fromProgram: importedFromProgram,
+  fromMethod: importedFromMethod,
 
-  return {
-    credentialType: 'imported',
-    witness: {
-      type: ProvableType.constant('imported'),
-      vk: VerificationKey,
-      proof: Proof,
-    },
-    data: NestedProvable.get(data),
-
+  Generic: {
     // verify the proof, check that its public output is exactly the credential
-    verify({ vk, proof }, credHash) {
+    verify({ vk, proof }: Witness, credHash: Field): void {
       proof.verify(vk);
       hashCredential(proof.publicOutput).assertEquals(
         credHash,
         'Invalid proof output'
       );
     },
-    async verifyOutsideCircuit({ vk, proof }, credHash) {
+
+    async verifyOutsideCircuit({ vk, proof }: Witness, credHash: Field) {
       let ok = await verify(proof, vk);
       assert(ok, 'Invalid proof');
       hashCredential(proof.publicOutput).assertEquals(
@@ -82,6 +66,34 @@ function Imported<
         'Invalid proof output'
       );
     },
+
+    matchesSpec(witness: Witness) {
+      // TODO should check proof type
+      return witness.type === 'imported';
+    },
+  },
+};
+
+function createImported<
+  DataType extends NestedProvable,
+  InputType extends ProvableType,
+  Data extends InferNestedProvable<DataType>,
+  Input extends InferProvable<InputType>
+>(
+  Proof: typeof DynamicProof<Input, Credential<Data>>,
+  dataType: DataType
+): CredentialSpec<'imported', Witness<Input>, Data> {
+  return {
+    credentialType: 'imported',
+    witness: {
+      type: ProvableType.constant('imported'),
+      vk: VerificationKey,
+      proof: Proof,
+    },
+    data: NestedProvable.get(inferNestedProvable(dataType)),
+    verify: Imported.Generic.verify,
+    verifyOutsideCircuit: Imported.Generic.verifyOutsideCircuit,
+    matchesSpec: Imported.Generic.matchesSpec,
 
     // issuer == hash of vk and public input
     issuer({ vk, proof }) {
@@ -93,19 +105,12 @@ function Imported<
         credIdent,
       ]);
     },
-
-    matchesSpec(witness) {
-      // TODO should check proof type
-      return witness.type === 'imported';
-    },
   };
 }
 
-Imported.publicInputType = function publicInputType<
-  Spec extends CredentialSpec
->(
+function publicInputType<Spec extends CredentialSpec>(
   credentialSpec: Spec
-): Spec extends CredentialSpec<'imported', Witness<any, infer Input>>
+): Spec extends CredentialSpec<'imported', Witness<infer Input>>
   ? ProvableType<Input>
   : never {
   assert(credentialSpec.credentialType === 'imported');
@@ -116,55 +121,7 @@ Imported.publicInputType = function publicInputType<
     proof: typeof DynamicProof;
   };
   return witness.proof.publicInputType as any;
-};
-
-const genericImported = defineCredential({
-  credentialType: 'imported',
-  witness: {
-    type: ProvableType.constant('imported'),
-    vk: VerificationKey,
-    proof: DynamicProof,
-  },
-
-  // verify the proof, check that its public output is exactly the credential
-  verify({ vk, proof }, credHash) {
-    proof.verify(vk);
-    hashCredential(proof.publicOutput).assertEquals(
-      credHash,
-      'Invalid proof output'
-    );
-  },
-  async verifyOutsideCircuit({ vk, proof }, credHash) {
-    let ok = await verify(proof, vk);
-    assert(ok, 'Invalid proof');
-    hashCredential(proof.publicOutput).assertEquals(
-      credHash,
-      'Invalid proof output'
-    );
-  },
-
-  // issuer == hash of vk and public input
-  issuer({ vk, proof }) {
-    let credIdent = Poseidon.hash(
-      (proof.constructor as typeof DynamicProof).publicInputType.toFields(
-        proof.publicInput
-      )
-    );
-    return Poseidon.hashWithPrefix(prefixes.issuerImported, [
-      vk.hash,
-      credIdent,
-    ]);
-  },
-
-  matchesSpec(witness) {
-    return witness.type === 'imported';
-  },
-});
-
-Imported.Generic = genericImported;
-
-Imported.fromProgram = importedFromProgram;
-Imported.fromMethod = importedFromMethod;
+}
 
 async function importedFromProgram<
   DataType extends ProvableType,
@@ -207,7 +164,7 @@ async function importedFromProgram<
   let vk: VerificationKey | undefined;
 
   let self = {
-    spec: Imported<Provable<Data>, InputType, Data, Input>(
+    spec: createImported<Provable<Data>, InputType, Data, Input>(
       InputProof,
       dataType
     ),

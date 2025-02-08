@@ -738,7 +738,7 @@ test('deserializeSpec', async (t) => {
 
       const originalSpec = Spec(
         {
-          provedData: Credential.Imported(RecursiveProof, Field),
+          provedData: Credential.Imported.create(RecursiveProof, Field),
           zeroField: Constant(Field, Field(0)),
         },
         ({ provedData, zeroField }) => ({

@@ -1,8 +1,7 @@
-import { initializeBindings, type PublicKey } from 'o1js';
+import { Field, initializeBindings, type PublicKey } from 'o1js';
 import {
   createUnsigned,
   type CredentialSpec,
-  type CredentialType,
   hashCredential,
   type StoredCredential,
   Unsigned,
@@ -103,22 +102,25 @@ const Credential = {
 
 type Witness = NativeWitness | ImportedWitness;
 
-async function validateCredential(
-  credential: StoredCredential<unknown, unknown, unknown>
-) {
-  assert(
-    credential.version === 'v0',
-    `Unsupported credential version: ${credential.version}`
-  );
+async function validateCredential(credential: StoredCredential) {
+  let {
+    version,
+    witness,
+    credential: { data },
+  } = credential;
+  assert(version === 'v0', `Unsupported credential version: ${version}`);
 
-  assert(knownWitness(credential.witness), 'Unknown credential type');
-
-  let spec = getCredentialSpec(credential.witness)(
-    Schema.nestedType(credential.credential.data)
-  );
+  assert(knownWitness(witness), 'Unknown credential type');
 
   let credHash = hashCredential(credential.credential);
-  await spec.verifyOutsideCircuit(credential.witness, credHash);
+
+  if (witness.type === 'native') {
+    const spec = Native(Schema.nestedType(data));
+    await spec.verifyOutsideCircuit(witness, credHash);
+  }
+  if (witness.type === 'imported') {
+    await Imported.Generic.verifyOutsideCircuit(witness, credHash);
+  }
 }
 
 const witnessTypes = new Set<unknown>([
@@ -128,17 +130,4 @@ const witnessTypes = new Set<unknown>([
 
 function knownWitness(witness: unknown): witness is Witness {
   return hasProperty(witness, 'type') && witnessTypes.has(witness.type);
-}
-
-function getCredentialSpec<W extends Witness>(
-  witness: W
-): <DataType extends NestedProvable>(
-  dataType: DataType
-) => CredentialSpec<CredentialType, W, InferNestedProvable<DataType>> {
-  switch (witness.type) {
-    case 'native':
-      return Credential.Native as any;
-    case 'imported':
-      return Credential.Imported.Generic as any;
-  }
 }
