@@ -5,13 +5,16 @@ import {
   Spec,
   type UserInputs,
   splitUserInputs,
-  recombineDataInputs,
-  type DataInputs,
+  rootNodeValue,
+  type RootNodeValue,
   Claim,
   Constant,
 } from '../src/program-spec.ts';
 import { issuerKey, owner } from './test-utils.ts';
-import { type CredentialOutputs } from '../src/credential.ts';
+import {
+  unsafeMissingOwner,
+  type CredentialOutputs,
+} from '../src/credential.ts';
 import { Credential } from '../src/credential-index.ts';
 import { hashDynamic, Operation } from '../src/index.ts';
 import { Node } from '../src/operation.ts';
@@ -36,7 +39,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({ age: Field(25) }),
       targetAge: Field(25),
     };
@@ -70,7 +74,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data,
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
@@ -100,7 +105,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data,
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
@@ -130,7 +136,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data,
       targetAge: Field(30),
       targetName: Bytes32.fromString('Bob'),
@@ -161,7 +168,8 @@ test(' Spec and Node operations', async (t) => {
           outputClaim: Operation.property(data, 'age'),
         })
       );
-      const root: DataInputs<typeof spec.inputs> = {
+      const root: RootNodeValue<typeof spec.inputs> = {
+        owner: unsafeMissingOwner(),
         data: cred({ age: Field(11), name: Bytes32.fromString('Alice') }),
         targetAge: Field(30),
         targetName: Bytes32.fromString('Alice'),
@@ -194,7 +202,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({ age: Field(11), name: Bytes32.fromString('Alice') }),
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
@@ -226,7 +235,8 @@ test(' Spec and Node operations', async (t) => {
     const inputValue = Field(123456);
     const expectedHashValue = hashDynamic(inputValue);
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: inputValue }),
       expectedHash: expectedHashValue,
     };
@@ -255,7 +265,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({ age: Field(30), name: Bytes32.fromString('Alice') }),
       targetAge: Field(18),
       targetName: Bytes32.fromString('Alice'),
@@ -285,7 +296,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({ age: Field(30), name: Bytes32.fromString('Alice') }),
       targetAge: Field(30),
       targetName: Bytes32.fromString('Alice'),
@@ -311,7 +323,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       value1: cred(UInt32.from(1000000)),
       value2: cred(UInt64.from(1000000)),
       sum: UInt64.from(2000000),
@@ -337,7 +350,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       value1: cred(UInt32.from(1000)),
       value2: cred(UInt8.from(200)),
       difference: UInt32.from(800),
@@ -363,7 +377,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       value1: cred(UInt32.from(1000)),
       value2: cred(UInt64.from(2000)),
       product: UInt64.from(2000000),
@@ -389,7 +404,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       value1: cred(UInt64.from(1000000)),
       value2: cred(UInt32.from(1000)),
       quotient: UInt64.from(1000),
@@ -422,6 +438,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value < threshold
     const root1 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(5) }),
       threshold: Field(10),
       zero: Field(0),
@@ -432,6 +449,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value >= threshold
     const root2 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(15) }),
       threshold: Field(10),
       zero: Field(0),
@@ -464,6 +482,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value < threshold and < lowLimit (should pass)
     const root1 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(5) }),
       threshold: Field(15),
       lowLimit: Field(10),
@@ -475,6 +494,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value >= threshold and >= highLimit (should pass)
     const root2 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(25) }),
       threshold: Field(15),
       lowLimit: Field(10),
@@ -486,6 +506,7 @@ test(' Spec and Node operations', async (t) => {
 
     // lowLimit <= value < threshold (should fail)
     const root3 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(12) }),
       threshold: Field(15),
       lowLimit: Field(10),
@@ -497,6 +518,7 @@ test(' Spec and Node operations', async (t) => {
 
     // threshold <= value < highLimit (should fail)
     const root4 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(18) }),
       threshold: Field(15),
       lowLimit: Field(10),
@@ -531,6 +553,7 @@ test(' Spec and Node operations', async (t) => {
 
     // 10 < value < threshold < highLimit (should pass)
     const root1 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(15) }),
       threshold: Field(18),
       lowLimit: Field(10),
@@ -542,6 +565,7 @@ test(' Spec and Node operations', async (t) => {
 
     // 10 < threshold <= value = highLimit (should pass)
     const root2 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(20) }),
       threshold: Field(18),
       lowLimit: Field(10),
@@ -553,6 +577,7 @@ test(' Spec and Node operations', async (t) => {
 
     // value <= lowLimit (should fail)
     const root3 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(10) }),
       threshold: Field(18),
       lowLimit: Field(10),
@@ -564,6 +589,7 @@ test(' Spec and Node operations', async (t) => {
 
     // 10 < threshold <= value < highLimit (should fail)
     const root4 = {
+      owner: unsafeMissingOwner(),
       data: cred({ value: Field(19) }),
       threshold: Field(18),
       lowLimit: Field(10),
@@ -589,7 +615,8 @@ test(' Spec and Node operations', async (t) => {
         })
       );
 
-      const root: DataInputs<typeof spec.inputs> = {
+      const root: RootNodeValue<typeof spec.inputs> = {
+        owner: unsafeMissingOwner(),
         input: cred({ x: Field(10), y: Field(5) }),
       };
 
@@ -610,12 +637,14 @@ test(' Spec and Node operations', async (t) => {
         })
       );
 
-      const validRoot: DataInputs<typeof spec.inputs> = {
+      const validRoot: RootNodeValue<typeof spec.inputs> = {
+        owner: unsafeMissingOwner(),
         value: cred(Field(20)),
         threshold: Field(10),
       };
 
-      const invalidRoot: DataInputs<typeof spec.inputs> = {
+      const invalidRoot: RootNodeValue<typeof spec.inputs> = {
+        owner: unsafeMissingOwner(),
         value: cred(Field(5)),
         threshold: Field(10),
       };
@@ -667,7 +696,8 @@ test(' Spec and Node operations', async (t) => {
         }
       );
 
-      const root: DataInputs<typeof spec.inputs> = {
+      const root: RootNodeValue<typeof spec.inputs> = {
+        owner: unsafeMissingOwner(),
         position: cred({
           x: Field(3),
           y: Field(4),
@@ -712,7 +742,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({
         person: { age: Field(25), name: Bytes32.fromString('Bob') },
         points: Field(100),
@@ -741,7 +772,8 @@ test(' Spec and Node operations', async (t) => {
       })
     );
 
-    const root: DataInputs<typeof spec.inputs> = {
+    const root: RootNodeValue<typeof spec.inputs> = {
+      owner: unsafeMissingOwner(),
       data: cred({ age: Field(25), name: Bytes32.fromString('Charlie') }),
       constAge: Field(25),
     };
@@ -793,7 +825,7 @@ test(' Spec and Node operations', async (t) => {
         },
       ],
     };
-    let root = recombineDataInputs(
+    let root = rootNodeValue(
       spec,
       publicInput,
       privateInput,

@@ -35,7 +35,7 @@ export type {
   PublicInputs,
   PrivateInputs,
   UserInputs,
-  DataInputs,
+  RootNodeValue,
   ToCredential,
   Input,
   Claims,
@@ -50,7 +50,7 @@ export {
   privateInputTypes,
   splitUserInputs,
   extractCredentialInputs,
-  recombineDataInputs,
+  rootNodeValue,
   isCredentialSpec,
 };
 
@@ -140,7 +140,7 @@ type Input<Data = any> =
   | Constant<Data>
   | Claim<Data>;
 
-function isCredentialSpec(input: Input | undefined) {
+function isCredentialSpec(input: Input | undefined): input is CredentialSpec {
   return (
     input !== undefined && input.type !== 'claim' && input.type !== 'constant'
   );
@@ -260,13 +260,13 @@ function extractCredentialInputs(
   return { context, ownerSignature, credentials: credentialInputs };
 }
 
-function recombineDataInputs<S extends Spec>(
+function rootNodeValue<S extends Spec>(
   spec: S,
   publicInputs: PublicInputs<any>,
   privateInputs: PrivateInputs<any>,
   credentialOutputs: CredentialOutputs
-): DataInputs<S['inputs']>;
-function recombineDataInputs<S extends Spec>(
+): RootNodeValue<S['inputs']>;
+function rootNodeValue<S extends Spec>(
   spec: S,
   { claims }: PublicInputs<any>,
   _: PrivateInputs<any>,
@@ -319,10 +319,10 @@ type UserInputs<Inputs extends Record<string, Input>> = {
   credentials: ExcludeFromRecord<MapToCredentials<Inputs>, never>;
 };
 
-type DataInputs<Inputs extends Record<string, Input>> = ExcludeFromRecord<
+type RootNodeValue<Inputs extends Record<string, Input>> = ExcludeFromRecord<
   MapToDataInput<Inputs>,
   never
->;
+> & { owner: PublicKey };
 
 type MapToClaims<T extends Record<string, Input>> = {
   [K in keyof T]: ToClaim<T[K]>;
