@@ -43,10 +43,7 @@ const NativeBase = {
     ok.assertTrue('Invalid signature');
   },
 
-  async verifyOutsideCircuit(
-    { issuer, issuerSignature }: Witness,
-    credHash: Field
-  ) {
+  async validate({ issuer, issuerSignature }: Witness, credHash: Field) {
     let ok = issuerSignature.verify(issuer, [credHash]);
     ok.assertTrue('Invalid signature');
   },

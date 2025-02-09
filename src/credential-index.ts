@@ -116,10 +116,10 @@ async function validateCredential(credential: StoredCredential) {
 
   if (witness.type === 'native') {
     const spec = Native(Schema.nestedType(data));
-    await spec.verifyOutsideCircuit(witness, credHash);
+    await spec.validate(witness, credHash);
   }
   if (witness.type === 'imported') {
-    await Imported.Generic.verifyOutsideCircuit(witness, credHash);
+    await Imported.Generic.validate(witness, credHash);
   }
 }
 

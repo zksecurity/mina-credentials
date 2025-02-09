@@ -59,7 +59,7 @@ const Imported = {
       );
     },
 
-    async verifyOutsideCircuit({ vk, proof }: Witness, credHash: Field) {
+    async validate({ vk, proof }: Witness, credHash: Field) {
       let ok = await verify(proof, vk);
       assert(ok, 'Invalid proof');
       hashCredential(proof.publicOutput).assertEquals(
@@ -93,7 +93,7 @@ function createImported<
     },
     data: NestedProvable.get(inferNestedProvable(dataType)),
     verify: Imported.Generic.verify,
-    verifyOutsideCircuit: Imported.Generic.verifyOutsideCircuit,
+    validate: Imported.Generic.validate,
     matchesSpec: Imported.Generic.matchesSpec,
 
     // issuer == hash of vk and public input

@@ -50,7 +50,7 @@ type CredentialType = 'unsigned' | 'native' | 'imported';
  * - a "witness" type for private parameters
  * - a type for data (which is left generic when defining credential types)
  * - a function `verify(...)` that verifies the credential inside a ZkProgram circuit
- * - a function `verifyOutsideCircuit(...)` that verifies the credential in normal JS
+ * - a function `validate(...)` that verifies the credential in normal JS
  * - a function `issuer(...)` that derives a commitment to the "issuer" of the credential, e.g. a public key for signed credentials
  * - a function `matchesSpec(...)` that decides whether a stored credential's witness matches the spec
  */
@@ -61,7 +61,7 @@ type CredentialSpec<Witness = unknown, Data = unknown> = {
 
   verify(witness: Witness, credHash: Field): void;
 
-  verifyOutsideCircuit(witness: Witness, credHash: Field): Promise<void>;
+  validate(witness: Witness, credHash: Field): Promise<void>;
 
   issuer(witness: Witness): Field;
 
@@ -202,7 +202,7 @@ const UnsignedBase = {
 
   // do nothing
   verify() {},
-  async verifyOutsideCircuit() {},
+  async validate() {},
 
   // dummy issuer
   issuer() {
