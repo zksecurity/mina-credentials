@@ -26,12 +26,10 @@ import {
   serializeNode,
   serializeInput,
   serializeSpec,
-} from '../src/serialize-spec.ts';
-import {
   deserializeSpec,
   deserializeInput,
   deserializeNode,
-} from '../src/deserialize.ts';
+} from '../src/serialize-spec.ts';
 import { Credential } from '../src/credential-index.ts';
 import { withOwner } from '../src/credential.ts';
 import {

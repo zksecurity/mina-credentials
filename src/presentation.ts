@@ -26,8 +26,12 @@ import {
 import { assert, isSubclass, zip } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
-import { serializeSpec, serializeInputContext } from './serialize-spec.ts';
-import { deserializeSpec, deserializeInputContext } from './deserialize.ts';
+import {
+  serializeSpec,
+  serializeInputContext,
+  deserializeSpec,
+  deserializeInputContext,
+} from './serialize-spec.ts';
 import {
   deserializeNestedProvableValue,
   deserializeProvable,
