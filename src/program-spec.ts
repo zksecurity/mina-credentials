@@ -5,11 +5,13 @@ import {
   PublicKey,
   type InferProvable,
   Provable,
+  From,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import { ProvableType } from './o1js-missing.ts';
 import { assert } from './util.ts';
 import {
+  inferNestedProvable,
   type InferNestedProvable,
   NestedProvable,
   type NestedProvableFor,
@@ -53,11 +55,14 @@ export {
 };
 
 type Spec<
-  Output = any,
+  Output = unknown,
   Inputs extends Record<string, Input> = Record<string, Input>
 > = {
   inputs: Inputs;
-  logic: OutputNode<Output>;
+  logic: {
+    assert: Node<Bool>;
+    outputClaim: Node<Output>;
+  };
 };
 
 /**
@@ -143,29 +148,28 @@ function isCredentialSpec(input: Input | undefined) {
   );
 }
 
-type OutputNode<Data> = {
-  assert: Node<Bool>;
-  outputClaim: Node<Data>;
-};
-
 function Constant<DataType extends ProvableType>(
   data: DataType,
-  value: InferProvable<DataType>
+  value: From<DataType>
 ): Constant<InferProvable<DataType>> {
-  return { type: 'constant', data, value };
+  return {
+    type: 'constant',
+    data,
+    value: ProvableType.get(data).fromValue(value),
+  };
 }
 
 function Claim<DataType extends NestedProvable>(
   data: DataType
 ): Claim<InferNestedProvable<DataType>> {
-  return { type: 'claim', data: data as any };
+  return { type: 'claim', data: inferNestedProvable(data) };
 }
 
 // helpers to extract/recombine portions of the spec inputs
 
 function publicInputTypes({ inputs }: Spec): NestedProvableFor<{
   context: Field;
-  claims: Record<string, any>;
+  claims: Record<string, unknown>;
 }> {
   let claims: Record<string, NestedProvable> = {};
 
@@ -178,8 +182,8 @@ function publicInputTypes({ inputs }: Spec): NestedProvableFor<{
 }
 
 type CredentialInputType = {
-  credential: { owner: PublicKey; data: any };
-  witness: any;
+  credential: { owner: PublicKey; data: unknown };
+  witness: unknown;
 };
 
 function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
@@ -199,7 +203,7 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
   return { ownerSignature: Signature, credentials };
 }
 
-function publicOutputType(spec: Spec): Provable<any> {
+function publicOutputType(spec: Spec): Provable<unknown> {
   let root = rootType(spec);
   let outputTypeNested = Node.evalType(root, spec.logic.outputClaim);
   return NestedProvable.get(outputTypeNested);
