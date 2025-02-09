@@ -563,8 +563,8 @@ test('deserializeSpec', async (t) => {
         })
       );
 
-      const serialized = await serializeSpec(originalSpec);
-      const deserialized = await deserializeSpec(serialized);
+      const serialized = serializeSpec(originalSpec);
+      const deserialized = deserializeSpec(serialized);
 
       assert.deepStrictEqual(deserialized.inputs.age, originalSpec.inputs.age);
       assert.deepStrictEqual(
@@ -601,10 +601,9 @@ test('deserializeSpec', async (t) => {
         })
       );
 
-      const serialized = await serializeSpec(originalSpec);
-      const deserialized = await deserializeSpec(serialized);
-
-      const reserialized = await serializeSpec(deserialized);
+      const serialized = serializeSpec(originalSpec);
+      const deserialized = deserializeSpec(serialized);
+      const reserialized = serializeSpec(deserialized);
 
       assert.deepStrictEqual(serialized, reserialized);
 
@@ -644,10 +643,10 @@ test('deserializeSpec', async (t) => {
         })
       );
 
-      const serialized = await serializeSpec(originalSpec);
-      const deserialized = await deserializeSpec(serialized);
+      const serialized = serializeSpec(originalSpec);
+      const deserialized = deserializeSpec(serialized);
 
-      const reserialized = await serializeSpec(deserialized);
+      const reserialized = serializeSpec(deserialized);
 
       assert.deepStrictEqual(serialized, reserialized);
       assert.deepStrictEqual(deserialized, originalSpec);
@@ -678,11 +677,12 @@ test('deserializeSpec', async (t) => {
         })
       );
 
-      const originalSerialized = await serializeSpec(originalSpec);
-      const deserialized = await deserializeSpec(originalSerialized);
-      const reSerialized = await serializeSpec(deserialized);
+      const originalSerialized = serializeSpec(originalSpec);
+      const deserialized = deserializeSpec(originalSerialized);
+      const reSerialized = serializeSpec(deserialized);
 
-      assert.strictEqual(originalSerialized, reSerialized);
+      assert.deepStrictEqual(originalSpec, deserialized);
+      assert.deepStrictEqual(originalSerialized, reSerialized);
     }
   );
 
@@ -711,10 +711,10 @@ test('deserializeSpec', async (t) => {
         })
       );
 
-      const serialized = await serializeSpec(originalSpec);
-      const deserialized = await deserializeSpec(serialized);
+      const serialized = serializeSpec(originalSpec);
+      const deserialized = deserializeSpec(serialized);
 
-      const reserialized = await serializeSpec(deserialized);
+      const reserialized = serializeSpec(deserialized);
 
       assert.deepStrictEqual(serialized, reserialized);
 

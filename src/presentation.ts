@@ -26,14 +26,8 @@ import {
 import { assert, isSubclass, zip } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
-import {
-  convertSpecToSerializable,
-  serializeInputContext,
-} from './serialize.ts';
-import {
-  convertSpecFromSerializable,
-  deserializeInputContext,
-} from './deserialize.ts';
+import { serializeSpec, serializeInputContext } from './serialize.ts';
+import { deserializeSpec, deserializeInputContext } from './deserialize.ts';
 import {
   deserializeNestedProvableValue,
   deserializeProvable,
@@ -179,7 +173,7 @@ const PresentationRequest = {
   toJSON(request: PresentationRequest) {
     let json = {
       type: request.type,
-      spec: convertSpecToSerializable(request.spec),
+      spec: serializeSpec(request.spec),
       claims: serializeNestedProvableValue(request.claims),
       inputContext: serializeInputContext(request.inputContext),
     };
@@ -203,7 +197,7 @@ const PresentationRequest = {
 function requestFromJson(
   request: { type: PresentationRequestType } & Record<string, any>
 ) {
-  let spec = convertSpecFromSerializable(request.spec);
+  let spec = deserializeSpec(request.spec);
   let claims = deserializeNestedProvableValue(request.claims);
 
   switch (request.type) {

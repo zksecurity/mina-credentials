@@ -5,16 +5,11 @@ import { Operation, Node } from '../src/operation.ts';
 import {
   serializeNode,
   serializeInput,
-  convertSpecToSerializable,
   serializeSpec,
-  validateSpecHash,
   serializeInputContext,
 } from '../src/serialize.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
-import {
-  deserializeInputContext,
-  deserializeSpec,
-} from '../src/deserialize.ts';
+import { deserializeInputContext } from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';
 import {
   serializeNestedProvable,
@@ -787,7 +782,7 @@ test('convertSpecToSerializable', async (t) => {
       })
     );
 
-    const serialized = convertSpecToSerializable(spec);
+    const serialized = serializeSpec(spec);
 
     const expected = {
       inputs: {
@@ -848,7 +843,7 @@ test('convertSpecToSerializable', async (t) => {
       })
     );
 
-    const serialized = convertSpecToSerializable(spec);
+    const serialized = serializeSpec(spec);
     const expected = {
       inputs: {
         signedData: {
@@ -903,7 +898,7 @@ test('convertSpecToSerializable', async (t) => {
       })
     );
 
-    const serialized = convertSpecToSerializable(spec);
+    const serialized = serializeSpec(spec);
     const expected = {
       inputs: {
         field1: {
@@ -961,68 +956,6 @@ test('convertSpecToSerializable', async (t) => {
   });
 });
 
-test('Serialize and deserialize spec with hash', async (t) => {
-  const spec = Spec(
-    {
-      age: Credential.Unsigned(Field),
-      isAdmin: Claim(Bool),
-      ageLimit: Constant(Field, Field(100)),
-    },
-    ({ age, isAdmin, ageLimit }) => ({
-      assert: Operation.and(Operation.lessThan(age, ageLimit), isAdmin),
-      outputClaim: age,
-    })
-  );
-
-  const serialized = await serializeSpec(spec);
-
-  await t.test('should include a hash in serialized output', () => {
-    const parsed = JSON.parse(serialized);
-    assert('hash' in parsed, 'Serialized spec should include a hash');
-    assert('spec' in parsed, 'Serialized spec should include the spec string');
-    assert(typeof parsed.spec === 'string', 'Spec should be a string');
-  });
-
-  await t.test('should validate hash correctly', () => {
-    assert(validateSpecHash(serialized), 'Hash should be valid');
-  });
-
-  await t.test('should detect tampering', async () => {
-    const tampered = JSON.parse(serialized);
-    const tamperedSpec = JSON.parse(tampered.spec);
-    tamperedSpec.inputs.age.type = 'claim';
-    tampered.spec = JSON.stringify(tamperedSpec);
-    const tamperedString = JSON.stringify(tampered);
-    assert(
-      !(await validateSpecHash(tamperedString)),
-      'Should detect tampered spec'
-    );
-  });
-
-  await t.test(
-    'should throw error on deserialization of tampered spec',
-    async () => {
-      const tampered = JSON.parse(serialized);
-      const tamperedSpec = JSON.parse(tampered.spec);
-      tamperedSpec.inputs.age.type = 'claim';
-      tampered.spec = JSON.stringify(tamperedSpec);
-      const tamperedString = JSON.stringify(tampered);
-
-      try {
-        await deserializeSpec(tamperedString);
-        assert.fail('Expected an error to be thrown');
-      } catch (error) {
-        assert(error instanceof Error, 'Should throw an Error object');
-        assert.strictEqual(
-          error.message,
-          'Invalid spec hash',
-          'Error message should match expected message'
-        );
-      }
-    }
-  );
-});
-
 test('Serialize spec with owner and issuer nodes', async (t) => {
   const InputData = { age: Field };
   const SignedData = Credential.Native(InputData);
@@ -1045,14 +978,12 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
     })
   );
 
-  const serialized = await serializeSpec(spec);
-  const parsed = JSON.parse(serialized);
-  const serializedSpec = JSON.parse(parsed.spec);
+  const serialized = serializeSpec(spec) as any;
 
-  assert.deepStrictEqual(serializedSpec.outputClaim.data.owner, {
+  assert.deepStrictEqual(serialized.outputClaim.data.owner, {
     type: 'owner',
   });
-  assert.deepStrictEqual(serializedSpec.outputClaim.data.issuer, {
+  assert.deepStrictEqual(serialized.outputClaim.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
   });

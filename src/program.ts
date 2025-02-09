@@ -24,7 +24,7 @@ import {
 import { Node } from './operation.ts';
 import { NestedProvable } from './nested.ts';
 import { verifyCredentials } from './credential.ts';
-import { convertSpecToSerializable } from './serialize.ts';
+import { serializeSpec } from './serialize.ts';
 
 export { createProgram, type Program };
 
@@ -115,7 +115,7 @@ function createProgram<S extends Spec>(
 // helper
 
 function programName(spec: Spec): string {
-  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
+  const serializedSpec = JSON.stringify(serializeSpec(spec));
   const specBytes = Bytes.fromString(serializedSpec);
   const hashBytes = Hash.Keccak256.hash(specBytes);
   return `credential-${hashBytes.toHex().slice(0, 16)}`;

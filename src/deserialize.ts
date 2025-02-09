@@ -1,13 +1,13 @@
 import { Claim, Constant, type Input, Spec } from './program-spec.ts';
 import { Node } from './operation.ts';
-import { validateSpecHash, type SerializedContext } from './serialize.ts';
+import { type SerializedContext } from './serialize.ts';
 import { Credential } from './credential-index.ts';
 import {
   deserializeNestedProvable,
   deserializeProvable,
   deserializeProvableType,
 } from './serialize-provable.ts';
-import type { InputJSON } from './validation.ts';
+import type { InputJSON, SpecJSON } from './validation.ts';
 import { mapObject } from './util.ts';
 
 export {
@@ -15,7 +15,6 @@ export {
   deserializeInput,
   deserializeNode,
   deserializeInputContext,
-  convertSpecFromSerializable,
 };
 
 function deserializeInputContext(context: null | SerializedContext) {
@@ -33,16 +32,7 @@ function deserializeInputContext(context: null | SerializedContext) {
   };
 }
 
-async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
-  if (!(await validateSpecHash(serializedSpecWithHash))) {
-    throw Error('Invalid spec hash');
-  }
-
-  const { spec: serializedSpec } = JSON.parse(serializedSpecWithHash);
-  return convertSpecFromSerializable(JSON.parse(serializedSpec));
-}
-
-function convertSpecFromSerializable(parsedSpec: any): Spec {
+function deserializeSpec(parsedSpec: SpecJSON): Spec {
   let inputs = mapObject(parsedSpec.inputs, (input) => deserializeInput(input));
   return {
     inputs,

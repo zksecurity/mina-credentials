@@ -12,26 +12,19 @@ import {
 } from './serialize-provable.ts';
 import { assert, mapObject } from './util.ts';
 import { Credential } from './credential-index.ts';
-import type { InputJSON } from './validation.ts';
+import type { InputJSON, NodeJSON, SpecJSON } from './validation.ts';
 
 export {
   type SerializedValue,
   type SerializedContext,
   serializeNode,
   serializeInput,
-  convertSpecToSerializable,
   serializeSpec,
   validateSpecHash,
   serializeInputContext,
 };
 
-async function serializeSpec(spec: Spec): Promise<string> {
-  const serializedSpec = JSON.stringify(convertSpecToSerializable(spec));
-  const hash = await hashSpec(serializedSpec);
-  return JSON.stringify({ spec: serializedSpec, hash });
-}
-
-function convertSpecToSerializable(spec: Spec): Record<string, any> {
+function serializeSpec(spec: Spec): SpecJSON {
   return {
     inputs: mapObject(spec.inputs, (input) => serializeInput(input)),
     assert: serializeNode(spec.assert),
@@ -61,7 +54,7 @@ function serializeInput(input: Input): InputJSON {
   }
 }
 
-function serializeNode(node: Node): object {
+function serializeNode(node: Node): NodeJSON {
   switch (node.type) {
     case 'constant': {
       return {
