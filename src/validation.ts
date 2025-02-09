@@ -370,12 +370,8 @@ const PresentationRequestSchema = z
     spec: z
       .object({
         inputs: z.record(InputSchema),
-        logic: z
-          .object({
-            assert: NodeSchema,
-            outputClaim: NodeSchema,
-          })
-          .strict(),
+        assert: NodeSchema,
+        outputClaim: NodeSchema,
       })
       .strict(),
     claims: z.record(SerializedValueSchema),

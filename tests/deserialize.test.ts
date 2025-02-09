@@ -682,9 +682,7 @@ test('deserializeSpec', async (t) => {
       const reserialized = await serializeSpec(deserialized);
 
       assert.deepStrictEqual(serialized, reserialized);
-
-      assert.deepStrictEqual(deserialized.inputs, originalSpec.inputs);
-      assert.deepStrictEqual(deserialized.logic, originalSpec.logic);
+      assert.deepStrictEqual(deserialized, originalSpec);
     }
   );
 

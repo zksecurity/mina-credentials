@@ -801,35 +801,33 @@ test('convertSpecToSerializable', async (t) => {
         isAdmin: { type: 'claim', data: { _type: 'Bool' } },
         maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
-      logic: {
-        assert: {
-          type: 'and',
-          inputs: [
-            {
-              type: 'lessThan',
-              left: {
-                type: 'credential',
-                credentialKey: 'age',
-                credentialType: 'unsigned',
-              },
-              right: {
-                type: 'property',
-                key: 'maxAge',
-                inner: { type: 'root' },
-              },
+      assert: {
+        type: 'and',
+        inputs: [
+          {
+            type: 'lessThan',
+            left: {
+              type: 'credential',
+              credentialKey: 'age',
+              credentialType: 'unsigned',
             },
-            {
+            right: {
               type: 'property',
-              key: 'isAdmin',
+              key: 'maxAge',
               inner: { type: 'root' },
             },
-          ],
-        },
-        outputClaim: {
-          type: 'credential',
-          credentialKey: 'age',
-          credentialType: 'unsigned',
-        },
+          },
+          {
+            type: 'property',
+            key: 'isAdmin',
+            inner: { type: 'root' },
+          },
+        ],
+      },
+      outputClaim: {
+        type: 'credential',
+        credentialKey: 'age',
+        credentialType: 'unsigned',
       },
     };
 
@@ -868,29 +866,27 @@ test('convertSpecToSerializable', async (t) => {
         },
         zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
-      logic: {
-        assert: {
-          type: 'equals',
-          left: {
-            type: 'property',
-            key: 'field',
-            inner: {
-              type: 'credential',
-              credentialKey: 'signedData',
-              credentialType: 'native',
-            },
-          },
-          right: {
-            type: 'property',
-            key: 'zeroField',
-            inner: { type: 'root' },
+      assert: {
+        type: 'equals',
+        left: {
+          type: 'property',
+          key: 'field',
+          inner: {
+            type: 'credential',
+            credentialKey: 'signedData',
+            credentialType: 'native',
           },
         },
-        outputClaim: {
-          type: 'credential',
-          credentialKey: 'signedData',
-          credentialType: 'native',
+        right: {
+          type: 'property',
+          key: 'zeroField',
+          inner: { type: 'root' },
         },
+      },
+      outputClaim: {
+        type: 'credential',
+        credentialKey: 'signedData',
+        credentialType: 'native',
       },
     };
     assert.deepStrictEqual(serialized, expected);
@@ -929,43 +925,41 @@ test('convertSpecToSerializable', async (t) => {
         },
         zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
-      logic: {
-        assert: {
-          type: 'and',
-          inputs: [
-            {
-              type: 'lessThan',
-              left: {
-                type: 'credential',
-                credentialKey: 'field1',
-                credentialType: 'unsigned',
-              },
-              right: {
-                type: 'credential',
-                credentialKey: 'field2',
-                credentialType: 'unsigned',
-              },
+      assert: {
+        type: 'and',
+        inputs: [
+          {
+            type: 'lessThan',
+            left: {
+              type: 'credential',
+              credentialKey: 'field1',
+              credentialType: 'unsigned',
             },
-            {
-              type: 'equals',
-              left: {
-                type: 'credential',
-                credentialKey: 'field1',
-                credentialType: 'unsigned',
-              },
-              right: {
-                type: 'property',
-                key: 'zeroField',
-                inner: { type: 'root' },
-              },
+            right: {
+              type: 'credential',
+              credentialKey: 'field2',
+              credentialType: 'unsigned',
             },
-          ],
-        },
-        outputClaim: {
-          type: 'credential',
-          credentialKey: 'field2',
-          credentialType: 'unsigned',
-        },
+          },
+          {
+            type: 'equals',
+            left: {
+              type: 'credential',
+              credentialKey: 'field1',
+              credentialType: 'unsigned',
+            },
+            right: {
+              type: 'property',
+              key: 'zeroField',
+              inner: { type: 'root' },
+            },
+          },
+        ],
+      },
+      outputClaim: {
+        type: 'credential',
+        credentialKey: 'field2',
+        credentialType: 'unsigned',
       },
     };
     assert.deepStrictEqual(serialized, expected);
@@ -1060,11 +1054,10 @@ test('Serialize spec with owner and issuer nodes', async (t) => {
   const parsed = JSON.parse(serialized);
   const serializedSpec = JSON.parse(parsed.spec);
 
-  assert.deepStrictEqual(serializedSpec.logic.outputClaim.data.owner, {
+  assert.deepStrictEqual(serializedSpec.outputClaim.data.owner, {
     type: 'owner',
   });
-
-  assert.deepStrictEqual(serializedSpec.logic.outputClaim.data.issuer, {
+  assert.deepStrictEqual(serializedSpec.outputClaim.data.issuer, {
     type: 'issuer',
     credentialKey: 'signedData',
   });

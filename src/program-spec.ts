@@ -5,7 +5,7 @@ import {
   PublicKey,
   type InferProvable,
   Provable,
-  From,
+  type From,
 } from 'o1js';
 import type { ExcludeFromRecord } from './types.ts';
 import { ProvableType } from './o1js-missing.ts';
@@ -59,10 +59,8 @@ type Spec<
   Inputs extends Record<string, Input> = Record<string, Input>
 > = {
   inputs: Inputs;
-  logic: {
-    assert: Node<Bool>;
-    outputClaim: Node<Output>;
-  };
+  assert: Node<Bool>;
+  outputClaim: Node<Output>;
 };
 
 /**
@@ -127,7 +125,7 @@ function Spec<Output, Inputs extends Record<string, Input>>(
   let outputClaim: Node<Output> =
     logic.outputClaim ?? (Operation.constant(undefined) as any);
 
-  return { inputs, logic: { assert: assertNode, outputClaim } };
+  return { inputs, assert: assertNode, outputClaim };
 }
 
 type Constant<Data> = {
@@ -205,7 +203,7 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
 
 function publicOutputType(spec: Spec): Provable<unknown> {
   let root = rootType(spec);
-  let outputTypeNested = Node.evalType(root, spec.logic.outputClaim);
+  let outputTypeNested = Node.evalType(root, spec.outputClaim);
   return NestedProvable.get(outputTypeNested);
 }
 

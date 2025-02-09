@@ -10,13 +10,12 @@ import {
   serializeProvable,
   serializeProvableType,
 } from './serialize-provable.ts';
-import { assert } from './util.ts';
+import { assert, mapObject } from './util.ts';
 
 export {
   type SerializedValue,
   type SerializedContext,
   serializeNode,
-  serializeInputs,
   serializeInput,
   convertSpecToSerializable,
   serializeSpec,
@@ -32,18 +31,10 @@ async function serializeSpec(spec: Spec): Promise<string> {
 
 function convertSpecToSerializable(spec: Spec): Record<string, any> {
   return {
-    inputs: serializeInputs(spec.inputs),
-    logic: {
-      assert: serializeNode(spec.logic.assert),
-      outputClaim: serializeNode(spec.logic.outputClaim),
-    },
+    inputs: mapObject(spec.inputs, (input) => serializeInput(input)),
+    assert: serializeNode(spec.assert),
+    outputClaim: serializeNode(spec.outputClaim),
   };
-}
-
-function serializeInputs(inputs: Record<string, Input>): Record<string, any> {
-  return Object.fromEntries(
-    Object.keys(inputs).map((key) => [key, serializeInput(inputs[key]!)])
-  );
 }
 
 function serializeInput(input: Input): any {

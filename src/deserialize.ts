@@ -46,10 +46,8 @@ function convertSpecFromSerializable(parsedSpec: any): Spec {
   let inputs = deserializeInputs(parsedSpec.inputs);
   return {
     inputs,
-    logic: {
-      assert: deserializeNode(inputs, parsedSpec.logic.assert),
-      outputClaim: deserializeNode(inputs, parsedSpec.logic.outputClaim),
-    },
+    assert: deserializeNode(inputs, parsedSpec.assert),
+    outputClaim: deserializeNode(inputs, parsedSpec.outputClaim),
   };
 }
 
