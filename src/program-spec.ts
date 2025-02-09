@@ -35,7 +35,7 @@ export type {
   PublicInputs,
   PrivateInputs,
   UserInputs,
-  RootNodeValue,
+  RootValue,
   ToCredential,
   Input,
   Claims,
@@ -50,7 +50,7 @@ export {
   privateInputTypes,
   splitUserInputs,
   extractCredentialInputs,
-  rootNodeValue,
+  rootValue,
   isCredentialSpec,
 };
 
@@ -260,13 +260,13 @@ function extractCredentialInputs(
   return { context, ownerSignature, credentials: credentialInputs };
 }
 
-function rootNodeValue<S extends Spec>(
+function rootValue<S extends Spec>(
   spec: S,
   publicInputs: PublicInputs<any>,
   privateInputs: PrivateInputs<any>,
   credentialOutputs: CredentialOutputs
-): RootNodeValue<S['inputs']>;
-function rootNodeValue<S extends Spec>(
+): RootValue<S['inputs']>;
+function rootValue<S extends Spec>(
   spec: S,
   { claims }: PublicInputs<any>,
   _: PrivateInputs<any>,
@@ -319,10 +319,8 @@ type UserInputs<Inputs extends Record<string, Input>> = {
   credentials: ExcludeFromRecord<MapToCredentials<Inputs>, never>;
 };
 
-type RootNodeValue<Inputs extends Record<string, Input>> = ExcludeFromRecord<
-  MapToDataInput<Inputs>,
-  never
-> & { owner: PublicKey };
+type RootValue<Inputs extends Record<string, Input> = Record<string, Input>> =
+  ExcludeFromRecord<MapToDataInput<Inputs>, never> & { owner: PublicKey };
 
 type MapToClaims<T extends Record<string, Input>> = {
   [K in keyof T]: ToClaim<T[K]>;
@@ -349,7 +347,7 @@ type ToDataInput<T extends Input> = T extends CredentialSpec<
   infer Witness,
   infer Data
 >
-  ? { credential: Credential<Data>; witness: Witness; issuer: Field }
+  ? { data: Data; witness: Witness; issuer: Field }
   : T extends Input<infer Data>
   ? Data
   : never;

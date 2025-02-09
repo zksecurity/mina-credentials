@@ -13,7 +13,7 @@ import {
   privateInputTypes,
   publicInputTypes,
   publicOutputType,
-  rootNodeValue,
+  rootValue,
   Spec,
   splitUserInputs,
   extractCredentialInputs,
@@ -77,7 +77,7 @@ function createProgram<S extends Spec>(
           );
           let credentialOutputs = verifyCredentials(credentials);
 
-          let root = rootNodeValue(
+          let root = rootValue(
             spec,
             publicInput,
             privateInput,

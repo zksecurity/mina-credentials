@@ -107,9 +107,9 @@ type CredentialInputs = {
 type CredentialOutputs = {
   owner: PublicKey;
   credentials: {
-    credential: Credential;
-    issuer: Field;
+    data: unknown;
     witness: unknown;
+    issuer: Field;
   }[];
 };
 
@@ -154,9 +154,9 @@ function verifyCredentials({
     // credential-issuer pairs
     credentials: zip(credentials, issuers).map(
       ([{ credential, witness }, issuer]) => ({
-        credential,
-        issuer,
+        data: credential.data,
         witness,
+        issuer,
       })
     ),
   };
