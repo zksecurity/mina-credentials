@@ -1,6 +1,6 @@
 # Mina Attestations &nbsp; [![npm version](https://img.shields.io/npm/v/mina-attestations.svg?style=flat)](https://www.npmjs.com/package/mina-attestations)
 
-This is a TypeScript library that implements _private attestations_: A cryptographic protocol that allows you to selectively disclose facts about yourself.
+This is a TypeScript library that implements _private attestations_: A cryptographic protocol that allows you to selectively disclose facts about yourself, using zero-knowledge proofs.
 
 **Try our demo: [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz)**
 
@@ -29,14 +29,22 @@ The attestation flow usually involves three parties:
 
 <!-- TODO: add diagram -->
 
+## Features
+
 Mina Attestations helps you implement all parts of the flow described above.
 
+- bullet
+- point
+- list
+
+<!-- One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user. -->
+
+<!--
 Under the hood, private attestations rely on [zero-knowledge proofs](https://en.wikipedia.org/wiki/Zero-knowledge_proof).
-Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript.
+Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript. -->
 
-## Attestation DSL
+## Example: Defining a private attestation
 
-One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user.
 Continuing from the example before, the crypto exchange might specify their conditions on the user's passport as follows:
 
 ```ts
@@ -75,13 +83,23 @@ The Attestation DSL is, essentially, a radically simplified language for specify
 - Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet
 - Easier to write and harder to mess up for developers
 
-## Resources and background
+## What credentials does Mina Attestations support?
 
-TODO: references to various md docs and papers and examples
+Explain native vs imported
 
-## Usage
+## API
 
-TODO
+TOC with links
+
+### Data types
+
+### Creating credentials
+
+### Defining and requesting a presentation
+
+### Creating presentations
+
+### Verifying presentations
 
 ## Bonus: `mina-attestations/dynamic`
 
@@ -132,11 +150,17 @@ let provenHash: Bytes = result.proof.publicOutput;
 console.log(provenHash.toHex());
 ```
 
+## Further resources and background
+
+TODO: references to various md docs and papers and examples
+
 ## Acknowledgement
 
-We thank Mina Foundation for funding this work with a grant.
+We thank [Mina Foundation](https://www.minafoundation.com/) for funding this work with a grant, and for providing us with valuable feedback and direction throughout. Link to the original grant proposal: https://github.com/MinaFoundation/Core-Grants/issues/35#issuecomment-2318685738
 
-Original grant proposal: https://github.com/MinaFoundation/Core-Grants/issues/35#issuecomment-2318685738
+We thank o1Labs for maintaining and open-sourcing [o1js](https://github.com/o1-labs/o1js). Some of our code, such as the SHA2, Keccak and RSA gadgets, were seeded by copying code from the o1js repo and modifying it to fit our needs.
+
+We thank the [zk-email project](https://github.com/zkemail) for creating and open-sourcing zk-email. We took great inspiration for our own (unfinished) zk-email implementation. Our TS code that prepares emails for in-circuit verification was seeded by copying over a large amount of from [zk-email-verify](https://github.com/zkemail/zk-email-verify); some parts of it still exist in our code almost unchanged.
 
 ## License
 
