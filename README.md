@@ -12,20 +12,23 @@ npm i mina-attestations
 
 ## What are private attestations?
 
-The attestation flow usually involves three parties:
+The attestation flow involves three parties: _issuer_, _user_ and _verifier_.
 
-1. an _issuer_ that makes a statement about you and hands you a certificate of that statement: a _credential_.
+1. an _issuer_ makes a statement about you and hands you a certificate of that statement: a _credential_.
 
-- Example: Your passport is a credential issued by a government agency. It contains valuable information about you.
+- Example: Your passport is a credential issued by a government agency. It contains information such as your name, birth date and citizenship.
+<!-- - A credential derives its value from the credibility of the issuer: Third parties will trust the information on your passport, because they trust your government.
+- To be usable, a credential has to carry a _digital signature_ by the issuer. (For modern passports in most countries, this is the case!) -->
 
-2. a _verifier_ that is interested in some particular fact about you (that is contained in a credential).
+2. the _verifier_ is interested in some particular fact about you (that is contained in a credential).
 
 - Example: To sign up users, a crypto exchange must check that they are not US citizens. The exchange acts as a verifier.
 
-3. you, the _user_, who controls your own credentials. You can decide to create privacy-preserving _presentations_ of a credential, disclosing just the information that a verifier needs to know.
+3. the _user_ owns credentials. They can create _presentations_ of a credential, that only disclose the information a verifier needs to know.
 
-- Example: Prompted by the crypto exchange's request, you create a presentation about your passport, proving that it comes from a non-US country.
-- The crypto exchange never learns any other information contained in your passport, and can still trust your presentation.
+- Example: Prompted by the crypto exchange's request, you create a presentation, proving that your passport comes from a non-US country. The crypto exchange verifies that this is true, without learning anything else about you.
+
+<!-- TODO: DEFINE "PRIVATE ATTESTATIONS" !!!! -->
 
 <!-- TODO: add diagram -->
 
