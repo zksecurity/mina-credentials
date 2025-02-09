@@ -16,10 +16,12 @@ import {
 import { zip } from './util.ts';
 import { hashDynamic, provableTypeMatches } from './dynamic/dynamic-hash.ts';
 import type { JSONValue } from './types.ts';
+import type { ImportedWitnessSpec } from './credential-imported.ts';
 
 export {
   type Credential,
   type CredentialSpec,
+  type WitnessSpec,
   type CredentialType,
   type CredentialInputs,
   type CredentialOutputs,
@@ -56,17 +58,19 @@ type CredentialType = 'unsigned' | 'native' | 'imported';
  */
 type CredentialSpec<Witness = unknown, Data = unknown> = {
   credentialType: CredentialType;
-  witness: NestedProvableFor<Witness>;
   data: NestedProvableFor<Data>;
+  witness: WitnessSpec;
+
+  witnessType(type: WitnessSpec): NestedProvableFor<Witness>;
 
   verify(witness: Witness, credHash: Field): void;
-
-  validate(witness: Witness, credHash: Field): Promise<void>;
-
   issuer(witness: Witness): Field;
+  validate(witness: Witness, credHash: Field): Promise<void>;
 
   matchesSpec(witness: Witness): boolean;
 };
+
+type WitnessSpec = ImportedWitnessSpec | undefined;
 
 /**
  * Credential in stored form, including the witness and metadata.
@@ -198,7 +202,11 @@ type Unsigned<Data> = StoredCredential<Data, undefined>;
 
 const UnsignedBase = {
   credentialType: 'unsigned' as const,
-  witness: Undefined,
+  witness: undefined,
+
+  witnessType() {
+    return Undefined;
+  },
 
   // do nothing
   verify() {},

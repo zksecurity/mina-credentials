@@ -13,15 +13,19 @@ import {
 } from './credential-native.ts';
 import {
   Imported,
+  ImportedWitnessSpec,
   type Witness as ImportedWitness,
 } from './credential-imported.ts';
 import { assert, hasProperty } from './util.ts';
 import { type InferNestedProvable, NestedProvable } from './nested.ts';
 import {
+  deserializeNestedProvable,
   deserializeNestedProvableValue,
+  serializeNestedProvable,
   serializeNestedProvableValue,
 } from './serialize-provable.ts';
 import { Schema } from './dynamic/schema.ts';
+import type { CredentialSpecJSON } from './validation.ts';
 
 export { Credential, validateCredential };
 
@@ -80,6 +84,9 @@ const Credential = {
    */
   validate: validateCredential,
 
+  specToJSON,
+  specFromJSON,
+
   /**
    * Serialize the data input to a `signCredential()` call.
    *
@@ -130,4 +137,38 @@ const witnessTypes = new Set<unknown>([
 
 function knownWitness(witness: unknown): witness is Witness {
   return hasProperty(witness, 'type') && witnessTypes.has(witness.type);
+}
+
+/**
+ * Serialize a credential spec to a JSON value.
+ */
+function specToJSON(spec: CredentialSpec): CredentialSpecJSON {
+  return {
+    type: 'credential',
+    credentialType: spec.credentialType,
+    witness:
+      spec.witness === undefined
+        ? null
+        : ImportedWitnessSpec.toJSON(spec.witness),
+    data: serializeNestedProvable(spec.data),
+  };
+}
+
+/**
+ * Deserialize a credential spec from a JSON value.
+ */
+function specFromJSON(json: CredentialSpecJSON): CredentialSpec<any, any> {
+  let data = deserializeNestedProvable(json.data);
+  switch (json.credentialType) {
+    case 'native':
+      return Native(data);
+    case 'unsigned':
+      return Unsigned(data);
+    case 'imported':
+      assert(json.witness !== null, 'Missing witness');
+      let witness = ImportedWitnessSpec.fromJSON(json.witness);
+      return Imported.create({ data, witness });
+    default:
+      throw Error(`Unsupported credential id: ${json.credentialType}`);
+  }
 }

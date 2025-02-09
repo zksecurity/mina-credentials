@@ -194,7 +194,7 @@ function privateInputTypes({ inputs }: Spec): NestedProvableFor<{
     if (isCredentialSpec(input)) {
       credentials[key] = {
         credential: withOwner(input.data),
-        witness: input.witness,
+        witness: input.witnessType(input.witness),
       };
     }
   });

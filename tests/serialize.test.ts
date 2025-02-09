@@ -20,7 +20,12 @@ import {
   serializeNestedProvable,
   serializeProvableType,
 } from '../src/serialize-provable.ts';
-import { ContextSchema, InputSchema, NodeSchema } from '../src/validation.ts';
+import {
+  ContextSchema,
+  type InputJSON,
+  InputSchema,
+  NodeSchema,
+} from '../src/validation.ts';
 
 test('Serialize Inputs', async (t) => {
   await t.test('should serialize basic types correctly', () => {
@@ -656,15 +661,13 @@ test('serializeInput', async (t) => {
 
     const serialized = serializeInput(input);
 
-    const expected = {
+    const expected: InputJSON = {
       type: 'credential',
       credentialType: 'unsigned',
-      witness: { _type: 'Undefined' },
+      witness: null,
       data: { _type: 'Field' },
     };
     assert.deepStrictEqual(serialized, expected);
-
-    console.log('serialized:', serialized.witness);
 
     const result = InputSchema.safeParse(serialized);
 
@@ -681,14 +684,10 @@ test('serializeInput', async (t) => {
 
     const serialized = serializeInput(input);
 
-    const expected = {
+    const expected: InputJSON = {
       type: 'credential',
       credentialType: 'native',
-      witness: {
-        type: { _type: 'Constant', value: 'native' },
-        issuer: { _type: 'PublicKey' },
-        issuerSignature: { _type: 'Signature' },
-      },
+      witness: null,
       data: {
         age: { _type: 'Field' },
         isAdmin: { _type: 'Bool' },
@@ -718,10 +717,10 @@ test('serializeInput', async (t) => {
 
     const serialized = serializeInput(input);
 
-    const expected = {
+    const expected: InputJSON = {
       type: 'credential',
       credentialType: 'unsigned',
-      witness: { _type: 'Undefined' },
+      witness: null,
       data: {
         personal: {
           age: { _type: 'Field' },
@@ -795,9 +794,9 @@ test('convertSpecToSerializable', async (t) => {
         age: {
           type: 'credential',
           credentialType: 'unsigned',
-          witness: { _type: 'Undefined' },
+          witness: null,
           data: { _type: 'Field' },
-        },
+        } satisfies InputJSON,
         isAdmin: { type: 'claim', data: { _type: 'Bool' } },
         maxAge: { type: 'constant', data: { _type: 'Field' }, value: '100' },
       },
@@ -855,15 +854,11 @@ test('convertSpecToSerializable', async (t) => {
         signedData: {
           type: 'credential',
           credentialType: 'native',
-          witness: {
-            type: { _type: 'Constant', value: 'native' },
-            issuer: { _type: 'PublicKey' },
-            issuerSignature: { _type: 'Signature' },
-          },
+          witness: null,
           data: {
             field: { _type: 'Field' },
           },
-        },
+        } satisfies InputJSON,
         zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
       assert: {
@@ -914,15 +909,15 @@ test('convertSpecToSerializable', async (t) => {
         field1: {
           type: 'credential',
           credentialType: 'unsigned',
-          witness: { _type: 'Undefined' },
+          witness: null,
           data: { _type: 'Field' },
-        },
+        } satisfies InputJSON,
         field2: {
           type: 'credential',
           credentialType: 'unsigned',
-          witness: { _type: 'Undefined' },
+          witness: null,
           data: { _type: 'Field' },
-        },
+        } satisfies InputJSON,
         zeroField: { type: 'constant', data: { _type: 'Field' }, value: '0' },
       },
       assert: {

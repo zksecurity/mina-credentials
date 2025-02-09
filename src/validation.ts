@@ -11,6 +11,7 @@ export {
   InputSchema,
   ContextSchema,
 };
+export type { InputJSON, ImportedWitnessSpecJSON, CredentialSpecJSON };
 
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
@@ -310,20 +311,44 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
 
 // Input Schema
 
-const InputSchema = z.discriminatedUnion('type', [
-  z
-    .object({
-      type: z.literal('credential'),
-      credentialType: z.union([
-        z.literal('native'),
-        z.literal('unsigned'),
-        z.literal('imported'),
-      ]),
-      witness: NestedSerializedTypeSchema,
-      data: NestedSerializedTypeSchema,
-    })
-    .strict(),
+const maxProofsVerified = z.union([z.literal(0), z.literal(1), z.literal(2)]);
+const booleanOrNull = z.boolean().or(z.null());
+const featureFlags = z.object({
+  rangeCheck0: booleanOrNull,
+  rangeCheck1: booleanOrNull,
+  foreignFieldAdd: booleanOrNull,
+  foreignFieldMul: booleanOrNull,
+  xor: booleanOrNull,
+  rot: booleanOrNull,
+  lookup: booleanOrNull,
+  runtimeTables: booleanOrNull,
+});
 
+const importedWitnessSpec = z.object({
+  type: z.literal('imported'),
+  publicInputType: SerializedTypeSchema,
+  publicOutputType: SerializedTypeSchema,
+  maxProofsVerified,
+  featureFlags,
+});
+type ImportedWitnessSpecJSON = z.infer<typeof importedWitnessSpec>;
+
+const credentialSpec = z
+  .object({
+    type: z.literal('credential'),
+    credentialType: z.union([
+      z.literal('native'),
+      z.literal('unsigned'),
+      z.literal('imported'),
+    ]),
+    witness: importedWitnessSpec.or(z.null()),
+    data: NestedSerializedTypeSchema,
+  })
+  .strict();
+type CredentialSpecJSON = z.infer<typeof credentialSpec>;
+
+const InputSchema = z.discriminatedUnion('type', [
+  credentialSpec,
   z
     .object({
       type: z.literal('constant'),
@@ -331,7 +356,6 @@ const InputSchema = z.discriminatedUnion('type', [
       value: JsonSchema,
     })
     .strict(),
-
   z
     .object({
       type: z.literal('claim'),
@@ -339,6 +363,8 @@ const InputSchema = z.discriminatedUnion('type', [
     })
     .strict(),
 ]);
+
+type InputJSON = z.infer<typeof InputSchema>;
 
 // Context schemas
 

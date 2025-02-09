@@ -1,17 +1,17 @@
 import { Claim, Constant, type Input, Spec } from './program-spec.ts';
 import { Node } from './operation.ts';
 import { validateSpecHash, type SerializedContext } from './serialize.ts';
-import { type CredentialType } from './credential.ts';
 import { Credential } from './credential-index.ts';
 import {
   deserializeNestedProvable,
   deserializeProvable,
   deserializeProvableType,
 } from './serialize-provable.ts';
+import type { InputJSON } from './validation.ts';
+import { mapObject } from './util.ts';
 
 export {
   deserializeSpec,
-  deserializeInputs,
   deserializeInput,
   deserializeNode,
   deserializeInputContext,
@@ -43,7 +43,7 @@ async function deserializeSpec(serializedSpecWithHash: string): Promise<Spec> {
 }
 
 function convertSpecFromSerializable(parsedSpec: any): Spec {
-  let inputs = deserializeInputs(parsedSpec.inputs);
+  let inputs = mapObject(parsedSpec.inputs, (input) => deserializeInput(input));
   return {
     inputs,
     assert: deserializeNode(inputs, parsedSpec.assert),
@@ -51,15 +51,8 @@ function convertSpecFromSerializable(parsedSpec: any): Spec {
   };
 }
 
-function deserializeInputs(inputs: Record<string, any>): Record<string, Input> {
-  const result: Record<string, Input> = {};
-  for (const [key, value] of Object.entries(inputs)) {
-    result[key] = deserializeInput(value);
-  }
-  return result;
-}
-
-function deserializeInput(input: any): Input {
+function deserializeInput(input: InputJSON): Input {
+  let type = input.type;
   switch (input.type) {
     case 'constant':
       return Constant(
@@ -69,22 +62,10 @@ function deserializeInput(input: any): Input {
     case 'claim':
       return Claim(deserializeNestedProvable(input.data));
     case 'credential': {
-      let credentialType: CredentialType = input.credentialType;
-      let data = deserializeNestedProvable(input.data);
-      switch (credentialType) {
-        case 'native':
-          return Credential.Native(data);
-        case 'unsigned':
-          return Credential.Unsigned(data);
-        case 'imported':
-          let proof = deserializeProvableType(input.witness.proof) as any;
-          return Credential.Imported.create(proof, data);
-        default:
-          throw Error(`Unsupported credential id: ${credentialType}`);
-      }
+      return Credential.specFromJSON(input);
     }
     default:
-      throw Error(`Invalid input type: ${input.type}`);
+      throw Error(`Invalid input type: ${type}`);
   }
 }
 

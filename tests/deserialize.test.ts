@@ -29,7 +29,6 @@ import {
 } from '../src/serialize.ts';
 import {
   deserializeSpec,
-  deserializeInputs,
   deserializeInput,
   deserializeNode,
 } from '../src/deserialize.ts';
@@ -49,6 +48,8 @@ import {
   serializeProvable,
 } from '../src/serialize-provable.ts';
 import { PresentationRequestSchema } from '../src/validation.ts';
+import type { ImportedWitnessSpec } from '../src/credential-imported.ts';
+import { mapObject } from '../src//util.ts';
 
 test('Deserialize Spec', async (t) => {
   await t.test('deserializeProvable', async (t) => {
@@ -272,10 +273,8 @@ test('deserializeInput', async (t) => {
   });
 
   await t.test('should throw error for unsupported input type', async (t) => {
-    const invalidInput = { type: 'invalid' };
-
     try {
-      deserializeInput(invalidInput);
+      deserializeInput({ type: 'invalid' } as any);
       assert.fail('Expected an error to be thrown');
     } catch (error) {
       assert(error instanceof Error);
@@ -297,12 +296,8 @@ test('deserializeInputs', async (t) => {
         },
       }),
     };
-
-    const serialized = Object.fromEntries(
-      Object.entries(inputs).map(([key, value]) => [key, serializeInput(value)])
-    );
-
-    const deserialized = deserializeInputs(serialized);
+    const serialized = mapObject(inputs, serializeInput);
+    const deserialized = mapObject(serialized, deserializeInput);
 
     assert.deepStrictEqual(deserialized, inputs);
   });
@@ -312,20 +307,9 @@ test('deserializeInputs', async (t) => {
     const inputs = {
       credential: Credential.Native(InputData),
     };
-
-    const serialized = Object.fromEntries(
-      Object.entries(inputs).map(([key, value]) => [key, serializeInput(value)])
-    );
-
-    const deserialized = deserializeInputs(serialized);
-
-    const reserialized = Object.fromEntries(
-      Object.entries(deserialized).map(([key, value]) => [
-        key,
-        serializeInput(value),
-      ])
-    );
-
+    const serialized = mapObject(inputs, serializeInput);
+    const deserialized = mapObject(serialized, deserializeInput);
+    const reserialized = mapObject(deserialized, serializeInput);
     assert.deepStrictEqual(serialized, reserialized);
   });
 
@@ -336,27 +320,11 @@ test('deserializeInputs', async (t) => {
       constantUint: Constant(UInt32, UInt32.from(42)),
       credential: Credential.Native({ score: UInt64 }),
     };
-
-    const serialized = Object.fromEntries(
-      Object.entries(inputs).map(([key, value]) => [key, serializeInput(value)])
-    );
-
-    const deserialized = deserializeInputs(serialized);
-
-    const reserialized = Object.fromEntries(
-      Object.entries(deserialized).map(([key, value]) => [
-        key,
-        serializeInput(value),
-      ])
-    );
+    const serialized = mapObject(inputs, serializeInput);
+    const deserialized = mapObject(serialized, deserializeInput);
+    const reserialized = mapObject(deserialized, serializeInput);
 
     assert.deepStrictEqual(serialized, reserialized);
-  });
-
-  await t.test('should handle empty input object', () => {
-    const emptyInputs = {};
-    const deserialized = deserializeInputs(emptyInputs);
-    assert.deepStrictEqual(deserialized, {});
   });
 });
 
@@ -721,16 +689,20 @@ test('deserializeSpec', async (t) => {
   await t.test(
     'should correctly deserialize a Spec with imported credential',
     async () => {
-      class RecursiveProof extends DynamicProof<undefined, Credential<Field>> {
-        static publicInputType = Undefined;
-        static publicOutputType = Struct(withOwner(Field));
-        static maxProofsVerified: 0 = 0;
-        static featureFlags = FeatureFlags.allMaybe;
-      }
+      const ProofSpec: ImportedWitnessSpec = {
+        type: 'imported',
+        publicInputType: Undefined,
+        publicOutputType: Struct(withOwner(Field)),
+        maxProofsVerified: 0,
+        featureFlags: FeatureFlags.allMaybe,
+      };
 
       const originalSpec = Spec(
         {
-          provedData: Credential.Imported.create(RecursiveProof, Field),
+          provedData: Credential.Imported.create({
+            data: Field,
+            witness: ProofSpec,
+          }),
           zeroField: Constant(Field, Field(0)),
         },
         ({ provedData, zeroField }) => ({
@@ -758,16 +730,14 @@ test('deserializeSpec', async (t) => {
         originalSpec.inputs.provedData.data
       );
 
-      let DeserializedProof: typeof DynamicProof = (
-        originalSpec.inputs.provedData.witness as any
-      ).proof;
+      let deserializedWitnessSpec = originalSpec.inputs.provedData.witness;
       assert.deepStrictEqual(
-        DeserializedProof.featureFlags,
-        RecursiveProof.featureFlags
+        deserializedWitnessSpec?.featureFlags,
+        ProofSpec.featureFlags
       );
       assert.deepStrictEqual(
-        DeserializedProof.maxProofsVerified,
-        RecursiveProof.maxProofsVerified
+        deserializedWitnessSpec.maxProofsVerified,
+        ProofSpec.maxProofsVerified
       );
     }
   );

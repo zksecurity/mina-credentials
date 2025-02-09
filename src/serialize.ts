@@ -11,6 +11,8 @@ import {
   serializeProvableType,
 } from './serialize-provable.ts';
 import { assert, mapObject } from './util.ts';
+import { Credential } from './credential-index.ts';
+import type { InputJSON } from './validation.ts';
 
 export {
   type SerializedValue,
@@ -37,7 +39,7 @@ function convertSpecToSerializable(spec: Spec): Record<string, any> {
   };
 }
 
-function serializeInput(input: Input): any {
+function serializeInput(input: Input): InputJSON {
   switch (input.type) {
     case 'constant': {
       return {
@@ -54,12 +56,7 @@ function serializeInput(input: Input): any {
     }
     default: {
       assert('credentialType' in input, 'Invalid input type');
-      return {
-        type: 'credential',
-        credentialType: input.credentialType,
-        witness: serializeNestedProvable(input.witness),
-        data: serializeNestedProvable(input.data),
-      };
+      return Credential.specToJSON(input);
     }
   }
 }

@@ -31,10 +31,13 @@ type Native<Data> = StoredCredential<Data, Witness>;
 const NativeBase = {
   credentialType: 'native' as const,
 
-  witness: {
-    type: ProvableType.constant('native' as const),
-    issuer: PublicKey,
-    issuerSignature: Signature,
+  witness: undefined,
+  witnessType() {
+    return {
+      type: ProvableType.constant('native' as const),
+      issuer: PublicKey,
+      issuerSignature: Signature,
+    };
   },
 
   // verify the signature
