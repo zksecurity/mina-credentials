@@ -26,7 +26,7 @@ import {
   serializeNode,
   serializeInput,
   serializeSpec,
-} from '../src/serialize.ts';
+} from '../src/serialize-spec.ts';
 import {
   deserializeSpec,
   deserializeInput,

@@ -24,7 +24,7 @@ import {
 import { Node } from './operation.ts';
 import { NestedProvable } from './nested.ts';
 import { verifyCredentials } from './credential.ts';
-import { serializeSpec } from './serialize.ts';
+import { serializeSpec } from './serialize-spec.ts';
 
 export { createProgram, type Program };
 

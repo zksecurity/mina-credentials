@@ -7,7 +7,7 @@ import {
   serializeInput,
   serializeSpec,
   serializeInputContext,
-} from '../src/serialize.ts';
+} from '../src/serialize-spec.ts';
 import { Bool, Field, PublicKey, Signature, UInt32, UInt64, UInt8 } from 'o1js';
 import { deserializeInputContext } from '../src/deserialize.ts';
 import { Credential } from '../src/credential-index.ts';

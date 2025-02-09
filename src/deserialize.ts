@@ -1,6 +1,6 @@
 import { Claim, Constant, type Input, Spec } from './program-spec.ts';
 import { Node } from './operation.ts';
-import { type SerializedContext } from './serialize.ts';
+import { type SerializedContext } from './serialize-spec.ts';
 import { Credential } from './credential-index.ts';
 import {
   deserializeNestedProvable,
