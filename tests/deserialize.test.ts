@@ -422,7 +422,7 @@ test('deserializeNode', async (t) => {
     const invalidNode = { type: 'invalid' };
 
     try {
-      deserializeNode({}, invalidNode);
+      deserializeNode({}, invalidNode as any);
       assert.fail('Expected an error to be thrown');
     } catch (error) {
       assert(error instanceof Error, 'Error should be an instance of Error');

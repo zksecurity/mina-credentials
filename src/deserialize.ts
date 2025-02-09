@@ -7,7 +7,7 @@ import {
   deserializeProvable,
   deserializeProvableType,
 } from './serialize-provable.ts';
-import type { InputJSON, SpecJSON } from './validation.ts';
+import type { InputJSON, NodeJSON, SpecJSON } from './validation.ts';
 import { mapObject } from './util.ts';
 
 export {
@@ -59,11 +59,8 @@ function deserializeInput(input: InputJSON): Input {
   }
 }
 
-function deserializeNode(root: any, node: any): Node;
-function deserializeNode(
-  root: any,
-  node: { type: Node['type'] } & Record<string, any>
-): Node {
+function deserializeNode(root: any, node: NodeJSON): Node {
+  let type = node.type;
   switch (node.type) {
     case 'constant':
       return {
@@ -147,9 +144,8 @@ function deserializeNode(
         type: 'record',
         data: deserializedData,
       };
-    case 'compute':
-      throw Error('Not implemented');
     default:
-      throw Error(`Invalid node type: ${node.type}`);
+      node satisfies never;
+      throw Error(`Invalid node type: ${type}`);
   }
 }
