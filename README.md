@@ -32,7 +32,7 @@ The attestation flow involves three parties: _issuer_, _user_ and _verifier_. Th
 
 <!-- TODO: add diagram? -->
 
-To summarize, roughly, in cryptographic terms: credentials are any signed data, and presentations are zero-knowledge proofs about credentials.
+To summarize, roughly, in cryptographic terms: credentials are signed data, and presentations are zero-knowledge proofs about credentials.
 
 <!-- TODO: is this good enough as a definition of private attestations? -->
 
@@ -65,32 +65,50 @@ Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a ge
 
 <!-- TODO: rewrite to use a native credential and not rely on non-existing imports -->
 
-Continuing from the example before, the crypto exchange might specify their conditions on the user's passport as follows:
+Using an example similar to the one before, a verifier might specify their conditions on the user's credential as follows:
 
 ```ts
-import { PresentationSpec, Claim, Operation } from 'mina-attestations';
+import {
+  Claim,
+  Credential,
+  DynamicString,
+  Operation,
+  PresentationSpec,
+} from 'mina-attestations';
 import { UInt64 } from 'o1js';
-import { PassportCredential } from './credential-specs.ts';
+
+const String = DynamicString({ maxLength: 100 });
+
+// define expected credential schema
+let credential = Credential.Native({
+  name: String,
+  nationality: String,
+  expiresAt: UInt64,
+});
 
 let spec = PresentationSpec(
-  { passport: PassportCredential.spec, createdAt: Claim(UInt64) },
-  ({ passport, createdAt }) => ({
+  // inputs: credential and an additional "claim" (public input)
+  { credential, createdAt: Claim(UInt64) },
+  // logic
+  ({ credential, createdAt }) => ({
+    // we make two assertions:
     assert: [
-      // not from the United States
+      // 1. not from the United States
       Operation.not(
         Operation.equals(
-          Operation.property(passport, 'nationality'),
-          Operation.constant(
-            PassportCredential.Nationality.from('United States')
-          )
+          Operation.property(credential, 'nationality'),
+          Operation.constant(String.from('United States'))
         )
       ),
-      // passport is not expired
+
+      // 2. credential is not expired
       Operation.lessThanEq(
         createdAt,
-        Operation.property(passport, 'expiresAt')
+        Operation.property(credential, 'expiresAt')
       ),
     ],
+    // we expose the credential's issuer, for the verifier to check
+    outputClaim: Operation.issuer(credential),
   })
 );
 ```
@@ -103,7 +121,7 @@ The Attestation DSL is, essentially, a radically simplified language for specify
 - Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet
 - Easier to write and harder to mess up for developers
 
-## What credentials does Mina Attestations support? <a id="credential-kinds"></a>
+## What credentials are supported? <a id="credential-kinds"></a>
 
 TODO Explain native vs imported, stress what "importing" means & what could be done & what is already done
 
@@ -182,7 +200,7 @@ We thank [Mina Foundation](https://www.minafoundation.com/) for funding this wor
 
 We thank o1Labs for maintaining and open-sourcing [o1js](https://github.com/o1-labs/o1js). Some of our code, such as the SHA2, Keccak and RSA gadgets, were seeded by copying code from the o1js repo and modifying it to fit our needs.
 
-We thank the [zk-email project](https://github.com/zkemail) for creating and open-sourcing zk-email. We took great inspiration for our own (unfinished) zk-email implementation. Our TS code that prepares emails for in-circuit verification was seeded by copying over a large amount of from [zk-email-verify](https://github.com/zkemail/zk-email-verify); some parts of it still exist in our code almost unchanged.
+We thank the [zk-email project](https://github.com/zkemail) for creating and open-sourcing zk-email. We took great inspiration for our own (unfinished) zk-email implementation. Our TS code that prepares emails for in-circuit verification was seeded by copying over a large amount of code from [zk-email-verify](https://github.com/zkemail/zk-email-verify); some parts of it still exist in our code almost unchanged.
 
 ## License
 
