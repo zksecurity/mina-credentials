@@ -3,6 +3,7 @@ import { URL } from 'url';
 import { requestLogin, verifyLogin } from './action-login.ts';
 import { getVotes, requestVote, verifyVote } from './action-voting.ts';
 import { issueCredential } from './issue-credential.ts';
+import { requestZkPassVerification, verifiyZkPass } from './action-zkpass.ts';
 
 // Helper to read request body
 async function readBody(req: http.IncomingMessage): Promise<string> {
@@ -93,6 +94,28 @@ const server = http.createServer(async (req, res) => {
 
       res.writeHead(200);
       res.end(response);
+      return;
+    }
+
+    // zkPass endpoints
+    if (path == '/verify-zkpass-request' && req.method === 'GET') {
+      console.log('/verify-zkpass-request');
+
+      let request = await requestZkPassVerification();
+
+      res.writeHead(200);
+      res.end(request);
+      return;
+    }
+
+    if (path == '/verify-zkpass' && req.method === 'POST') {
+      let body = await readBody(req);
+      console.log('/verify-zkpass', body.slice(0, 1000));
+
+      let result = await verifiyZkPass(body);
+
+      res.writeHead(200);
+      res.end(JSON.stringify(result));
       return;
     }
 
