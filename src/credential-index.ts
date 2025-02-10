@@ -9,12 +9,12 @@ import {
 import {
   createNative,
   Native,
-  type Witness as NativeWitness,
+  type NativeWitness,
 } from './credential-native.ts';
 import {
   Imported,
   ImportedWitnessSpec,
-  type Witness as ImportedWitness,
+  type ImportedWitness,
 } from './credential-imported.ts';
 import { assert, hasProperty } from './util.ts';
 import { type InferNestedProvable, NestedProvable } from './nested.ts';
