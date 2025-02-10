@@ -36,24 +36,28 @@ To summarize, roughly, in cryptographic terms: credentials are signed data, and 
 
 <!-- TODO: is this good enough as a definition of private attestations? -->
 
-_Private attestations_ refers to the entire protocol sketched above. A synonymous term from the academic literature is [anonymous credentials](https://www.sciencedirect.com/topics/computer-science/anonymous-credential). <!-- TODO see [below](LINK) ? -->
+_Private attestations_ refers to the entire protocol sketched above. A synonymous term from the academic literature is [anonymous credentials](https://www.sciencedirect.com/topics/computer-science/anonymous-credential).
+
+<!-- TODO see [below](LINK) ? -->
 
 ## Features 💫
 
 Mina Attestations helps you implement all parts of the private attestation flow.
 
-- ✅ Supports [issuing credentials](#creating-credentials) as well as [requesting](#defining-and-requesting-a-presentation),
+- ✅ Supports [issuing credentials](#creating-credentials) as well as [requesting](#requesting-presentations),
   [creating](#creating-presentations) and [verifying](#verifying-presentations) presentations
 - 🪪 [Import real-world credentials](#credential-kinds), like passports or emails, by wrapping them in a zk proof
-- 💡 Selective disclosure logic is defined in [an embedded DSL](#attestation-dsl) that is rich in operations, yet simple enough for non-technical users to understand what data they share
+- 💡 Selective disclosure logic is defined with the embedded [`Operation` DSL](#attestation-dsl) that is feature-rich, yet simple enough for non-technical users to understand what data they share
 - 🔒 Designed for integration in crypto wallets, to store credentials and authorize presentations by a signature
   - Integration in the [Pallad](https://pallad.co) wallet is underway
 - 🧠 The cryptographic protocol is carefully designed to provide strong safety guarantees:
   - **Ownership**: Credentials are tied to their owner, a Mina public key, and become invalid when changing the owner.
-  - **Unforgability**: Presentations can only be created with access to their underlying credentials and an owner signature. So, credentials can even be stored with third parties without risking impersonation (if giving up privacy to those parties is acceptable).
+  - **Unforgeability**: Presentations can only be created with access to their underlying credentials and an owner signature. So, credentials can even be stored with third parties without risking impersonation (if giving up privacy to those parties is acceptable).
   - **Privacy**: Presentations do not leak any data from the input credential or the owner, apart from the specific public statement they were designed to encode <!-- (which can be reviewed by the user before giving authorization) -->.
   - **Unlinkability**: Two different presentations of the same credential, or by the same user, cannot be linked (apart from out-of-band correlations like the user's IP address)
   - **Context-binding**: Presentations are bound to a specific context such as the origin of the requesting website, so that the verifier cannot man-in-the-middle and impersonate users at a third party.
+
+Zero-knowledge proofs are implemented using [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework.
 
 <!-- One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user. -->
 
@@ -65,7 +69,7 @@ Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a ge
 
 <!-- TODO: rewrite to use a native credential and not rely on non-existing imports -->
 
-Using an example similar to the one before, a verifier might specify their conditions on the user's credential as follows:
+Using an example similar to the one before, a verifier might specify their conditions on the user's credential with the following code:
 
 ```ts
 import {
@@ -113,6 +117,17 @@ let spec = PresentationSpec(
 );
 ```
 
+There's much to unpack in this example, but the main thing we want to highlight is how the custom logic for the presentation is defined, in the call to `PresentationSpec()`.
+
+First we define the type of credential we expect, using `Credential.Native()`. That `credential` type is declared to be one of the inputs to the presentation, along with a second input called `createdAt`.
+
+<!--
+First, we declare the type of credential we expect by calling `Credential.Native()` with a set of data attributes. These attributes are set to "provable types", that would often be imported from o1js, like `UInt64` in the example. The example also instantiates its own provable type, `String`, using the `DynamicString` constructor from our library. This -->
+
+Note again that in a typical flow, this code would live somewhere in the application of a verifier. It would be used as the basis to create a [presentation request](#defining-and-requesting-a-presentation) TODO
+
+> 🤓 By interacting with this code in your editor, you might appreciate that all our library interfaces are precisely typed, using generic types to preserve as much information as possible. For example, the inferred type of `credential`, which is passed as an input to `PresentationSpec`, is carried into the callback. There, `Operations.property(credential, 'nationality')` is correctly inferred to be a `String`. This, in turn, ensures that a `String` is also passed to the `Operation.constant()`, because `Operations.equal()` requires its inputs to be of equal type.
+
 > Note: This example is simplified, see [our code example](https://github.com/zksecurity/mina-attestations/blob/main/examples/mock-zk-passport.eg.ts) for more details.
 
 The Attestation DSL is, essentially, a radically simplified language for specifying zk circuits, tailored to the use case of making statements about user data. It has several advantages over a general-purpose circuit framework like o1js:
@@ -133,7 +148,9 @@ TOC with links
 
 ### Creating credentials
 
-### Defining and requesting a presentation
+### Defining presentation logic
+
+### Requesting presentations
 
 ### Creating presentations
 
