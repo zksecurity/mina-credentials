@@ -11,6 +11,13 @@ export {
   InputSchema,
   ContextSchema,
 };
+export type {
+  InputJSON,
+  ImportedWitnessSpecJSON,
+  CredentialSpecJSON,
+  NodeJSON,
+  SpecJSON,
+};
 
 type Literal = string | number | boolean | null;
 type Json = Literal | { [key: string]: Json } | Json[];
@@ -135,7 +142,7 @@ const SerializedSignatureSchema = z
   .strict();
 
 // Node schemas
-type Node =
+type NodeJSON =
   | { type: 'owner' }
   | { type: 'credential'; credentialKey: string }
   | { type: 'issuer'; credentialKey: string }
@@ -144,23 +151,28 @@ type Node =
   | { type: 'publicInput'; credentialKey: string }
   | { type: 'constant'; data: z.infer<typeof SerializedValueSchema> }
   | { type: 'root' }
-  | { type: 'property'; key: string; inner: Node }
-  | { type: 'record'; data: Record<string, Node> }
-  | { type: 'equals'; left: Node; right: Node }
-  | { type: 'equalsOneOf'; input: Node; options: Node[] | Node }
-  | { type: 'lessThan'; left: Node; right: Node }
-  | { type: 'lessThanEq'; left: Node; right: Node }
-  | { type: 'add'; left: Node; right: Node }
-  | { type: 'sub'; left: Node; right: Node }
-  | { type: 'mul'; left: Node; right: Node }
-  | { type: 'div'; left: Node; right: Node }
-  | { type: 'and'; inputs: Node[] }
-  | { type: 'or'; left: Node; right: Node }
-  | { type: 'not'; inner: Node }
-  | { type: 'hash'; inputs: Node[]; prefix?: string | null }
-  | { type: 'ifThenElse'; condition: Node; thenNode: Node; elseNode: Node };
+  | { type: 'property'; key: string; inner: NodeJSON }
+  | { type: 'record'; data: Record<string, NodeJSON> }
+  | { type: 'equals'; left: NodeJSON; right: NodeJSON }
+  | { type: 'equalsOneOf'; input: NodeJSON; options: NodeJSON[] | NodeJSON }
+  | { type: 'lessThan'; left: NodeJSON; right: NodeJSON }
+  | { type: 'lessThanEq'; left: NodeJSON; right: NodeJSON }
+  | { type: 'add'; left: NodeJSON; right: NodeJSON }
+  | { type: 'sub'; left: NodeJSON; right: NodeJSON }
+  | { type: 'mul'; left: NodeJSON; right: NodeJSON }
+  | { type: 'div'; left: NodeJSON; right: NodeJSON }
+  | { type: 'and'; inputs: NodeJSON[] }
+  | { type: 'or'; left: NodeJSON; right: NodeJSON }
+  | { type: 'not'; inner: NodeJSON }
+  | { type: 'hash'; inputs: NodeJSON[]; prefix?: string | null }
+  | {
+      type: 'ifThenElse';
+      condition: NodeJSON;
+      thenNode: NodeJSON;
+      elseNode: NodeJSON;
+    };
 
-const NodeSchema: z.ZodType<Node> = z.lazy(() =>
+const NodeSchema: z.ZodType<NodeJSON> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z
       .object({ type: z.literal('constant'), data: SerializedValueSchema })
@@ -310,20 +322,44 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
 
 // Input Schema
 
-const InputSchema = z.discriminatedUnion('type', [
-  z
-    .object({
-      type: z.literal('credential'),
-      credentialType: z.union([
-        z.literal('native'),
-        z.literal('unsigned'),
-        z.literal('imported'),
-      ]),
-      witness: NestedSerializedTypeSchema,
-      data: NestedSerializedTypeSchema,
-    })
-    .strict(),
+const maxProofsVerified = z.union([z.literal(0), z.literal(1), z.literal(2)]);
+const booleanOrNull = z.boolean().or(z.null());
+const featureFlags = z.object({
+  rangeCheck0: booleanOrNull,
+  rangeCheck1: booleanOrNull,
+  foreignFieldAdd: booleanOrNull,
+  foreignFieldMul: booleanOrNull,
+  xor: booleanOrNull,
+  rot: booleanOrNull,
+  lookup: booleanOrNull,
+  runtimeTables: booleanOrNull,
+});
 
+const importedWitnessSpec = z.object({
+  type: z.literal('imported'),
+  publicInputType: SerializedTypeSchema,
+  publicOutputType: SerializedTypeSchema,
+  maxProofsVerified,
+  featureFlags,
+});
+type ImportedWitnessSpecJSON = z.infer<typeof importedWitnessSpec>;
+
+const credentialSpec = z
+  .object({
+    type: z.literal('credential'),
+    credentialType: z.union([
+      z.literal('native'),
+      z.literal('unsigned'),
+      z.literal('imported'),
+    ]),
+    witness: importedWitnessSpec.or(z.null()),
+    data: NestedSerializedTypeSchema,
+  })
+  .strict();
+type CredentialSpecJSON = z.infer<typeof credentialSpec>;
+
+const InputSchema = z.discriminatedUnion('type', [
+  credentialSpec,
   z
     .object({
       type: z.literal('constant'),
@@ -331,7 +367,6 @@ const InputSchema = z.discriminatedUnion('type', [
       value: JsonSchema,
     })
     .strict(),
-
   z
     .object({
       type: z.literal('claim'),
@@ -339,6 +374,18 @@ const InputSchema = z.discriminatedUnion('type', [
     })
     .strict(),
 ]);
+
+type InputJSON = z.infer<typeof InputSchema>;
+
+const spec = z
+  .object({
+    inputs: z.record(InputSchema),
+    assert: NodeSchema,
+    outputClaim: NodeSchema,
+  })
+  .strict();
+
+type SpecJSON = z.infer<typeof spec>;
 
 // Context schemas
 
@@ -367,17 +414,7 @@ const PresentationRequestSchema = z
       z.literal('zk-app'),
       z.literal('https'),
     ]),
-    spec: z
-      .object({
-        inputs: z.record(InputSchema),
-        logic: z
-          .object({
-            assert: NodeSchema,
-            outputClaim: NodeSchema,
-          })
-          .strict(),
-      })
-      .strict(),
+    spec,
     claims: z.record(SerializedValueSchema),
     inputContext: z.union([ContextSchema, z.null()]),
   })

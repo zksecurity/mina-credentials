@@ -1,8 +1,8 @@
 # Mina Attestations &nbsp; [![npm version](https://img.shields.io/npm/v/mina-attestations.svg?style=flat)](https://www.npmjs.com/package/mina-attestations)
 
-This is a TypeScript library that implements _private attestations_: A cryptographic protocol that allows you to selectively disclose facts about yourself.
+This is a TypeScript library that implements _private attestations_: A cryptographic protocol that allows you to selectively disclose facts about yourself, using zero-knowledge proofs.
 
-**Try our demo: [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz)**
+**🎮 Try our demo: [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz)**
 
 The library is available on npm and designed for all modern JS runtimes.
 
@@ -10,33 +10,61 @@ The library is available on npm and designed for all modern JS runtimes.
 npm i mina-attestations
 ```
 
-## What are private attestations?
+## What are private attestations? 🧑‍🎓
 
-The attestation flow usually involves three parties:
+The attestation flow involves three parties: _issuer_, _user_ and _verifier_. They exchange two kinds of digital objects: _credentials_ and _presentations_.
 
-1. an _issuer_ that makes a statement about you and hands you a certificate of that statement: a _credential_.
+1. an **issuer** makes a statement about you and hands you a certificate of that statement: a **credential**.
 
-- Example: Your passport is a credential issued by a government agency. It contains valuable information about you.
+> Example: Your passport is a credential issued by a government agency. It contains information such as your name, birth date and citizenship.
 
-2. a _verifier_ that is interested in some particular fact about you (that is contained in a credential).
+<!-- - A credential derives its value from the credibility of the issuer: Third parties will trust the information on your passport, because they trust your government.
+- To be usable, a credential has to carry a _digital signature_ by the issuer. (For modern passports in most countries, this is the case!) -->
 
-- Example: To sign up users, a crypto exchange must check that they are not US citizens. The exchange acts as a verifier.
+2. the **verifier** is interested in some particular fact about you (that is contained in a credential).
 
-3. you, the _user_, who controls your own credentials. You can decide to create privacy-preserving _presentations_ of a credential, disclosing just the information that a verifier needs to know.
+> Example: To sign up users, a crypto exchange must check that they are not US citizens. The exchange acts as a verifier.
 
-- Example: Prompted by the crypto exchange's request, you create a presentation about your passport, proving that it comes from a non-US country.
-- The crypto exchange never learns any other information contained in your passport, and can still trust your presentation.
+3. the **user** owns credentials. They can create **presentations** of a credential, that only disclose the information a verifier needs to know.
 
-<!-- TODO: add diagram -->
+> Example: Prompted by the crypto exchange's request, you create a presentation, proving that your passport comes from a non-US country.
+> The crypto exchange verifies that this is true, without learning anything else about you.
 
-Mina Attestations helps you implement all parts of the flow described above.
+<!-- TODO: add diagram? -->
 
+To summarize, roughly, in cryptographic terms: credentials are any signed data, and presentations are zero-knowledge proofs about credentials.
+
+<!-- TODO: is this good enough as a definition of private attestations? -->
+
+_Private attestations_ refers to the entire protocol sketched above. A synonymous term from the academic literature is [anonymous credentials](https://www.sciencedirect.com/topics/computer-science/anonymous-credential). <!-- TODO see [below](LINK) ? -->
+
+## Features 💫
+
+Mina Attestations helps you implement all parts of the private attestation flow.
+
+- ✅ Supports [issuing credentials](#creating-credentials) as well as [requesting](#defining-and-requesting-a-presentation),
+  [creating](#creating-presentations) and [verifying](#verifying-presentations) presentations
+- 🪪 [Import real-world credentials](#credential-kinds), like passports or emails, by wrapping them in a zk proof
+- 💡 Selective disclosure logic is defined in [an embedded DSL](#attestation-dsl) that is rich in operations, yet simple enough for non-technical users to understand what data they share
+- 🔒 Designed for integration in crypto wallets, to store credentials and authorize presentations by a signature
+  - Integration in the [Pallad](https://pallad.co) wallet is underway
+- 🧠 The cryptographic protocol is carefully designed to provide strong safety guarantees:
+  - **Ownership**: Credentials are tied to their owner, a Mina public key, and become invalid when changing the owner.
+  - **Unforgability**: Presentations can only be created with access to their underlying credentials and an owner signature. So, credentials can even be stored with third parties without risking impersonation (if giving up privacy to those parties is acceptable).
+  - **Privacy**: Presentations do not leak any data from the input credential or the owner, apart from the specific public statement they were designed to encode <!-- (which can be reviewed by the user before giving authorization) -->.
+  - **Unlinkability**: Two different presentations of the same credential, or by the same user, cannot be linked (apart from out-of-band correlations like the user's IP address)
+  - **Context-binding**: Presentations are bound to a specific context such as the origin of the requesting website, so that the verifier cannot man-in-the-middle and impersonate users at a third party.
+
+<!-- One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user. -->
+
+<!--
 Under the hood, private attestations rely on [zero-knowledge proofs](https://en.wikipedia.org/wiki/Zero-knowledge_proof).
-Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript.
+Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript. -->
 
-## Attestation DSL
+## Example: Defining a private attestation <a id="attestation-dsl"></a>
 
-One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user.
+<!-- TODO: rewrite to use a native credential and not rely on non-existing imports -->
+
 Continuing from the example before, the crypto exchange might specify their conditions on the user's passport as follows:
 
 ```ts
@@ -75,15 +103,27 @@ The Attestation DSL is, essentially, a radically simplified language for specify
 - Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet
 - Easier to write and harder to mess up for developers
 
-## Resources and background
+## What credentials does Mina Attestations support? <a id="credential-kinds"></a>
 
-TODO: references to various md docs and papers and examples
+TODO Explain native vs imported, stress what "importing" means & what could be done & what is already done
 
-## Usage
+## API
 
-TODO
+TOC with links
+
+### Data types
+
+### Creating credentials
+
+### Defining and requesting a presentation
+
+### Creating presentations
+
+### Verifying presentations
 
 ## Bonus: `mina-attestations/dynamic`
+
+<!-- Rename the lib to `o1js-dynamic` and publish as its own npm package, to make it look less mina-attestations specific and more likely to be adopted everywhere -->
 
 Under the sub-import `mina-attestations/dynamic`, we export an entire library of dynamic data types and hashes with o1js.
 
@@ -132,11 +172,17 @@ let provenHash: Bytes = result.proof.publicOutput;
 console.log(provenHash.toHex());
 ```
 
+## Further resources and background
+
+TODO: references to various md docs and papers and examples
+
 ## Acknowledgement
 
-We thank Mina Foundation for funding this work with a grant.
+We thank [Mina Foundation](https://www.minafoundation.com/) for funding this work with a grant, and for providing us with valuable feedback and direction throughout. Link to the original grant proposal: https://github.com/MinaFoundation/Core-Grants/issues/35#issuecomment-2318685738
 
-Original grant proposal: https://github.com/MinaFoundation/Core-Grants/issues/35#issuecomment-2318685738
+We thank o1Labs for maintaining and open-sourcing [o1js](https://github.com/o1-labs/o1js). Some of our code, such as the SHA2, Keccak and RSA gadgets, were seeded by copying code from the o1js repo and modifying it to fit our needs.
+
+We thank the [zk-email project](https://github.com/zkemail) for creating and open-sourcing zk-email. We took great inspiration for our own (unfinished) zk-email implementation. Our TS code that prepares emails for in-circuit verification was seeded by copying over a large amount of from [zk-email-verify](https://github.com/zkemail/zk-email-verify); some parts of it still exist in our code almost unchanged.
 
 ## License
 

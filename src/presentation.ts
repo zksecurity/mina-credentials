@@ -10,7 +10,12 @@ import {
   VerificationKey,
   verify,
 } from 'o1js';
-import { Spec, type Input, type Claims } from './program-spec.ts';
+import {
+  Spec,
+  type Input,
+  type Claims,
+  isCredentialSpec,
+} from './program-spec.ts';
 import { createProgram, type Program } from './program.ts';
 import {
   credentialMatchesSpec,
@@ -22,13 +27,11 @@ import { assert, isSubclass, zip } from './util.ts';
 import { generateContext, computeContext } from './context.ts';
 import { NestedProvable } from './nested.ts';
 import {
-  convertSpecToSerializable,
+  serializeSpec,
   serializeInputContext,
-} from './serialize.ts';
-import {
-  convertSpecFromSerializable,
+  deserializeSpec,
   deserializeInputContext,
-} from './deserialize.ts';
+} from './serialize-spec.ts';
 import {
   deserializeNestedProvableValue,
   deserializeProvable,
@@ -174,7 +177,7 @@ const PresentationRequest = {
   toJSON(request: PresentationRequest) {
     let json = {
       type: request.type,
-      spec: convertSpecToSerializable(request.spec),
+      spec: serializeSpec(request.spec),
       claims: serializeNestedProvableValue(request.claims),
       inputContext: serializeInputContext(request.inputContext),
     };
@@ -198,7 +201,7 @@ const PresentationRequest = {
 function requestFromJson(
   request: { type: PresentationRequestType } & Record<string, any>
 ) {
-  let spec = convertSpecFromSerializable(request.spec);
+  let spec = deserializeSpec(request.spec);
   let claims = deserializeNestedProvableValue(request.claims);
 
   switch (request.type) {
@@ -353,8 +356,8 @@ async function preparePresentation<R extends PresentationRequest>({
   // });
 
   // prepare fields to sign
-  let credHashes = credentialsAndSpecs.map(
-    ({ credential }) => hashCredential(credential).hash
+  let credHashes = credentialsAndSpecs.map(({ credential }) =>
+    hashCredential(credential)
   );
   let issuers = credentialsAndSpecs.map(({ spec, witness }) =>
     spec.issuer(witness)
@@ -503,9 +506,8 @@ function pickCredentials(
   credentialsAndSpecs: (StoredCredential & { spec: CredentialSpec })[];
 } {
   let credentialsNeeded = Object.entries(spec.inputs).filter(
-    (c): c is [string, CredentialSpec] => c[1].type === 'credential'
+    (c): c is [string, CredentialSpec] => isCredentialSpec(c[1])
   );
-  let credentialKeys = credentialsNeeded.map(([key]) => key);
   let credentialsUsed: Record<string, StoredCredential> = {};
   let credentialsStillNeeded: [string, CredentialSpec][] = [];
 
