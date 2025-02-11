@@ -207,19 +207,25 @@ For example, to "import" a passport as a credential, we need a circuit that prov
 There are cool examples for what we could "import" as a credential, that go beyond the traditional concept of a credentials. Everything you can prove in zk can be a credential!
 
 For example, [zk-email](https://prove.email/) proves the DKIM signature on emails to support the statement "I received this particular email from this domain", which has very interesting applications.
-By contrast to the original zk-email project, the imported credential version could simply expose the _entire_ email: Subject, from address and body text. Only when doing presentations, we care about hiding the content and making specific assertions about it.
+By contrast to the original zk-email project, the imported credential version would simply expose the _entire_ email: Subject, from address and body text. Only when doing presentations, we care about hiding the content and making specific assertions about it.
 
 ### Why not do everything in one proof?
 
-The process of first importing a credential, and then using it for a presentation, means that _two_ proofs have to be created by a user. Why not do everything in one proof?
+The process of first importing a credential, and then using it for a presentation, means that _two_ proofs have to be created by a user. Why not do both in one proof, if possible?
 
-One reason for prefering separate steps is that the importing proof is usually very big, and takes a lot of time. On the other hand, presentation proofs are small. Also, presentations are one-off and designed to be used exactly once, so you really _want_ those proofs to be small. On the other hand, credentials are designed to be stored long-term, so separating them offers the benefit of saving a lot of proof generation time if they can be reused.
+One reason for prefering separate steps is that the importing proof is usually very big, and takes a lot of time. On the other hand, presentation proofs are small. Also, presentations are one-off and designed to be used exactly once, so you really _want_ those proofs to be small. On the other hand, credentials are designed to be stored long-term, so separating them saves a lot of proof generation time if credentials can be reused.
 
-The second reason is that representing imported credentials as recursive proofs allows our core library to be highly flexible. By accepting recursive proofs we are agnostic to the inner verification logic, and avoid the burden to support all possible credentials within the library itself. Anyone can write their own importing circuit, using all the flexibility of o1js, and still plug into the ecosystem and wallet infrastructure built for `mina-attestations`.
+Another reason is that modeling imported credentials as recursive proofs keeps our core library agnostic about the inner verification logic. That way, we avoid the burden of supporting all possible credentials within the library itself. Anyone can write their own "import" circuit, and still be compatible with the standard!
 
-### What credentials can be imported now?
+### What imported credentials are available now?
 
-TODO
+We currently have the following:
+
+- ECDSA credential that wraps an Ethereum-style signature
+  - `import { EcdsaEthereum } from 'mina-attestation/imported'`.
+- ZkPass validator signature (partially available but still WIP)
+- [WIP](https://github.com/zksecurity/mina-attestations/tree/main/src/email): zk-email
+- [WIP](https://github.com/piconbello/zk-passport-o1js-lib) (by another team): zk passport
 
 ## API
 
@@ -231,13 +237,13 @@ TOC with links
 
 ### Defining presentation logic
 
-Both `assert` and `outputClaim` are optional, so the following would define an empty circuit:
+<!-- Both `assert` and `outputClaim` are optional, so the following would define an empty circuit:
 
 ```ts
 
 ```
 
-> Actually, not an empty circuit but just a circuit without any _custom_ logic. Additional logic, that verifies the input credentials and owner signature, is still automatically included in the resulting circuit, so this "empty" spec still makes a statement: "This user owns some credential of the specified form, signed by anyone". If we would only expose the `issuer`, the statement already becomes interesting.
+> Actually, not an empty circuit but just a circuit without any _custom_ logic. Additional logic, that verifies the input credentials and owner signature, is still automatically included in the resulting circuit, so this "empty" spec still makes a statement: "This user owns some credential of the specified form, signed by anyone". If we would only expose the `issuer`, the statement already becomes interesting. -->
 
 <!--
 First, we declare the type of credential we expect by calling `Credential.Native()` with a set of data attributes. These attributes are set to "provable types", that would often be imported from o1js, like `UInt64` in the example. The example also instantiates its own provable type, `String`, using the `DynamicString` constructor from our library. This -->
