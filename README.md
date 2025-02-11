@@ -47,7 +47,7 @@ Mina Attestations helps you implement all parts of the private attestation flow.
 - ✅ Supports [issuing credentials](#creating-credentials) as well as [requesting](#requesting-presentations),
   [creating](#creating-presentations) and [verifying](#verifying-presentations) presentations
 - 🪪 [Import real-world credentials](#credential-kinds), like passports or emails, by wrapping them in a zk proof
-- 💡 Selective disclosure logic is defined with the embedded [`Operation` DSL](#attestation-dsl) that is feature-rich, yet simple enough for non-technical users to understand what data they share
+- 💡 Selective disclosure logic is defined with the embedded [`Operation` DSL](#operations-dsl) that is feature-rich, yet simple enough for non-technical users to understand what data they share
 - 🔒 Designed for integration in crypto wallets, to store credentials and authorize presentations by a signature
   - Integration in the [Pallad](https://pallad.co) wallet is underway
 - 🧠 The cryptographic protocol is carefully designed to provide strong safety guarantees:
@@ -59,17 +59,25 @@ Mina Attestations helps you implement all parts of the private attestation flow.
 
 Zero-knowledge proofs are implemented using [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework.
 
+## Developer docs
+
+The remainder of this README contains documentation aimed at developers, starting from high-level examples and concepts and then moving to detailed API docs.
+
+- [Code example: Defining a private attestation](#operations-dsl)
+- [What credentials are supported?](#credential-kinds)
+- [API](#api)
+
+> 🧑‍🎓 In the docs that follow, we occasionally assume familiarity with zk programming concepts. If you don't know what a circuit or a "public input" are, we recommend checking out the [o1js docs](https://docs.minaprotocol.com/zkapps/o1js) or a similar resource, to build background understanding. Nonetheless, our library should be easy to use even without that understanding.
+
 <!-- One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user. -->
 
 <!--
 Under the hood, private attestations rely on [zero-knowledge proofs](https://en.wikipedia.org/wiki/Zero-knowledge_proof).
 Mina Attestations builds on top of [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework for TypeScript. -->
 
-## Example: Defining a private attestation <a id="attestation-dsl"></a>
+## Code example: Defining a private attestation <a id="operations-dsl"></a>
 
-<!-- TODO: rewrite to use a native credential and not rely on non-existing imports -->
-
-Using an example similar to the one before, a verifier might specify their conditions on the user's credential with the following code:
+Let's look at how a verifier might specify their conditions on the user's credential, using `mina-attestations`:
 
 ```ts
 import {
@@ -117,24 +125,57 @@ let spec = PresentationSpec(
 );
 ```
 
-There's much to unpack in this example, but the main thing we want to highlight is how the custom logic for the presentation is defined, in the call to `PresentationSpec()`.
+There's much to unpack in this example, but the main thing we want to highlight is how custom logic for a presentation is defined, the _presentation spec_. This spec is created using a declarative API that specifies a custom zk circuit.
 
-First we define the type of credential we expect, using `Credential.Native()`. That `credential` type is declared to be one of the inputs to the presentation, along with a second input called `createdAt`.
+The first parameter to `PresentiationSpec()` specifies the inputs to the presentation circuit: `credential` and `createdAt`.
 
-<!--
-First, we declare the type of credential we expect by calling `Credential.Native()` with a set of data attributes. These attributes are set to "provable types", that would often be imported from o1js, like `UInt64` in the example. The example also instantiates its own provable type, `String`, using the `DynamicString` constructor from our library. This -->
+- `credential` defines what _type_ of credential we expect, including the data layout. Here, we expect a "native" credential defined with `Credential.Native()` (see [credential kinds](#credential-kinds)).
+- `createdAt` is a so-called "claim", which means a _public input_ to this circuit. By contrast, the credential is a _private_ input.
 
-Note again that in a typical flow, this code would live somewhere in the application of a verifier. It would be used as the basis to create a [presentation request](#defining-and-requesting-a-presentation) TODO
+The second parameter to `PresentationSpec()` defines the circuit logic, as a function from the inputs, using our `Operations` DSL. `Operations` is, essentially, a radically simplified language for specifying zk circuits, tailored to the use case of making statements about user data. It contains common operations like testing equality, comparisons, arithmetic, conditionals, hashing, etc.
+
+There are two outputs, `assert` and `outputClaim`, both of which contain `Operation` nodes.
+
+- `assert` tells us which conditions on the credential are proven to hold
+- `outputClaim` specifies the _public output_: credential data the user directly exposes to the verifier. In this example, we expose the credential's `issuer` (hash of a public key), so that the verifier can check that the credential was signed by a legitimate issuer.
+
+The assertion logic should be easy to read without explanations: We check that the `nationality` doesn't equal `"United States"`. We also check a condition on the credential's `expiresAt` attribute. The idea is that the verifier can pass in the _current date_ as `createdAt`, and this check ensures the credential hasn't expired without leaking the exact expiry date.
 
 > 🤓 By interacting with this code in your editor, you might appreciate that all our library interfaces are precisely typed, using generic types to preserve as much information as possible. For example, the inferred type of `credential`, which is passed as an input to `PresentationSpec`, is carried into the callback. There, `Operations.property(credential, 'nationality')` is correctly inferred to be a `String`. This, in turn, ensures that a `String` is also passed to the `Operation.constant()`, because `Operations.equal()` requires its inputs to be of equal type.
 
-> Note: This example is simplified, see [our code example](https://github.com/zksecurity/mina-attestations/blob/main/examples/mock-zk-passport.eg.ts) for more details.
+### From spec to presentation request
 
-The Attestation DSL is, essentially, a radically simplified language for specifying zk circuits, tailored to the use case of making statements about user data. It has several advantages over a general-purpose circuit framework like o1js:
+In a typical flow, the code above would be called once in a verifiers application, and used to precompile the circuit for later verification. Then, for every user that wants to authenticate with a presentation, we would create a new _presentation request_ from the `spec`:
 
-- Simple enough to be readable by a user (in pretty-printed form), who wants to understand what private information is shared
-- Fully serializable into space-efficient JSON. No concerns about malicious code execution when used to produce zk proofs from a trusted environment, like a wallet
-- Easier to write and harder to mess up for developers
+```ts
+// VERIFIER
+let request = PresentationRequest.https(
+  spec,
+  { createdAt: UInt64.from(Date.now()) },
+  { action: 'my-app:authenticate' }
+);
+let requestJson = PresentationRequest.toJSON(request);
+// now send request to user wallet
+```
+
+This highlights an important point: The target receiver of a presentation request is generic software, like a web3 wallet, that doesn't know about the specific attestation being proved. Therefore, we had to ensure that the serialized request fully specifies the circuit.
+
+The request also has to contain the input claims (here: `createdAt`), as there is no way for a wallet to come up with these custom values. The only inputs required on the wallet side to create a proof from this are the actual credential, and a user signature.
+
+Another point is that the user, when approving the request, should be able to understand what data they are sharing, without having to understand complex code. To achieve this, we implemented a pretty-printer, that converts presentation specs into easily readable statements:
+
+<!-- TODO would be nice to show a screenshot of the Pallad prompt here -->
+
+```
+credential.nationality != "United States"
+createdAt <= credential.expiresAt
+```
+
+All of these points imply that the representation of a circuit has to be simple, and fully deserializable without concerns about malicious code execution.
+
+Simplicity is the core advantage `Operations` has over a general-purpose zk framework like o1js, and explains why we aren't using o1js as the circuit-writing interface directly.
+
+The best part is that, by being easy to read and understand, presentation specs are also really easy to write for developers!
 
 ## What credentials are supported? <a id="credential-kinds"></a>
 
@@ -149,6 +190,17 @@ TOC with links
 ### Creating credentials
 
 ### Defining presentation logic
+
+Both `assert` and `outputClaim` are optional, so the following would define an empty circuit:
+
+```ts
+
+```
+
+> Actually, not an empty circuit but just a circuit without any _custom_ logic. Additional logic, that verifies the input credentials and owner signature, is still automatically included in the resulting circuit, so this "empty" spec still makes a statement: "This user owns some credential of the specified form, signed by anyone". If we would only expose the `issuer`, the statement already becomes interesting.
+
+<!--
+First, we declare the type of credential we expect by calling `Credential.Native()` with a set of data attributes. These attributes are set to "provable types", that would often be imported from o1js, like `UInt64` in the example. The example also instantiates its own provable type, `String`, using the `DynamicString` constructor from our library. This -->
 
 ### Requesting presentations
 

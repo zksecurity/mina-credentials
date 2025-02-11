@@ -1,6 +1,6 @@
 export { Spec, Claim, Constant } from './program-spec.ts';
 export { Spec as PresentationSpec } from './program-spec.ts';
-export { Operation } from './operation.ts';
+export { Operation, type Node } from './operation.ts';
 export type { CredentialSpec, StoredCredential } from './credential.ts';
 export type { NativeWitness } from './credential-native.ts';
 export type { ImportedWitness } from './credential-imported.ts';
