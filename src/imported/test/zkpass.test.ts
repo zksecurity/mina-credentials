@@ -27,14 +27,15 @@ await EcdsaEthereum.compileDependencies({
 console.timeEnd('compile dependencies');
 
 console.time('ecdsa create credential');
-const EcdsaCredential = await EcdsaEthereum.CredentialZkPassPartial({
+const EcdsaCredentialPartial = await EcdsaEthereum.CredentialZkPassPartial({
   maxMessageLength,
 });
 console.timeEnd('ecdsa create credential');
 
 console.time('ecdsa compile');
-let vk = await EcdsaCredential.compile();
+let vk = await EcdsaCredentialPartial.compile();
 console.timeEnd('ecdsa compile');
+console.log('vk.hash:', vk.hash.toJSON());
 
 // create ecdsa cred from zkpass data
 const schema = 'c7eab8b7d7e44b05b41b613fe548edf5';
@@ -120,12 +121,12 @@ console.log(cs.summary());
 console.timeEnd('ecdsa constraints (simple)');
 
 console.time('ecdsa constraints (recursive)');
-let csRec = (await EcdsaCredential.program.analyzeMethods()).run;
+let csRec = (await EcdsaCredentialPartial.program.analyzeMethods()).run;
 console.log(csRec.summary());
 console.timeEnd('ecdsa constraints (recursive)');
 
 console.time('ecdsa prove');
-let credential = await EcdsaCredential.create({
+let credential = await EcdsaCredentialPartial.create({
   owner,
   publicInput: {
     allocatorMessage,
@@ -141,6 +142,11 @@ let credential = await EcdsaCredential.create({
   },
 });
 console.timeEnd('ecdsa prove');
+
+console.log(
+  'zkpasstest::credential.witness.vk.hash:',
+  credential.witness.vk.hash.toJSON()
+);
 
 let json = Credential.toJSON(credential);
 let recovered = await Credential.fromJSON(json);

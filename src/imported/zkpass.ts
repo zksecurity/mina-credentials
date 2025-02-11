@@ -79,12 +79,12 @@ async function importCredential(
   log('Compiling ZkPass credential...');
   await EcdsaEthereum.compileDependencies({ maxMessageLength });
 
-  let EcdsaCredential = await EcdsaEthereum.CredentialZkPassPartial({
+  let EcdsaCredentialPartial = await EcdsaEthereum.CredentialZkPassPartial({
     maxMessageLength,
   });
 
   log('Creating ZkPass credential...');
-  let credential = await EcdsaCredential.create({
+  let credential = await EcdsaCredentialPartial.create({
     owner,
     publicInput: {
       allocatorMessage,
@@ -99,6 +99,11 @@ async function importCredential(
       validatorAddress: EcdsaEthereum.Address.from(validatorAddress),
     },
   });
+
+  console.log(
+    'zkpass::credential.witness.vk.hash:',
+    credential.witness.vk.hash
+  );
 
   return credential;
 }
