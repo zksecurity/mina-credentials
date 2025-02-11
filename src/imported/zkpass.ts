@@ -13,7 +13,11 @@ export { ZkPass, type ZkPassResponseItem };
 /**
  * Utitilies to help process zkpass responses.
  */
-const ZkPass = { importCredential, encodeParameters, genPublicFieldHash };
+const ZkPass = {
+  importCredentialPartial,
+  encodeParameters,
+  genPublicFieldHash,
+};
 
 type Type = 'bytes32' | 'address';
 
@@ -30,7 +34,7 @@ type ZkPassResponseItem = {
   validatorSignature: string;
 };
 
-async function importCredential(
+async function importCredentialPartial(
   owner: PublicKey,
   schema: string,
   response: ZkPassResponseItem,
@@ -99,11 +103,6 @@ async function importCredential(
       validatorAddress: EcdsaEthereum.Address.from(validatorAddress),
     },
   });
-
-  console.log(
-    'zkpass::credential.witness.vk.hash:',
-    credential.witness.vk.hash
-  );
 
   return credential;
 }

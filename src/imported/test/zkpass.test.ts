@@ -6,7 +6,7 @@ import {
   verifyEthereumSignatureSimple,
 } from '../ecdsa-credential.ts';
 import { owner } from '../../../tests/test-utils.ts';
-import { Provable, Unconstrained } from 'o1js';
+import { Provable, PublicKey, Unconstrained } from 'o1js';
 import { DynamicBytes } from '../../dynamic.ts';
 import { ZkPass, type ZkPassResponseItem } from '../zkpass.ts';
 import { Credential } from '../../credential-index.ts';
@@ -151,3 +151,15 @@ console.log(
 let json = Credential.toJSON(credential);
 let recovered = await Credential.fromJSON(json);
 await Credential.validate(recovered);
+
+/******************************************/
+const cred = await ZkPass.importCredentialPartial(
+  PublicKey.fromBase58(
+    'B62qmb5sdmFDTDi63wHk2S4GLu5tN2Rofrjp9HwdPPNGUgUGv21GEUi'
+  ),
+  schema,
+  response
+);
+
+console.log('zkpasstest::cred.witness.vk.hash:', cred.witness.vk.hash.toJSON());
+console.log('zkpasstest::Credential.toJSON(cred):', Credential.toJSON(cred));
