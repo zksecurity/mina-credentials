@@ -67,6 +67,11 @@ The remainder of this README contains documentation aimed at developers, startin
 - [What credentials are supported?](#credential-kinds)
 - [API](#api)
 
+Apart from reading the docs, have a look at our full code examples:
+
+- [examples/examples/unique-hash.eg.ts](https://github.com/zksecurity/mina-attestations/blob/main/examples/unique-hash.eg.ts) - A good introduction, this example simulates the entire flow between issuer, user wallet and verifier within a single script, that is heavily commented to explain the individual steps.
+- [examples/examples/web-demo](https://github.com/zksecurity/mina-attestations/blob/main/examples/web-demo) - Source code for [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz). It includes both frontend and backend and can be useful as a reference for integrating `mina-attestations` in a real application. Caveat: The example mixes two different entities, issuer and verifier, in a single web app.
+
 > 🧑‍🎓 In the docs that follow, we occasionally assume familiarity with zk programming concepts. If you don't know what a circuit or a "public input" are, we recommend checking out the [o1js docs](https://docs.minaprotocol.com/zkapps/o1js) or a similar resource, to build background understanding. Nonetheless, our library should be easy to use even without that understanding.
 
 <!-- One of the main contributions is a DSL to specify the attestations a verifier wants to make about a user. -->
@@ -132,20 +137,24 @@ The first parameter to `PresentiationSpec()` specifies the inputs to the present
 - `credential` defines what _type_ of credential we expect, including the data layout. Here, we expect a "native" credential defined with `Credential.Native()` (see [credential kinds](#credential-kinds)).
 - `createdAt` is a so-called "claim", which means a _public input_ to this circuit. By contrast, the credential is a _private_ input.
 
-The second parameter to `PresentationSpec()` defines the circuit logic, as a function from the inputs, using our `Operations` DSL. `Operations` is, essentially, a radically simplified language for specifying zk circuits, tailored to the use case of making statements about user data. It contains common operations like testing equality, comparisons, arithmetic, conditionals, hashing, etc.
+Note: The input name "credential" in this example is arbitrary and picked by the developer. You could also have multiple credentials as inputs, and make a statement that combines their properties. Similarly, you can have many claims.
+
+The second parameter to `PresentationSpec()` defines the circuit logic, as a function from the inputs, using our `Operations` DSL. `Operations` is, essentially, a radically simplified language for writing zk circuits, tailored to the use case of making statements about user data. It contains common operations like testing equality, comparisons, arithmetic, conditionals, hashing, etc.
 
 There are two outputs, `assert` and `outputClaim`, both of which contain `Operation` nodes.
 
 - `assert` tells us which conditions on the credential are proven to hold
-- `outputClaim` specifies the _public output_: credential data the user directly exposes to the verifier. In this example, we expose the credential's `issuer` (hash of a public key), so that the verifier can check that the credential was signed by a legitimate issuer.
+- `outputClaim` specifies the _public output_: credential data the user directly exposes to the verifier. In this example, we expose the credential's `issuer` (hash of a public key), so that the verifier can check that the credential was issued by a legitimate entity.
 
-The assertion logic should be easy to read without explanations: We check that the `nationality` doesn't equal `"United States"`. We also check a condition on the credential's `expiresAt` attribute. The idea is that the verifier can pass in the _current date_ as `createdAt`, and this check ensures the credential hasn't expired without leaking the exact expiry date.
+The assertion logic should be easy to read for you: We check that the `nationality` doesn't equal `"United States"`. We also check a condition on the credential's `expiresAt` attribute. The idea is that the verifier can pass in the _current date_ as `createdAt`, and this check ensures the credential hasn't expired without leaking the exact expiry date.
 
-> 🤓 By interacting with this code in your editor, you might appreciate that all our library interfaces are precisely typed, using generic types to preserve as much information as possible. For example, the inferred type of `credential`, which is passed as an input to `PresentationSpec`, is carried into the callback. There, `Operations.property(credential, 'nationality')` is correctly inferred to be a `String`. This, in turn, ensures that a `String` is also passed to the `Operation.constant()`, because `Operations.equal()` requires its inputs to be of equal type.
+> 🤓 By interacting with this code in your editor, you might appreciate that all our library interfaces are richly typed, using generic types to preserve as much information as possible. For example, the inferred type of `credential`, which is passed as an input to `PresentationSpec`, is carried into the callback. There, `Operations.property(credential, 'nationality')` is correctly inferred to be a `String`. This, in turn, ensures that a `String` is also passed to the `Operation.constant()`, because `Operations.equal()` requires its inputs to be of equal type.
+
+Behind the scenes, the circuit created from a presentation spec contains more than the `assert` and `outputClaim` logic. It also verifies the authorization on all input credentials, and in addition verifies a signature by the credential owner. The latter ensures that nobody but the owner can present a credential.
 
 ### From spec to presentation request
 
-In a typical flow, the code above would be called once in a verifiers application, and used to precompile the circuit for later verification. Then, for every user that wants to authenticate with a presentation, we would create a new _presentation request_ from the `spec`:
+In a typical flow, the code above would be called once in the verifier's application, and used to precompile the circuit for later verification. Then, for every user that wants to authenticate with a presentation, we would create a new _presentation request_ from the `spec`:
 
 ```ts
 // VERIFIER
@@ -158,28 +167,59 @@ let requestJson = PresentationRequest.toJSON(request);
 // now send request to user wallet
 ```
 
-This highlights an important point: The target receiver of a presentation request is generic software, like a web3 wallet, that doesn't know about the specific attestation being proved. Therefore, we had to ensure that the serialized request fully specifies the circuit.
+This highlights an important point: The target receiver of a presentation request is generic software, like a web3 wallet, that doesn't know about the specific attestation being proved. Therefore, we had to ensure that the serialized JSON request **fully specifies the circuit**.
 
 The request also has to contain the input claims (here: `createdAt`), as there is no way for a wallet to come up with these custom values. The only inputs required on the wallet side to create a proof from this are the actual credential, and a user signature.
 
-Another point is that the user, when approving the request, should be able to understand what data they are sharing, without having to understand complex code. To achieve this, we implemented a pretty-printer, that converts presentation specs into easily readable statements:
+Another point is that the user, when approving the request, should be able to understand what data they share. To make this possible, we implemented a pretty-printer that converts presentation specs into human-readable pseudo-code:
 
 <!-- TODO would be nice to show a screenshot of the Pallad prompt here -->
 
 ```
-credential.nationality != "United States"
-createdAt <= credential.expiresAt
+credential.nationality ≠ "United States"
 ```
 
-All of these points imply that the representation of a circuit has to be simple, and fully deserializable without concerns about malicious code execution.
+> The pretty-printer is currently part of our [Pallad wallet integration](https://github.com/palladians/pallad/pull/231). We plan to move it into the core lib.
 
-Simplicity is the core advantage `Operations` has over a general-purpose zk framework like o1js, and explains why we aren't using o1js as the circuit-writing interface directly.
+These points imply that the representation of a circuit has to be simple, and deserializable without concerns about malicious code execution.
+
+Simplicity is the core advantage that `Operations` has over a general-purpose zk framework like o1js. It explains why we aren't using o1js as the circuit-writing interface directly.
 
 The best part is that, by being easy to read and understand, presentation specs are also really easy to write for developers!
 
 ## What credentials are supported? <a id="credential-kinds"></a>
 
-TODO Explain native vs imported, stress what "importing" means & what could be done & what is already done
+Conceptually, credentials are data authorized by a signature. When using credentials in a presentation, we have to verify that signature inside our circuit. If the signature uses Mina's native signature scheme (Schnorr over the Pallas curve), this is efficient.
+
+However, most credentials that exist out there were not created with Mina in mind, and verifying their signatures is expensive in terms of circuit size, and usually complicated to implement.
+
+To support both cases well, our library distinguishes two different kinds of credentials:
+
+1. **Native credentials** are authorized by a Mina signature.
+2. **Imported credentials** are authorized by a _zero-knowledge proof_.
+
+For an imported credential, our presentation uses recursion and verifies the attached proof inside the circuit. For native credentials, we just verify the signature.
+
+Since arbitrary logic can be encoded in a zk proof, imported credentials can cover a wide variety of existing credentials: You just need someone to implement an o1js circuit that verifies them. The only thing required from proofs to make them usable as an imported credentials is that their public output follows the structure `{ owner, data }`, where `owner` is the public key of the credential's owner.
+
+For example, to "import" a passport as a credential, we need a circuit that proves it has a valid passport, and exposes the passport data in `data`. A user with their passport at hand can then wrap them in that proof and now has an imported credential.
+
+There are cool examples for what we could "import" as a credential, that go beyond the traditional concept of a credentials. Everything you can prove in zk can be a credential!
+
+For example, [zk-email](https://prove.email/) proves the DKIM signature on emails to support the statement "I received this particular email from this domain", which has very interesting applications.
+By contrast to the original zk-email project, the imported credential version could simply expose the _entire_ email: Subject, from address and body text. Only when doing presentations, we care about hiding the content and making specific assertions about it.
+
+### Why not do everything in one proof?
+
+The process of first importing a credential, and then using it for a presentation, means that _two_ proofs have to be created by a user. Why not do everything in one proof?
+
+One reason for prefering separate steps is that the importing proof is usually very big, and takes a lot of time. On the other hand, presentation proofs are small. Also, presentations are one-off and designed to be used exactly once, so you really _want_ those proofs to be small. On the other hand, credentials are designed to be stored long-term, so separating them offers the benefit of saving a lot of proof generation time if they can be reused.
+
+The second reason is that representing imported credentials as recursive proofs allows our core library to be highly flexible. By accepting recursive proofs we are agnostic to the inner verification logic, and avoid the burden to support all possible credentials within the library itself. Anyone can write their own importing circuit, using all the flexibility of o1js, and still plug into the ecosystem and wallet infrastructure built for `mina-attestations`.
+
+### What credentials can be imported now?
+
+TODO
 
 ## API
 
