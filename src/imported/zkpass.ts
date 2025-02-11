@@ -45,8 +45,8 @@ async function importCredential(
     '0x' + ByteUtils.toHex(publicFieldsHash) === response.publicFieldsHash
   );
 
-  // compute message hash
-  let message = ZkPass.encodeParameters(
+  // compute validator message hash
+  let validatorMessage = ZkPass.encodeParameters(
     ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
     [
       ByteUtils.fromString(response.taskId),
@@ -56,21 +56,121 @@ async function importCredential(
     ]
   );
 
-  let { signature, parityBit } = parseSignature(response.validatorSignature);
-  let address = ByteUtils.fromHex(response.validatorAddress);
+  // compute allocator message hash
+  let allocatorMessage = ZkPass.encodeParameters(
+    ['bytes32', 'bytes32', 'address'],
+    [
+      ByteUtils.fromString(response.taskId),
+      ByteUtils.fromString(schema),
+      ByteUtils.fromHex(response.validatorAddress),
+    ]
+  );
+
+  let { signature: validatorSignature, parityBit: validatorParityBit } =
+    parseSignature(response.validatorSignature);
+  let validatorAddress = ByteUtils.fromHex(response.validatorAddress);
+
+  let { signature: allocatorSignature, parityBit: allocatorParityBit } =
+    parseSignature(response.allocatorSignature);
+  let allocatorAddress = ByteUtils.fromHex(response.allocatorAddress);
 
   const maxMessageLength = 128;
 
   log('Compiling ZkPass credential...');
   await EcdsaEthereum.compileDependencies({ maxMessageLength });
 
-  let EcdsaCredential = await EcdsaEthereum.Credential({ maxMessageLength });
+  let EcdsaCredential = await EcdsaEthereum.CredentialZkPassPartial({
+    maxMessageLength,
+  });
 
   log('Creating ZkPass credential...');
   let credential = await EcdsaCredential.create({
     owner,
-    publicInput: { signerAddress: EcdsaEthereum.Address.from(address) },
-    privateInput: { message, signature, parityBit },
+    publicInput: {
+      allocatorMessage,
+      allocatorSignature,
+      allocatorParityBit,
+      allocatorAddress: EcdsaEthereum.Address.from(allocatorAddress),
+    },
+    privateInput: {
+      validatorMessage,
+      validatorSignature,
+      validatorParityBit,
+      validatorAddress: EcdsaEthereum.Address.from(validatorAddress),
+    },
+  });
+
+  return credential;
+}
+
+// New version - verifies both validator and allocator signatures
+async function importCredentialFull(
+  owner: PublicKey,
+  schema: string,
+  response: ZkPassResponseItem,
+  log: (msg: string) => void = () => {}
+) {
+  let publicFieldsHash = ZkPass.genPublicFieldHash(
+    response.publicFields
+  ).toBytes();
+
+  // validate public fields hash
+  assert(
+    '0x' + ByteUtils.toHex(publicFieldsHash) === response.publicFieldsHash
+  );
+
+  // compute allocator message hash
+  let allocatorMessage = ZkPass.encodeParameters(
+    ['bytes32', 'bytes32', 'address'],
+    [
+      ByteUtils.fromString(response.taskId),
+      ByteUtils.fromString(schema),
+      ByteUtils.fromHex(response.validatorAddress),
+    ]
+  );
+
+  // compute validator message hash
+  let validatorMessage = ZkPass.encodeParameters(
+    ['bytes32', 'bytes32', 'bytes32', 'bytes32'],
+    [
+      ByteUtils.fromString(response.taskId),
+      ByteUtils.fromString(schema),
+      ByteUtils.fromHex(response.uHash),
+      publicFieldsHash,
+    ]
+  );
+
+  let { signature: allocatorSignature, parityBit: allocatorParityBit } =
+    parseSignature(response.allocatorSignature);
+  let { signature: validatorSignature, parityBit: validatorParityBit } =
+    parseSignature(response.validatorSignature);
+  let allocatorAddress = ByteUtils.fromHex(response.allocatorAddress);
+  let validatorAddress = ByteUtils.fromHex(response.validatorAddress);
+
+  const maxMessageLength = 128;
+
+  log('Compiling ZkPass full credential...');
+  await EcdsaEthereum.compileDependencies({ maxMessageLength });
+
+  let EcdsaCredentialFull = await EcdsaEthereum.CredentialZkPassFull({
+    maxMessageLength,
+  });
+
+  log('Creating ZkPass full credential...');
+  let credential = await EcdsaCredentialFull.create({
+    owner,
+    publicInput: {
+      allocatorAddress: EcdsaEthereum.Address.from(allocatorAddress),
+    },
+    privateInput: {
+      allocatorMessage,
+      allocatorSignature,
+      allocatorParityBit,
+      validatorMessage,
+      validatorSignature,
+      validatorParityBit,
+      validatorAddress: EcdsaEthereum.Address.from(validatorAddress),
+    },
   });
 
   return credential;
