@@ -222,31 +222,34 @@ Another reason is that modeling imported credentials as recursive proofs keeps o
 We currently have the following:
 
 - ECDSA credential that wraps an Ethereum-style signature
-  - `import { EcdsaEthereum } from 'mina-attestation/imported'`.
+  - `import { EcdsaEthereum } from 'mina-attestation/imported'`
 - ZkPass validator signature (partially available but still WIP)
 - [WIP](https://github.com/zksecurity/mina-attestations/tree/main/src/email): zk-email
 - [WIP](https://github.com/piconbello/zk-passport-o1js-lib) (by another team): zk passport
 
 ## API
 
-TOC with links
-
 ### Data types
+
+<!-- highlight how to serialize every type -->
+
+- `CredentialSpec`
+- `StoredCredential`
+  - `Credential`
+- `PresentationRequest`
+  - `PresentationSpec`
+- `Presentation`
 
 ### Creating credentials
 
 ### Defining presentation logic
 
-<!-- Both `assert` and `outputClaim` are optional, so the following would define an empty circuit:
+<!-- Both `assert` and `outputClaim` are optional, so the following would define a circuit without any custom logic:
 
 ```ts
 
 ```
-
-> Actually, not an empty circuit but just a circuit without any _custom_ logic. Additional logic, that verifies the input credentials and owner signature, is still automatically included in the resulting circuit, so this "empty" spec still makes a statement: "This user owns some credential of the specified form, signed by anyone". If we would only expose the `issuer`, the statement already becomes interesting. -->
-
-<!--
-First, we declare the type of credential we expect by calling `Credential.Native()` with a set of data attributes. These attributes are set to "provable types", that would often be imported from o1js, like `UInt64` in the example. The example also instantiates its own provable type, `String`, using the `DynamicString` constructor from our library. This -->
+-->
 
 ### Requesting presentations
 
@@ -254,9 +257,11 @@ First, we declare the type of credential we expect by calling `Credential.Native
 
 ### Verifying presentations
 
+### Defining new imported credentials
+
 ## Bonus: `mina-attestations/dynamic`
 
-<!-- Rename the lib to `o1js-dynamic` and publish as its own npm package, to make it look less mina-attestations specific and more likely to be adopted everywhere -->
+<!-- TODO Rename the lib to `o1js-dynamic` and publish as its own npm package, to make it look less mina-attestations specific and more likely to be adopted everywhere -->
 
 Under the sub-import `mina-attestations/dynamic`, we export an entire library of dynamic data types and hashes with o1js.
 
@@ -305,9 +310,9 @@ let provenHash: Bytes = result.proof.publicOutput;
 console.log(provenHash.toHex());
 ```
 
-## Further resources and background
+<!-- ## Further resources and background
 
-TODO: references to various md docs and papers and examples
+TODO: references to various md docs and papers and examples -->
 
 ## Acknowledgement
 
