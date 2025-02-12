@@ -19,7 +19,7 @@ type LogicNode = {
   elseNode?: LogicNode;
 };
 
-const extractCredentialFields = (data: any): string[] => {
+function extractCredentialFields(data: any): string[] {
   if (!data) return [];
 
   if (data._type === 'Struct' && data.properties) {
@@ -31,9 +31,9 @@ const extractCredentialFields = (data: any): string[] => {
   }
 
   return Object.keys(data);
-};
+}
 
-const buildPropertyPath = (node: LogicNode): string => {
+function buildPropertyPath(node: LogicNode): string {
   const parts: string[] = [];
   let currentNode: LogicNode | undefined = node;
 
@@ -46,9 +46,9 @@ const buildPropertyPath = (node: LogicNode): string => {
   }
 
   return parts.join('.');
-};
+}
 
-const formatLogicNode = (node: LogicNode, level = 0): string => {
+function formatLogicNode(node: LogicNode, level = 0): string {
   const indent = '  '.repeat(level);
 
   switch (node.type) {
@@ -209,9 +209,9 @@ const formatLogicNode = (node: LogicNode, level = 0): string => {
     default:
       throw Error(`Unknown node type: ${node.type}`);
   }
-};
+}
 
-const formatInputsHumanReadable = (inputs: Record<string, any>): string => {
+function formatInputsHumanReadable(inputs: Record<string, any>): string {
   const sections: string[] = [];
 
   // Handle credentials
@@ -255,9 +255,9 @@ const formatInputsHumanReadable = (inputs: Record<string, any>): string => {
   }
 
   return sections.join('\n');
-};
+}
 
-const formatClaimsHumanReadable = (claims: Record<string, any>): string => {
+function formatClaimsHumanReadable(claims: Record<string, any>): string {
   const sections = ['\nClaimed values:'];
 
   for (const [key, claim] of Object.entries(claims)) {
@@ -270,28 +270,26 @@ const formatClaimsHumanReadable = (claims: Record<string, any>): string => {
   }
 
   return sections.join('\n');
-};
+}
 
-const containsPresentationRequest = (
-  value: unknown
-): value is {
+function containsPresentationRequest(value: unknown): value is {
   presentationRequest: any;
   verifierIdentity:
     | string
     | { address: string; tokenId: string; network: 'devnet' | 'mainnet' };
-} => {
+} {
   if (typeof value !== 'object' || value === null) return false;
   return 'presentationRequest' in value;
-};
+}
 
-const isCredential = (value: unknown): value is Record<string, any> => {
+function isCredential(value: unknown): value is Record<string, any> {
   if (typeof value !== 'object' || value === null) return false;
   return 'credential' in value;
-};
+}
 
-const simplifyCredentialData = (
+function simplifyCredentialData(
   data: Record<string, any>
-): Record<string, string> => {
+): Record<string, string> {
   const simplified: Record<string, string> = {};
   for (const [key, value] of Object.entries(data)) {
     if (typeof value === 'object' && value !== null) {
@@ -309,9 +307,9 @@ const simplifyCredentialData = (
     }
   }
   return simplified;
-};
+}
 
-export const renderPayload = (payload: string) => {
+function renderPayload(payload: string) {
   const parsedPayload = JSON.parse(payload);
 
   // Handle presentation request format
@@ -367,4 +365,4 @@ export const renderPayload = (payload: string) => {
 
   // Default fallback
   return payload;
-};
+}
