@@ -32,7 +32,7 @@
       "import": "./build/src/imported.js"
     },
     "./validation": {
-      "import": "./build/src/validation.js"
+      "import": "./build/src/validation-index.js"
     }
   },
   "scripts": {
