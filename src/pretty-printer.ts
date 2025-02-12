@@ -2,6 +2,7 @@
  * This file contains methods to print credentials and presentation requests in
  * human readable format.
  */
+export { printCredential, printPresentationRequest, printVerifierIdentity };
 
 type LogicNode = {
   type: string;
@@ -34,7 +35,7 @@ function extractCredentialFields(data: any): string[] {
 }
 
 function buildPropertyPath(node: LogicNode): string {
-  const parts: string[] = [];
+  let parts: string[] = [];
   let currentNode: LogicNode | undefined = node;
 
   while (currentNode?.type === 'property') {
@@ -49,7 +50,7 @@ function buildPropertyPath(node: LogicNode): string {
 }
 
 function formatLogicNode(node: LogicNode, level = 0): string {
-  const indent = '  '.repeat(level);
+  let indent = '  '.repeat(level);
 
   switch (node.type) {
     case 'and':
@@ -87,8 +88,8 @@ function formatLogicNode(node: LogicNode, level = 0): string {
       if (!node.options) {
         throw Error("EQUALS_ONE_OF node must have 'options'");
       }
-      const input = formatLogicNode(node.input, level);
-      const options = Array.isArray(node.options)
+      let input = formatLogicNode(node.input, level);
+      let options = Array.isArray(node.options)
         ? node.options.map((o) => formatLogicNode(o, level)).join(', ')
         : formatLogicNode(node.options, level);
       return `${options} contains ${input}`;
@@ -212,17 +213,17 @@ function formatLogicNode(node: LogicNode, level = 0): string {
 }
 
 function formatInputsHumanReadable(inputs: Record<string, any>): string {
-  const sections: string[] = [];
+  let sections: string[] = [];
 
   // Handle credentials
-  const credentials = Object.entries(inputs).filter(
+  let credentials = Object.entries(inputs).filter(
     ([_, input]) => input.type === 'credential'
   );
   if (credentials.length > 0) {
     sections.push('Required credentials:');
-    for (const [key, input] of credentials) {
-      const fields = extractCredentialFields(input.data);
-      const wrappedFields = fields.reduce((acc, field, i) => {
+    for (let [key, input] of credentials) {
+      let fields = extractCredentialFields(input.data);
+      let wrappedFields = fields.reduce((acc, field, i) => {
         if (i === fields.length - 1) return acc + field;
         return `${acc + field}, `;
       }, '');
@@ -233,23 +234,23 @@ function formatInputsHumanReadable(inputs: Record<string, any>): string {
   }
 
   // Handle claims
-  const claims = Object.entries(inputs).filter(
+  let claims = Object.entries(inputs).filter(
     ([_, input]) => input.type === 'claim'
   );
   if (claims.length > 0) {
     sections.push('\nClaims:');
-    for (const [key, input] of claims) {
+    for (let [key, input] of claims) {
       sections.push(`- ${key}: ${input.data._type}`);
     }
   }
 
   // Handle constants
-  const constants = Object.entries(inputs).filter(
+  let constants = Object.entries(inputs).filter(
     ([_, input]) => input.type === 'constant'
   );
   if (constants.length > 0) {
     sections.push('\nConstants:');
-    for (const [key, input] of constants) {
+    for (let [key, input] of constants) {
       sections.push(`- ${key}: ${input.data._type} = ${input.value}`);
     }
   }
@@ -258,11 +259,11 @@ function formatInputsHumanReadable(inputs: Record<string, any>): string {
 }
 
 function formatClaimsHumanReadable(claims: Record<string, any>): string {
-  const sections = ['\nClaimed values:'];
+  let sections = ['\nClaimed values:'];
 
-  for (const [key, claim] of Object.entries(claims)) {
+  for (let [key, claim] of Object.entries(claims)) {
     if (claim._type === 'DynamicArray' && claim.value) {
-      const values = claim.value.map((v: any) => v.value).join(', ');
+      let values = claim.value.map((v: any) => v.value).join(', ');
       sections.push(`- ${key}:\n  ${values}`);
     } else {
       sections.push(`- ${key}: ${claim.value}`);
@@ -290,8 +291,8 @@ function isCredential(value: unknown): value is Record<string, any> {
 function simplifyCredentialData(
   data: Record<string, any>
 ): Record<string, string> {
-  const simplified: Record<string, string> = {};
-  for (const [key, value] of Object.entries(data)) {
+  let simplified: Record<string, string> = {};
+  for (let [key, value] of Object.entries(data)) {
     if (typeof value === 'object' && value !== null) {
       if ('bytes' in value) {
         simplified[key] = value.bytes
@@ -309,60 +310,59 @@ function simplifyCredentialData(
   return simplified;
 }
 
-function renderPayload(payload: string) {
-  const parsedPayload = JSON.parse(payload);
+function printPresentationRequest(request: any): string {
+  let formatted = [
+    `Type: ${request.type}`,
+    '',
+    formatInputsHumanReadable(request.spec.inputs),
+    '',
+    `Requirements:\n${formatLogicNode(request.spec.assert, 0)}`,
+    '',
+    `Output:\n${formatLogicNode(request.spec.outputClaim, 0)}`,
+    formatClaimsHumanReadable(request.claims),
+    request.inputContext
+      ? `\nContext:\n- Type: ${request.inputContext.type}\n- Action: ${
+          typeof request.inputContext.action === 'string'
+            ? request.inputContext.action
+            : request.inputContext.action.value
+        }\n- Server Nonce: ${request.inputContext.serverNonce.value}`
+      : '',
+  ].join('\n');
 
-  // Handle presentation request format
-  if (containsPresentationRequest(parsedPayload)) {
-    const request = parsedPayload.presentationRequest;
+  return formatted;
+}
 
-    // Construct verifierUrl if it's a zk-app request and verifierIdentity is a zkAppAccount
-    const verifierUrl =
-      request.type === 'zk-app' &&
-      typeof parsedPayload.verifierIdentity === 'object'
-        ? `minascan.io/${parsedPayload.verifierIdentity.network}/account/${parsedPayload.verifierIdentity.address}`
-        : undefined;
+function printVerifierIdentity(
+  type: 'zk-app' | 'https',
+  verifierIdentity:
+    | string
+    | { address: string; tokenId: string; network: 'devnet' | 'mainnet' },
+  origin?: string
+): string {
+  let verifierUrl =
+    type === 'zk-app' &&
+    typeof verifierIdentity === 'object' &&
+    verifierIdentity !== null
+      ? `minascan.io/${verifierIdentity.network}/account/${verifierIdentity.address}`
+      : undefined;
 
-    const formatted = [
-      `Type: ${request.type}`,
-      '',
-      formatInputsHumanReadable(request.spec.inputs),
-      '',
-      `Requirements:\n${formatLogicNode(request.spec.assert, 0)}`,
-      '',
-      `Output:\n${formatLogicNode(request.spec.outputClaim, 0)}`,
-      formatClaimsHumanReadable(request.claims),
-      request.inputContext
-        ? `\nContext:\n- Type: ${request.inputContext.type}\n- Action: ${
-            typeof request.inputContext.action === 'string'
-              ? request.inputContext.action
-              : request.inputContext.action.value
-          }\n- Server Nonce: ${request.inputContext.serverNonce.value}`
-        : '',
-      'origin' in parsedPayload ? `\nOrigin: ${parsedPayload.origin}` : '',
-      parsedPayload.verifierIdentity
-        ? `\nVerifier Identity: ${
-            request.type === 'zk-app'
-              ? JSON.stringify(parsedPayload.verifierIdentity, null, 2)
-              : parsedPayload.verifierIdentity
-          }`
-        : '',
-      verifierUrl ? `\nSee verifier on Minascan: https://${verifierUrl}` : '',
-    ].join('\n');
+  return [
+    origin !== undefined ? `\nOrigin: ${origin}` : '',
+    verifierIdentity !== undefined
+      ? `\nVerifier Identity: ${
+          type === 'zk-app'
+            ? JSON.stringify(verifierIdentity, null, 2)
+            : verifierIdentity
+        }`
+      : '',
+    verifierUrl ? `\nSee verifier on Minascan: https://${verifierUrl}` : '',
+  ].join('\n');
+}
 
-    return formatted;
-  }
+function printCredential(credential: Record<string, any>, metadata?: any) {
+  let credentialData = credential.value?.data || credential.data;
+  let simplifiedData = simplifyCredentialData(credentialData);
+  let description = metadata?.description;
 
-  // Handle credential format
-  if (isCredential(parsedPayload)) {
-    const credentialData =
-      parsedPayload.credential.value?.data || parsedPayload.credential.data;
-    const simplifiedData = simplifyCredentialData(credentialData);
-    const description = parsedPayload.metadata?.description;
-
-    return { description, simplifiedData };
-  }
-
-  // Default fallback
-  return payload;
+  return { description, simplifiedData };
 }
