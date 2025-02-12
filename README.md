@@ -170,12 +170,11 @@ The request also has to contain the input claims (here: `createdAt`), as there i
 Another point is that the user, when approving the request, should be able to understand what data they share. To make this possible, we implemented a pretty-printer that converts presentation specs into human-readable pseudo-code:
 
 <!-- TODO would be nice to show a screenshot of the Pallad prompt here -->
+<!-- TODO make sure this is the actual output -->
 
 ```
 credential.nationality ≠ "United States"
 ```
-
-> The pretty-printer is currently part of our [Pallad wallet integration](https://github.com/palladians/pallad/pull/231). We plan to move it into the core lib.
 
 These points imply that the representation of a circuit has to be simple, and deserializable without concerns about malicious code execution.
 
