@@ -17,7 +17,6 @@ export { StaticArray } from './dynamic/static-array.ts';
 export { DynamicBytes } from './dynamic/dynamic-bytes.ts';
 export { DynamicString } from './dynamic/dynamic-string.ts';
 export { DynamicRecord } from './dynamic/dynamic-record.ts';
-export { DynamicSHA2 } from './dynamic/dynamic-sha2.ts';
 export {
   hashDynamic,
   hashDynamicWithPrefix,
