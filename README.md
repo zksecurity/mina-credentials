@@ -216,13 +216,17 @@ Another reason is that modeling imported credentials as recursive proofs keeps o
 ### What imported credentials are available now?
 
 - ECDSA credential that wraps an Ethereum-style signature
+
 ```ts
-import { EcdsaEthereum } from 'mina-attestations/imported'
+import { EcdsaEthereum } from 'mina-attestations/imported';
 ```
+
 - [ZkPass](https://zkpass.org) validator signature (partially available, final version is [WIP](https://github.com/zksecurity/mina-attestations/pull/108))
+
 ```ts
 import { ZkPass, type ZkPassResponseItem } from 'mina-attestations/imported';
 ```
+
 - [WIP](https://github.com/zksecurity/mina-attestations/tree/main/src/email): zk-email
 - [WIP](https://github.com/piconbello/zk-passport-o1js-lib) (by another team): zk passport
 
