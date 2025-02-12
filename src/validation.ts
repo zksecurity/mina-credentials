@@ -17,6 +17,8 @@ export type {
   CredentialSpecJSON,
   NodeJSON,
   SpecJSON,
+  PresentationRequestJSON,
+  StoredCredentialJSON,
 };
 
 type Literal = string | number | boolean | null;
@@ -421,6 +423,8 @@ const PresentationRequestSchema = z
   })
   .strict();
 
+type PresentationRequestJSON = z.infer<typeof PresentationRequestSchema>;
+
 // Witness Schemas
 
 const NativeWitnessSchema = z
@@ -505,3 +509,5 @@ const StoredCredentialSchema = z
     credential: z.union([NativeCredentialSchema, StructCredentialSchema]),
   })
   .strict();
+
+type StoredCredentialJSON = z.infer<typeof StoredCredentialSchema>;

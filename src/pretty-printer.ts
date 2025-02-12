@@ -1,8 +1,102 @@
+import type { SerializedType } from './serialize-provable.ts';
+import type { JSONValue } from './types.ts';
+import type {
+  PresentationRequestJSON,
+  StoredCredentialJSON,
+} from './validation.ts';
+
+export { PrettyPrinter };
+
 /**
- * This file contains methods to print credentials and presentation requests in
- * human readable format.
+ * Methods to print Mina Attestation data types
+ * in human readable format.
  */
-export { printCredential, printPresentationRequest, printVerifierIdentity };
+const PrettyPrinter = {
+  printPresentationRequest,
+  printVerifierIdentity,
+  simplifyCredentialData,
+};
+
+function printPresentationRequest(request: PresentationRequestJSON): string {
+  let formatted = [
+    `Type: ${request.type}`,
+    '',
+    formatInputsHumanReadable(request.spec.inputs),
+    '',
+    `Requirements:\n${formatLogicNode(request.spec.assert, 0)}`,
+    '',
+    `Output:\n${formatLogicNode(request.spec.outputClaim, 0)}`,
+    formatClaimsHumanReadable(request.claims),
+    request.inputContext
+      ? `\nContext:\n- Type: ${request.inputContext.type}\n- Action: ${
+          typeof request.inputContext.action === 'string'
+            ? request.inputContext.action
+            : request.inputContext.action.value
+        }\n- Server Nonce: ${request.inputContext.serverNonce.value}`
+      : '',
+  ].join('\n');
+
+  return formatted;
+}
+
+function printVerifierIdentity(
+  type: 'zk-app' | 'https',
+  verifierIdentity:
+    | string
+    | { address: string; tokenId: string; network: 'devnet' | 'mainnet' }
+): string {
+  let verifierUrl =
+    type === 'zk-app' &&
+    typeof verifierIdentity === 'object' &&
+    verifierIdentity !== null
+      ? `minascan.io/${verifierIdentity.network}/account/${verifierIdentity.address}`
+      : undefined;
+
+  return [
+    verifierIdentity !== undefined
+      ? `\nVerifier Identity: ${
+          type === 'zk-app'
+            ? JSON.stringify(verifierIdentity, null, 2)
+            : verifierIdentity
+        }`
+      : '',
+    verifierUrl ? `\nSee verifier on Minascan: https://${verifierUrl}` : '',
+  ].join('\n');
+}
+
+function simplifyCredentialData(storedCredential: StoredCredentialJSON) {
+  const data = getCredentialData(storedCredential.credential);
+  let simplified: Record<string, JSONValue> = {};
+  for (let [key, value] of Object.entries(data)) {
+    if (typeof value === 'object' && value !== null) {
+      if ('bytes' in value) {
+        simplified[key] = value.bytes
+          .map((b: { value: string }) => b.value)
+          .join('');
+      } else if ('value' in value) {
+        simplified[key] = value.value;
+      } else {
+        simplified[key] = value;
+      }
+    } else {
+      simplified[key] = value;
+    }
+  }
+  return simplified;
+}
+
+function getCredentialData(
+  credential: StoredCredentialJSON['credential']
+): Record<
+  string,
+  string | number | boolean | (SerializedType & { value: JSONValue })
+> {
+  if ('value' in credential) {
+    // TODO get rid of type coercions
+    return credential.value.data as any;
+  }
+  return credential.data;
+}
 
 type LogicNode = {
   type: string;
@@ -271,98 +365,4 @@ function formatClaimsHumanReadable(claims: Record<string, any>): string {
   }
 
   return sections.join('\n');
-}
-
-function containsPresentationRequest(value: unknown): value is {
-  presentationRequest: any;
-  verifierIdentity:
-    | string
-    | { address: string; tokenId: string; network: 'devnet' | 'mainnet' };
-} {
-  if (typeof value !== 'object' || value === null) return false;
-  return 'presentationRequest' in value;
-}
-
-function isCredential(value: unknown): value is Record<string, any> {
-  if (typeof value !== 'object' || value === null) return false;
-  return 'credential' in value;
-}
-
-function simplifyCredentialData(
-  data: Record<string, any>
-): Record<string, string> {
-  let simplified: Record<string, string> = {};
-  for (let [key, value] of Object.entries(data)) {
-    if (typeof value === 'object' && value !== null) {
-      if ('bytes' in value) {
-        simplified[key] = value.bytes
-          .map((b: { value: string }) => b.value)
-          .join('');
-      } else if ('value' in value) {
-        simplified[key] = value.value;
-      } else {
-        simplified[key] = value;
-      }
-    } else {
-      simplified[key] = value;
-    }
-  }
-  return simplified;
-}
-
-function printPresentationRequest(request: any): string {
-  let formatted = [
-    `Type: ${request.type}`,
-    '',
-    formatInputsHumanReadable(request.spec.inputs),
-    '',
-    `Requirements:\n${formatLogicNode(request.spec.assert, 0)}`,
-    '',
-    `Output:\n${formatLogicNode(request.spec.outputClaim, 0)}`,
-    formatClaimsHumanReadable(request.claims),
-    request.inputContext
-      ? `\nContext:\n- Type: ${request.inputContext.type}\n- Action: ${
-          typeof request.inputContext.action === 'string'
-            ? request.inputContext.action
-            : request.inputContext.action.value
-        }\n- Server Nonce: ${request.inputContext.serverNonce.value}`
-      : '',
-  ].join('\n');
-
-  return formatted;
-}
-
-function printVerifierIdentity(
-  type: 'zk-app' | 'https',
-  verifierIdentity:
-    | string
-    | { address: string; tokenId: string; network: 'devnet' | 'mainnet' },
-  origin?: string
-): string {
-  let verifierUrl =
-    type === 'zk-app' &&
-    typeof verifierIdentity === 'object' &&
-    verifierIdentity !== null
-      ? `minascan.io/${verifierIdentity.network}/account/${verifierIdentity.address}`
-      : undefined;
-
-  return [
-    origin !== undefined ? `\nOrigin: ${origin}` : '',
-    verifierIdentity !== undefined
-      ? `\nVerifier Identity: ${
-          type === 'zk-app'
-            ? JSON.stringify(verifierIdentity, null, 2)
-            : verifierIdentity
-        }`
-      : '',
-    verifierUrl ? `\nSee verifier on Minascan: https://${verifierUrl}` : '',
-  ].join('\n');
-}
-
-function printCredential(credential: Record<string, any>, metadata?: any) {
-  let credentialData = credential.value?.data || credential.data;
-  let simplifiedData = simplifyCredentialData(credentialData);
-  let description = metadata?.description;
-
-  return { description, simplifiedData };
 }
