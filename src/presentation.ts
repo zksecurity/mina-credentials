@@ -49,6 +49,7 @@ export {
   type ZkAppInputContext,
   type HttpsInputContext,
   type WalletDerivedContext,
+  type PresentationRequestType,
   hashClaims,
   pickCredentials,
 };

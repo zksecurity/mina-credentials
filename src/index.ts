@@ -10,6 +10,7 @@ export {
   PresentationRequest,
   HttpsRequest,
   ZkAppRequest,
+  type PresentationRequestType,
 } from './presentation.ts';
 export { assert } from './util.ts';
 export { DynamicArray } from './dynamic/dynamic-array.ts';

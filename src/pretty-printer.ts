@@ -1,3 +1,4 @@
+import type { PresentationRequestType } from './presentation.ts';
 import type { SerializedType } from './serialize-provable.ts';
 import type { JSONValue } from './types.ts';
 import type {
@@ -40,7 +41,7 @@ function printPresentationRequest(request: PresentationRequestJSON): string {
 }
 
 function printVerifierIdentity(
-  type: 'zk-app' | 'https',
+  type: PresentationRequestType,
   verifierIdentity:
     | string
     | { address: string; tokenId: string; network: 'devnet' | 'mainnet' }
