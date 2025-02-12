@@ -39,6 +39,7 @@ import {
   serializeProvable,
 } from './serialize-provable.ts';
 import { DynamicRecord } from './dynamic/dynamic-record.ts';
+import { PresentationRequestSchema } from './validation.ts';
 
 // external API
 export { PresentationRequest, HttpsRequest, ZkAppRequest, Presentation };
@@ -48,6 +49,7 @@ export {
   type ZkAppInputContext,
   type HttpsInputContext,
   type WalletDerivedContext,
+  type PresentationRequestType,
   hashClaims,
   pickCredentials,
 };
@@ -188,13 +190,14 @@ const PresentationRequest = {
     R extends RequestFromType<K>,
     K extends PresentationRequestType = PresentationRequestType
   >(expectedType: K, json: string): R {
-    let parsed = JSON.parse(json);
+    let raw: unknown = JSON.parse(json);
+    let parsed = PresentationRequestSchema.parse(raw);
     let request = requestFromJson(parsed);
     assert(
       request.type === expectedType,
       `Expected ${expectedType} request, got ${request.type}`
     );
-    return request as any;
+    return request as R;
   },
 };
 
