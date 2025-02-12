@@ -7,11 +7,8 @@ import { DynamicRecord, extractProperty } from './dynamic/dynamic-record.ts';
 import { hashDynamicWithPrefix } from './dynamic/dynamic-hash.ts';
 import type { Input, RootValue, RootType } from './program-spec.ts';
 import type { CredentialSpec, CredentialType } from './credential.ts';
-import type { Witness as WitnessNative } from './credential-native.ts';
-import {
-  Imported,
-  type Witness as WitnessImported,
-} from './credential-imported.ts';
+import type { NativeWitness } from './credential-native.ts';
+import { Imported, type ImportedWitness } from './credential-imported.ts';
 
 export { Node, Operation };
 export { type CredentialNode, type InputToNode, root };
@@ -495,7 +492,7 @@ function issuer(credential: CredentialNode): Node<Field> {
 function issuerPublicKey({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessNative>): Node<PublicKey> {
+}: CredentialNode<any, NativeWitness>): Node<PublicKey> {
   assert(
     credentialType === 'native',
     '`issuerPublicKey` is only available on signed credentials'
@@ -506,7 +503,7 @@ function issuerPublicKey({
 function verificationKeyHash({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessImported>): Node<Field> {
+}: CredentialNode<any, ImportedWitness>): Node<Field> {
   assert(
     credentialType === 'imported',
     '`verificationKeyHash` is only available on imported credentials'
@@ -517,7 +514,7 @@ function verificationKeyHash({
 function publicInput<Input>({
   credentialType,
   credentialKey,
-}: CredentialNode<any, WitnessImported<Input>>): Node<Input> {
+}: CredentialNode<any, ImportedWitness<Input>>): Node<Input> {
   assert(
     credentialType === 'imported',
     '`publicInput` is only available on imported credentials'
@@ -525,17 +522,17 @@ function publicInput<Input>({
   return { type: 'publicInput', credentialKey };
 }
 
-type WitnessAny = WitnessNative | WitnessImported | undefined;
+type WitnessAny = NativeWitness | ImportedWitness | undefined;
 
 type CredentialOutput<Data = any, Witness extends WitnessAny = WitnessAny> = {
   data: Data;
   issuer: Field;
   witness: Witness;
 };
-type CredentialOutputNative<Data = any> = CredentialOutput<Data, WitnessNative>;
+type CredentialOutputNative<Data = any> = CredentialOutput<Data, NativeWitness>;
 type CredentialOutputImported<Data = any> = CredentialOutput<
   Data,
-  WitnessImported
+  ImportedWitness
 >;
 
 type CredentialNodeType =

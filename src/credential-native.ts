@@ -18,15 +18,15 @@ import { ProvableType } from './o1js-missing.ts';
 import { deserializeNestedProvableValue } from './serialize-provable.ts';
 import type { JSONValue } from './types.ts';
 
-export { Native, createNative, type Witness };
+export { Native, createNative, type NativeWitness };
 
-type Witness = {
+type NativeWitness = {
   type: 'native';
   issuer: PublicKey;
   issuerSignature: Signature;
 };
 
-type Native<Data> = StoredCredential<Data, Witness>;
+type Native<Data> = StoredCredential<Data, NativeWitness>;
 
 const NativeBase = {
   credentialType: 'native' as const,
@@ -41,29 +41,29 @@ const NativeBase = {
   },
 
   // verify the signature
-  verify({ issuer, issuerSignature }: Witness, credHash: Field) {
+  verify({ issuer, issuerSignature }: NativeWitness, credHash: Field) {
     let ok = issuerSignature.verify(issuer, [credHash]);
     ok.assertTrue('Invalid signature');
   },
 
-  async validate({ issuer, issuerSignature }: Witness, credHash: Field) {
+  async validate({ issuer, issuerSignature }: NativeWitness, credHash: Field) {
     let ok = issuerSignature.verify(issuer, [credHash]);
     ok.assertTrue('Invalid signature');
   },
 
   // issuer == issuer public key
-  issuer({ issuer }: Witness) {
+  issuer({ issuer }: NativeWitness) {
     return Poseidon.hashWithPrefix(prefixes.issuerNative, issuer.toFields());
   },
 
-  matchesSpec(witness: Witness) {
+  matchesSpec(witness: NativeWitness) {
     return witness.type === 'native';
   },
 };
 
 function Native<DataType extends NestedProvable>(
   dataType: DataType
-): CredentialSpec<Witness, InferNestedProvable<DataType>> {
+): CredentialSpec<NativeWitness, InferNestedProvable<DataType>> {
   return { ...NativeBase, data: inferNestedProvable(dataType) };
 }
 Native.issuer = function (issuer: PublicKey) {

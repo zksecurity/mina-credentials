@@ -40,9 +40,9 @@ import {
 } from './serialize-provable.ts';
 import type { ImportedWitnessSpecJSON } from './validation.ts';
 
-export { Imported, type Witness, ImportedWitnessSpec };
+export { Imported, type ImportedWitness, ImportedWitnessSpec };
 
-type Witness<Input = unknown> = {
+type ImportedWitness<Input = unknown> = {
   type: 'imported';
   vk: VerificationKey;
   proof: DynamicProof<Input, Credential>;
@@ -56,7 +56,7 @@ type ImportedWitnessSpec = {
   featureFlags: FeatureFlags;
 };
 
-type Imported<Data, Input> = StoredCredential<Data, Witness<Input>>;
+type Imported<Data, Input> = StoredCredential<Data, ImportedWitness<Input>>;
 
 const Imported = {
   create: createImported,
@@ -68,7 +68,7 @@ const Imported = {
   Generic: {
     witnessType<Input>(
       witnessSpec: WitnessSpec
-    ): NestedProvableFor<Witness<Input>> {
+    ): NestedProvableFor<ImportedWitness<Input>> {
       assert(witnessSpec?.type === 'imported');
       let {
         publicInputType,
@@ -91,7 +91,7 @@ const Imported = {
     },
 
     // verify the proof, check that its public output is exactly the credential
-    verify({ vk, proof }: Witness, credHash: Field): void {
+    verify({ vk, proof }: ImportedWitness, credHash: Field): void {
       proof.verify(vk);
       hashCredential(proof.publicOutput).assertEquals(
         credHash,
@@ -99,7 +99,7 @@ const Imported = {
       );
     },
 
-    async validate({ vk, proof }: Witness, credHash: Field) {
+    async validate({ vk, proof }: ImportedWitness, credHash: Field) {
       let ok = await verify(proof, vk);
       assert(ok, 'Invalid proof');
       hashCredential(proof.publicOutput).assertEquals(
@@ -108,7 +108,7 @@ const Imported = {
       );
     },
 
-    matchesSpec(witness: Witness) {
+    matchesSpec(witness: ImportedWitness) {
       // TODO should check proof type
       return witness.type === 'imported';
     },
@@ -123,7 +123,7 @@ function createImported<
 >(spec: {
   data: DataType;
   witness: ImportedWitnessSpec;
-}): CredentialSpec<Witness<Input>, Data> {
+}): CredentialSpec<ImportedWitness<Input>, Data> {
   return {
     credentialType: 'imported',
     data: NestedProvable.get(inferNestedProvable(spec.data)),
