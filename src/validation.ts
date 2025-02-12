@@ -52,6 +52,7 @@ const SerializedTypeSchema: z.ZodType<SerializedType> = z.lazy(() =>
         z.literal('UInt8'),
         z.literal('UInt32'),
         z.literal('UInt64'),
+        z.literal('Int64'),
         z.literal('PublicKey'),
         z.literal('Signature'),
         z.literal('Undefined'),

@@ -34,11 +34,7 @@ The attestation flow involves three parties: _issuer_, _user_ and _verifier_. Th
 
 To summarize, roughly, in cryptographic terms: credentials are signed data, and presentations are zero-knowledge proofs about credentials.
 
-<!-- TODO: is this good enough as a definition of private attestations? -->
-
 _Private attestations_ refers to the entire protocol sketched above. A synonymous term from the academic literature is [anonymous credentials](https://www.sciencedirect.com/topics/computer-science/anonymous-credential).
-
-<!-- TODO see [below](LINK) ? -->
 
 ## Features 💫
 
