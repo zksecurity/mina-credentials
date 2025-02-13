@@ -49,13 +49,13 @@ Mina Attestations helps you implement all parts of the private attestation flow.
 - 🧠 The cryptographic protocol is carefully designed to provide strong safety guarantees:
   - **Ownership**: Credentials are tied to their owner, a Mina public key, and become invalid when changing the owner.
   - **Unforgeability**: Presentations can only be created with access to their underlying credentials and an owner signature. So, credentials can even be stored with third parties without risking impersonation (if giving up privacy to those parties is acceptable).
-  - **Privacy**: Presentations do not leak any data from the input credential or the owner, apart from the specific public statement they were designed to encode <!-- (which can be reviewed by the user before giving authorization) -->.
+  - **Privacy**: Presentations do not leak any data from the input credential or the owner, apart from the specific public statement they were designed to encode.
   - **Unlinkability**: Two different presentations of the same credential, or by the same user, cannot be linked (apart from out-of-band correlations like the user's IP address)
   - **Context-binding**: Presentations are bound to a specific context such as the origin of the requesting website, so that the verifier cannot man-in-the-middle and impersonate users at a third party.
 
 Zero-knowledge proofs are implemented using [o1js](https://github.com/o1-labs/o1js), a general-purpose zk framework.
 
-## Developer docs
+## Documentation
 
 The remainder of this README contains documentation aimed at developers, starting from high-level examples and concepts and then moving to detailed API docs.
 
@@ -65,8 +65,8 @@ The remainder of this README contains documentation aimed at developers, startin
 
 Apart from reading the docs, have a look at our full code examples:
 
-- [examples/examples/unique-hash.eg.ts](https://github.com/zksecurity/mina-attestations/blob/main/examples/unique-hash.eg.ts) - A good introduction, this example simulates the entire flow between issuer, user wallet and verifier within a single script, that is heavily commented to explain the individual steps.
-- [examples/examples/web-demo](https://github.com/zksecurity/mina-attestations/blob/main/examples/web-demo) - Source code for [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz). It includes both frontend and backend and can be useful as a reference for integrating `mina-attestations` in a real application. Caveat: The example mixes two different entities, issuer and verifier, in a single web app.
+- [examples/unique-hash.eg.ts](https://github.com/zksecurity/mina-attestations/blob/main/examples/unique-hash.eg.ts) - A good introduction, this example simulates the entire flow between issuer, user wallet and verifier within a single script, that is heavily commented to explain the individual steps.
+- [examples/web-demo](https://github.com/zksecurity/mina-attestations/blob/main/examples/web-demo) - Source code for [mina-attestations-demo.zksecurity.xyz](https://mina-attestations-demo.zksecurity.xyz). It includes both frontend and backend and can be useful as a reference for integrating `mina-attestations` in a real application. Caveat: The example mixes two different entities, issuer and verifier, in a single web app.
 
 > 🧑‍🎓 In the docs that follow, we occasionally assume familiarity with zk programming concepts. If you don't know what a circuit or a "public input" are, we recommend checking out the [o1js docs](https://docs.minaprotocol.com/zkapps/o1js) or a similar resource, to build background understanding. Nonetheless, our library should be easy to use even without that understanding.
 
