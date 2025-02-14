@@ -13,6 +13,7 @@ export {
 };
 export type {
   InputJSON,
+  ConstantInputJSON,
   ImportedWitnessSpecJSON,
   CredentialSpecJSON,
   NodeJSON,
@@ -361,15 +362,18 @@ const credentialSpec = z
   .strict();
 type CredentialSpecJSON = z.infer<typeof credentialSpec>;
 
+const ConstantInputSchema = z
+  .object({
+    type: z.literal('constant'),
+    data: SerializedTypeSchema,
+    value: JsonSchema,
+  })
+  .strict();
+type ConstantInputJSON = z.infer<typeof ConstantInputSchema>;
+
 const InputSchema = z.discriminatedUnion('type', [
   credentialSpec,
-  z
-    .object({
-      type: z.literal('constant'),
-      data: SerializedTypeSchema,
-      value: JsonSchema,
-    })
-    .strict(),
+  ConstantInputSchema,
   z
     .object({
       type: z.literal('claim'),

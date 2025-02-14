@@ -1,7 +1,10 @@
 import type { PresentationRequestType } from './presentation.ts';
-import type { SerializedType } from './serialize-provable.ts';
+import type { SerializedType, SerializedValue } from './serialize-provable.ts';
 import type { JSONValue } from './types.ts';
 import type {
+  ConstantInputJSON,
+  CredentialSpecJSON,
+  InputJSON,
   NodeJSON,
   PresentationRequestJSON,
   StoredCredentialJSON,
@@ -242,12 +245,16 @@ function formatLogicNode(node: NodeJSON, level = 0): string {
   }
 }
 
-function formatInputsHumanReadable(inputs: Record<string, any>): string {
+// TODO here we assume that it makes sense to simple converting general serialized provable values to strings
+// but they can be objects etc
+
+function formatInputsHumanReadable(inputs: Record<string, InputJSON>): string {
   let sections: string[] = [];
 
   // Handle credentials
   let credentials = Object.entries(inputs).filter(
-    ([_, input]) => input.type === 'credential'
+    (input): input is [string, CredentialSpecJSON] =>
+      input[1].type === 'credential'
   );
   if (credentials.length > 0) {
     sections.push('Required credentials:');
@@ -276,7 +283,8 @@ function formatInputsHumanReadable(inputs: Record<string, any>): string {
 
   // Handle constants
   let constants = Object.entries(inputs).filter(
-    ([_, input]) => input.type === 'constant'
+    (input): input is [string, ConstantInputJSON] =>
+      input[1].type === 'constant'
   );
   if (constants.length > 0) {
     sections.push('\nConstants:');
@@ -288,12 +296,14 @@ function formatInputsHumanReadable(inputs: Record<string, any>): string {
   return sections.join('\n');
 }
 
-function formatClaimsHumanReadable(claims: Record<string, any>): string {
+function formatClaimsHumanReadable(
+  claims: Record<string, SerializedValue>
+): string {
   let sections = ['\nClaimed values:'];
 
   for (let [key, claim] of Object.entries(claims)) {
     if (claim._type === 'DynamicArray' && claim.value) {
-      let values = claim.value.map((v: any) => v.value).join(', ');
+      let values = (claim.value as any[]).map((v) => v.value).join(', ');
       sections.push(`- ${key}:\n  ${values}`);
     } else {
       sections.push(`- ${key}: ${claim.value}`);
