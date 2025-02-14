@@ -2,6 +2,7 @@ import type { PresentationRequestType } from './presentation.ts';
 import type { SerializedType } from './serialize-provable.ts';
 import type { JSONValue } from './types.ts';
 import type {
+  NodeJSON,
   PresentationRequestJSON,
   StoredCredentialJSON,
 } from './validation.ts';
@@ -99,22 +100,6 @@ function getCredentialData(
   return credential.data;
 }
 
-type LogicNode = {
-  type: string;
-  inputs?: LogicNode[];
-  left?: LogicNode;
-  right?: LogicNode;
-  key?: string;
-  inner?: LogicNode;
-  data?: Record<string, any>;
-  credentialKey?: string;
-  input?: LogicNode;
-  options?: LogicNode[] | LogicNode;
-  condition?: LogicNode;
-  thenNode?: LogicNode;
-  elseNode?: LogicNode;
-};
-
 function extractCredentialFields(data: any): string[] {
   if (!data) return [];
 
@@ -129,14 +114,11 @@ function extractCredentialFields(data: any): string[] {
   return Object.keys(data);
 }
 
-function buildPropertyPath(node: LogicNode): string {
+function buildPropertyPath(node: NodeJSON): string {
   let parts: string[] = [];
-  let currentNode: LogicNode | undefined = node;
+  let currentNode: NodeJSON | undefined = node;
 
   while (currentNode?.type === 'property') {
-    if (!currentNode.key) {
-      throw Error("PROPERTY node must have 'key'");
-    }
     parts.unshift(currentNode.key);
     currentNode = currentNode.inner;
   }
@@ -144,45 +126,28 @@ function buildPropertyPath(node: LogicNode): string {
   return parts.join('.');
 }
 
-function formatLogicNode(node: LogicNode, level = 0): string {
+function formatLogicNode(node: NodeJSON, level = 0): string {
   let indent = '  '.repeat(level);
 
   switch (node.type) {
     case 'and':
-      if (!node.inputs) {
-        throw Error("AND node must have 'inputs' array");
-      }
       if (node.inputs.length === 0) {
-        throw Error('AND node must have at least one input');
+        return 'true';
       }
       return `${indent}All of these conditions must be true:\n${node.inputs
         .map((n) => `${indent}- ${formatLogicNode(n, level + 1)}`)
         .join('\n')}`;
 
     case 'or':
-      if (!node.left || !node.right) {
-        throw Error("OR node must have both 'left' and 'right' nodes");
-      }
       return `${indent}Either:\n${indent}- ${formatLogicNode(
         node.left,
         level + 1
       )}\n${indent}Or:\n${indent}- ${formatLogicNode(node.right, level + 1)}`;
 
     case 'equals':
-      if (!node.left || !node.right) {
-        throw Error("EQUALS node must have both 'left' and 'right' nodes");
-      }
-      return `${formatLogicNode(node.left)} equals ${formatLogicNode(
-        node.right
-      )}`;
+      return `${formatLogicNode(node.left)} = ${formatLogicNode(node.right)}`;
 
     case 'equalsOneOf': {
-      if (!node.input) {
-        throw Error("EQUALS_ONE_OF node must have 'input' node");
-      }
-      if (!node.options) {
-        throw Error("EQUALS_ONE_OF node must have 'options'");
-      }
       let input = formatLogicNode(node.input, level);
       let options = Array.isArray(node.options)
         ? node.options.map((o) => formatLogicNode(o, level)).join(', ')
@@ -191,29 +156,16 @@ function formatLogicNode(node: LogicNode, level = 0): string {
     }
 
     case 'lessThan':
-      if (!node.left || !node.right) {
-        throw Error("LESS_THAN node must have both 'left' and 'right' nodes");
-      }
       return `${formatLogicNode(node.left)} < ${formatLogicNode(node.right)}`;
 
     case 'lessThanEq':
-      if (!node.left || !node.right) {
-        throw Error(
-          "LESS_THAN_EQ node must have both 'left' and 'right' nodes"
-        );
-      }
       return `${formatLogicNode(node.left)} ≤ ${formatLogicNode(node.right)}`;
 
     case 'property': {
-      if (!node.key) {
-        throw Error("PROPERTY node must have 'key'");
-      }
-
       // If this is the root property, just return the path
       if (node.inner?.type === 'root') {
         return node.key;
       }
-
       // For nested properties, build the complete path
       return buildPropertyPath(node);
     }
@@ -222,75 +174,44 @@ function formatLogicNode(node: LogicNode, level = 0): string {
       return '';
 
     case 'hash':
-      if (!node.inputs) {
-        throw Error("HASH node must have 'inputs' array");
-      }
       return `hash(${node.inputs
         .map((n) => formatLogicNode(n, level))
         .join(', ')})`;
 
     case 'issuer':
-      if (!node.credentialKey) {
-        throw Error("ISSUER node must have 'credentialKey'");
-      }
       return `issuer(${node.credentialKey})`;
-
     case 'not':
-      if (!node.inner) {
-        throw Error("NOT node must have 'inner' node");
+      if (node.inner.type === 'equals') {
+        return `${formatLogicNode(node.inner.left)} ≠ ${formatLogicNode(
+          node.inner.right
+        )}`;
       }
       return `not(${formatLogicNode(node.inner, level)})`;
-
     case 'add':
-      if (!node.left || !node.right) {
-        throw Error("ADD node must have both 'left' and 'right' nodes");
-      }
       return `(${formatLogicNode(node.left)} + ${formatLogicNode(node.right)})`;
-
     case 'sub':
-      if (!node.left || !node.right) {
-        throw Error("SUB node must have both 'left' and 'right' nodes");
-      }
       return `(${formatLogicNode(node.left)} - ${formatLogicNode(node.right)})`;
-
     case 'mul':
-      if (!node.left || !node.right) {
-        throw Error("MUL node must have both 'left' and 'right' nodes");
-      }
       return `(${formatLogicNode(node.left)} x ${formatLogicNode(node.right)})`;
 
     case 'div':
-      if (!node.left || !node.right) {
-        throw Error("DIV node must have both 'left' and 'right' nodes");
-      }
       return `(${formatLogicNode(node.left)} ÷ ${formatLogicNode(node.right)})`;
 
     case 'record': {
-      if (!node.data) {
-        throw Error("RECORD node must have 'data' object");
-      }
       if (Object.keys(node.data).length === 0) {
-        throw Error('RECORD node must have at least one data field');
+        return '{}';
       }
       return Object.entries(node.data)
         .map(([key, value]) => `${key}: ${formatLogicNode(value, level)}`)
         .join(`\n${indent}`);
     }
     case 'constant': {
-      if (!node.data || typeof node.data !== 'object') {
-        throw Error("CONSTANT node must have 'data' object");
-      }
       if (node.data._type === 'Undefined') {
         return 'undefined';
       }
-      return JSON.stringify(node.data.value);
+      return node.data.value?.toString() ?? 'null';
     }
     case 'ifThenElse':
-      if (!node.condition || !node.thenNode || !node.elseNode) {
-        throw Error(
-          "IF_THEN_ELSE node must have 'condition', 'thenNode', and 'elseNode'"
-        );
-      }
       return `${indent}If this condition is true:\n${indent}- ${formatLogicNode(
         node.condition,
         level + 1
@@ -301,9 +222,23 @@ function formatLogicNode(node: LogicNode, level = 0): string {
         node.elseNode,
         level + 1
       )}`;
-
+    case 'credential': {
+      return node.credentialKey;
+    }
+    case 'owner': {
+      return 'OWNER';
+    }
+    case 'issuerPublicKey': {
+      return `issuerPublicKey(${node.credentialKey})`;
+    }
+    case 'publicInput': {
+      return `publicInput(${node.credentialKey})`;
+    }
+    case 'verificationKeyHash': {
+      return `verificationKeyHash(${node.credentialKey})`;
+    }
     default:
-      throw Error(`Unknown node type: ${node.type}`);
+      throw Error(`Unknown node type: ${(node satisfies never as any).type}`);
   }
 }
 
